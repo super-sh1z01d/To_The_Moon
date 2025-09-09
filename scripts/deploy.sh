@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: on server, run from repo root: bash scripts/deploy.sh
 
 APP_DIR=${APP_DIR:-$(pwd)}
-PY=${PY:-python3}
+PY=${PY:-}
 
 echo "[deploy] repo: $APP_DIR"
 cd "$APP_DIR"
@@ -13,7 +13,18 @@ cd "$APP_DIR"
 echo "[deploy] git pull"
 git pull --ff-only
 
-echo "[deploy] install python deps"
+if [ -z "$PY" ]; then
+  if [ -x "venv/bin/python" ]; then
+    PY="venv/bin/python"
+  else
+    echo "[deploy] create venv"
+    python3 -m venv venv
+    PY="venv/bin/python"
+  fi
+fi
+
+echo "[deploy] install python deps ($PY)"
+$PY -m pip install --upgrade pip
 $PY -m pip install -r requirements.txt
 
 echo "[deploy] alembic upgrade head"

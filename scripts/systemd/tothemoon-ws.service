@@ -4,14 +4,13 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
+User=tothemoon
+Group=tothemoon
 WorkingDirectory=/srv/tothemoon
 EnvironmentFile=/etc/tothemoon.env
-ExecStart=/usr/bin/python3 -m src.workers.pumpfun_ws
+ExecStart=/srv/tothemoon/venv/bin/python -m src.workers.pumpfun_ws
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-

@@ -107,7 +107,16 @@ async def run_worker(run_seconds: Optional[int] = None) -> None:
 def _main() -> int:
     # Получить желаемое время работы из env
     run_seconds_env = os.getenv("PUMPFUN_RUN_SECONDS")
-    run_seconds = int(run_seconds_env) if run_seconds_env else 20
+    run_seconds: Optional[int] = None
+    if run_seconds_env is not None:
+        try:
+            v = int(run_seconds_env)
+            if v > 0:
+                run_seconds = v
+            else:
+                run_seconds = None
+        except Exception:
+            run_seconds = None
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
