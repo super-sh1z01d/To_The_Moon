@@ -13,6 +13,12 @@ echo "[deploy] repo: $APP_DIR"
 cd "$APP_DIR"
 
 echo "[deploy] git update"
+# Ensure ownership to avoid git safe.directory errors when run as root
+if [ "$(id -u)" = "0" ]; then
+  chown -R "$APP_USER":"$APP_USER" "$APP_DIR" || true
+fi
+# Mark directory as safe for git under app user
+sudo -u "$APP_USER" git config --global --add safe.directory "$APP_DIR" >/dev/null 2>&1 || true
 # Run git as app user to avoid safe.directory issues
 if sudo -u "$APP_USER" test -d .git; then
   set +e
