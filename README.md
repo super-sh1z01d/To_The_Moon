@@ -189,6 +189,33 @@ sudo nginx -t && sudo systemctl reload nginx
 8) Деплой из Git
 - Быстрый скрипт: `bash scripts/deploy.sh` (выполняет `git pull`, `pip install`, `alembic upgrade`, сборку фронта и `systemctl restart`).
 
+Самый простой способ установки на сервере (1 команда)
+----------------------------------------------------
+Скрипт `scripts/install.sh` автоматизирует подготовку сервера: создаёт пользователя, клонирует репозиторий в `/srv/tothemoon`, готовит `venv`, применяет миграции, собирает фронтенд (если есть Node), устанавливает/запускает systemd сервисы и проверяет `/health`.
+
+Вариант А: запустить из уже клонированного репозитория
+```
+sudo bash scripts/install.sh
+```
+
+Вариант Б: запустить напрямую по ссылке (без предварительного клонирования)
+```
+sudo bash -c "REPO_URL=https://github.com/super-sh1z01d/To_The_Moon.git bash -s" < <(curl -fsSL https://raw.githubusercontent.com/super-sh1z01d/To_The_Moon/main/scripts/install.sh)
+```
+
+Параметры (через переменные окружения):
+- `REPO_URL` — URL репозитория (по умолчанию текущий GitHub).
+- `APP_DIR` — путь установки (по умолчанию `/srv/tothemoon`).
+- `APP_USER` — системный пользователь (по умолчанию `tothemoon`).
+- `ENV_FILE` — файл окружения (по умолчанию `/etc/tothemoon.env`).
+
+После установки
+- Отредактируйте `/etc/tothemoon.env` для подключения к PostgreSQL (по умолчанию стоит SQLite dev.db):
+  `DATABASE_URL=postgresql+psycopg2://user:pass@127.0.0.1:5432/tothemoon`
+- Перезапустите сервисы: `sudo systemctl restart tothemoon.service tothemoon-ws.service`
+- Проверка: `curl -fsS http://127.0.0.1:8000/health` должно вернуть `{ "status": "ok" }`.
+
+
 Правила разработки
 ------------------
 См. `conventions.md`: стек, структура, стиль, логирование, конфигурация, интеграции, тестирование, деплой из Git.
