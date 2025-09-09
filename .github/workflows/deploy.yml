@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: false
+        default: 'prod'
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build frontend
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: |
+          cd frontend
+          npm ci
+          npm run build
+      - name: Remote deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            if [ ! -d "${{ secrets.APP_DIR }}" ]; then
+              echo "APP_DIR not found: ${{ secrets.APP_DIR }}"; exit 1;
+            fi
+            cd "${{ secrets.APP_DIR }}"
+            git fetch --all
+            git reset --hard $GITHUB_SHA
+            bash scripts/deploy.sh
+      - name: Health check
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            curl -fsS http://127.0.0.1:8000/health || (journalctl -u tothemoon.service --no-pager -n 200; exit 1)

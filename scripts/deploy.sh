@@ -32,5 +32,17 @@ else
   echo "[deploy] systemctl not found; restart uvicorn manually if needed"
 fi
 
-echo "[deploy] done"
+# Health check
+sleep 3
+if command -v curl >/dev/null 2>&1; then
+  echo "[deploy] health check"
+  set +e
+  curl -fsS http://127.0.0.1:8000/health && echo "[deploy] HEALTH OK" || {
+    echo "[deploy] HEALTH FAILED";
+    systemctl status tothemoon.service || true;
+    exit 1;
+  }
+  set -e
+fi
 
+echo "[deploy] done"
