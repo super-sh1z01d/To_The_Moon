@@ -21,3 +21,7 @@ frontend/dist/
 
 # Mac
 .DS_Store
+
+# Project docs (excluded from VCS)
+doc/
+docs/
