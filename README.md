@@ -209,6 +209,15 @@ sudo bash -c "REPO_URL=https://github.com/super-sh1z01d/To_The_Moon.git bash -s"
 - `APP_USER` — системный пользователь (по умолчанию `tothemoon`).
 - `ENV_FILE` — файл окружения (по умолчанию `/etc/tothemoon.env`).
 
+Автоматическая установка зависимостей (опционально)
+- `INSTALL_NODE` (true|false, по умолчанию true) — установить Node.js 18 через NodeSource.
+- `INSTALL_NGINX` (true|false, по умолчанию false) — установить Nginx и развернуть reverse proxy.
+  - Укажите `SERVER_NAME=your.domain.tld` для подстановки в конфиг Nginx (иначе `_`).
+- `INSTALL_POSTGRES` (true|false, по умолчанию false) — установить PostgreSQL.
+- `CREATE_PG_DB` (true|false, по умолчанию false) — создать БД и пользователя.
+  - `PG_DB` (tothemoon), `PG_USER` (tothemoon), `PG_PASS` (если не задан — сгенерируется).
+  - Скрипт обновит `DATABASE_URL` в `$ENV_FILE`.
+
 После установки
 - Отредактируйте `/etc/tothemoon.env` для подключения к PostgreSQL (по умолчанию стоит SQLite dev.db):
   `DATABASE_URL=postgresql+psycopg2://user:pass@127.0.0.1:5432/tothemoon`

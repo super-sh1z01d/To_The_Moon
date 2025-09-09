@@ -122,11 +122,86 @@ health_check() {
   fi
 }
 
+install_node() {
+  if [ "${INSTALL_NODE:-true}" = "true" ]; then
+    if ! command -v node >/dev/null 2>&1; then
+      if command -v apt-get >/dev/null 2>&1; then
+        log "installing Node.js LTS (via NodeSource)"
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+      else
+        log "apt-get not found; install Node.js manually or set INSTALL_NODE=false"
+      fi
+    else
+      log "Node.js already installed"
+    fi
+  else
+    log "INSTALL_NODE=false → skipping Node.js"
+  fi
+}
+
+install_nginx() {
+  if [ "${INSTALL_NGINX:-false}" = "true" ]; then
+    if command -v apt-get >/dev/null 2>&1; then
+      log "installing nginx and configuring reverse proxy"
+      DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+      SERVER_NAME=${SERVER_NAME:-_}
+      sed "s/your.domain.tld/${SERVER_NAME}/" "$APP_DIR/scripts/nginx/tothemoon.conf" > /etc/nginx/sites-available/tothemoon.conf
+      ln -sf /etc/nginx/sites-available/tothemoon.conf /etc/nginx/sites-enabled/tothemoon.conf
+      nginx -t && systemctl reload nginx
+    else
+      log "apt-get not found; skipping nginx"
+    fi
+  else
+    log "INSTALL_NGINX=false → skipping nginx"
+  fi
+}
+
+update_env_database_url() {
+  local new_url="$1"
+  if grep -q "^DATABASE_URL=" "$ENV_FILE"; then
+    sed -i "s#^DATABASE_URL=.*#DATABASE_URL=${new_url}#" "$ENV_FILE"
+  else
+    echo "DATABASE_URL=${new_url}" >> "$ENV_FILE"
+  fi
+}
+
+install_postgres() {
+  if [ "${INSTALL_POSTGRES:-false}" != "true" ]; then
+    log "INSTALL_POSTGRES=false → skipping PostgreSQL"
+    return
+  fi
+  if ! command -v psql >/dev/null 2>&1; then
+    if command -v apt-get >/div/null 2>&1; then
+      log "installing postgresql"
+      DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql postgresql-contrib
+    else
+      log "apt-get not found; cannot install PostgreSQL"
+      return
+    fi
+  fi
+  if [ "${CREATE_PG_DB:-false}" = "true" ]; then
+    local db="${PG_DB:-tothemoon}"
+    local user="${PG_USER:-tothemoon}"
+    local pass="${PG_PASS:-}"
+    if [ -z "$pass" ]; then
+      if command -v openssl >/dev/null 2>&1; then pass=$(openssl rand -hex 16); else pass="$(date +%s%N)"; fi
+    fi
+    log "creating postgres user/db ($user/$db)"
+    sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${user}'" | grep -q 1 || sudo -u postgres psql -c "CREATE USER ${user} WITH PASSWORD '${pass}';"
+    sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${db}'" | grep -q 1 || sudo -u postgres psql -c "CREATE DATABASE ${db} OWNER ${user};"
+    update_env_database_url "postgresql+psycopg2://${user}:${pass}@127.0.0.1:5432/${db}"
+    log "DATABASE_URL updated in $ENV_FILE"
+  fi
+}
+
 need_root
 ensure_packages
 ensure_user
 ensure_repo
 ensure_env
+install_node
+install_postgres
 setup_python
 run_migrations
 build_frontend
@@ -134,4 +209,3 @@ install_systemd
 health_check
 
 log "install completed"
-
