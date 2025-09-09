@@ -10,8 +10,18 @@ PY=${PY:-}
 echo "[deploy] repo: $APP_DIR"
 cd "$APP_DIR"
 
-echo "[deploy] git pull"
-git pull --ff-only
+echo "[deploy] git update"
+set +e
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+UPSTREAM_OK=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; echo $?)
+set -e
+if [ "$UPSTREAM_OK" = "0" ]; then
+  git pull --ff-only
+else
+  echo "[deploy] no upstream; fetching origin/main and checking out local main"
+  git fetch origin main
+  git checkout -B main origin/main
+fi
 
 if [ -z "$PY" ]; then
   if [ -x "venv/bin/python" ]; then
