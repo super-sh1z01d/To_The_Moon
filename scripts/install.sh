@@ -46,8 +46,12 @@ ensure_repo() {
   mkdir -p "$APP_DIR"
   chown -R "$APP_USER":"$APP_GROUP" "$APP_DIR"
   if [ ! -d "$APP_DIR/.git" ]; then
-    log "cloning repo to $APP_DIR"
-    sudo -u "$APP_USER" git clone "$REPO_URL" "$APP_DIR"
+    log "initializing git repo in $APP_DIR"
+    sudo -u "$APP_USER" git -C "$APP_DIR" init
+    sudo -u "$APP_USER" git -C "$APP_DIR" remote add origin "$REPO_URL" 2>/dev/null || \
+      sudo -u "$APP_USER" git -C "$APP_DIR" remote set-url origin "$REPO_URL"
+    sudo -u "$APP_USER" git -C "$APP_DIR" fetch --depth=1 origin main
+    sudo -u "$APP_USER" git -C "$APP_DIR" reset --hard origin/main
   else
     log "updating repo"
     (cd "$APP_DIR" && sudo -u "$APP_USER" git fetch --all && sudo -u "$APP_USER" git reset --hard origin/main)
