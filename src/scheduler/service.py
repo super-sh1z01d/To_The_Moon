@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+import logging
+from typing import Optional
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from fastapi import FastAPI
+
+from src.core.config import get_config
+from src.adapters.db.base import SessionLocal
+from src.adapters.repositories.tokens_repo import TokensRepository
+from src.adapters.services.dexscreener_client import DexScreenerClient
+from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
+from src.domain.scoring.scorer import compute_score
+from src.domain.settings.service import SettingsService
+
+
+log = logging.getLogger("scheduler")
+
+
+async def _process_group(group: str) -> None:
+    """Обновить метрики и скор для группы токенов.
+
+    group in {"hot","cold"}
+    hot: score >= min_score; cold: иначе (или нет снапшота)
+    """
+    with SessionLocal() as sess:
+        repo = TokensRepository(sess)
+        settings = SettingsService(sess)
+        min_score = float(settings.get("min_score") or 0.1)
+        weights = {
+            "weight_s": float(settings.get("weight_s") or 0.35),
+            "weight_l": float(settings.get("weight_l") or 0.25),
+            "weight_m": float(settings.get("weight_m") or 0.20),
+            "weight_t": float(settings.get("weight_t") or 0.20),
+        }
+        tokens = repo.list_by_status("active", limit=500)
+
+        client = DexScreenerClient(timeout=5.0)
+        processed = 0
+        updated = 0
+        for t in tokens:
+            snap = repo.get_latest_snapshot(t.id)
+            last_score = float(snap.score) if (snap and snap.score is not None) else None
+            is_hot = last_score is not None and last_score >= min_score
+            if group == "hot" and not is_hot:
+                continue
+            if group == "cold" and is_hot:
+                continue
+
+            processed += 1
+            pairs = client.get_pairs(t.mint_address)
+            if pairs is None:
+                log.warning("pairs_fetch_failed", extra={"extra": {"group": group, "mint": t.mint_address}})
+                continue
+            metrics = aggregate_wsol_metrics(t.mint_address, pairs)
+            snapshot_id = repo.insert_score_snapshot(token_id=t.id, metrics=metrics, score=None)
+            score, comps = compute_score(metrics, weights)
+            repo.update_snapshot_score(snapshot_id, score)
+            updated += 1
+            log.info(
+                "token_updated",
+                extra={
+                    "extra": {
+                        "group": group,
+                        "mint": t.mint_address,
+                        "score": score,
+                        "L_tot": metrics["L_tot"],
+                        "n_5m": metrics["n_5m"],
+                    }
+                },
+            )
+
+        log.info("group_summary", extra={"extra": {"group": group, "processed": processed, "updated": updated}})
+
+
+def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
+    cfg = get_config()
+    if not cfg.scheduler_enabled:
+        log.info("scheduler_disabled")
+        return None
+
+    with SessionLocal() as sess:
+        settings = SettingsService(sess)
+        try:
+            hot_interval = int(settings.get("hot_interval_sec") or 10)
+            cold_interval = int(settings.get("cold_interval_sec") or 45)
+        except Exception:
+            hot_interval, cold_interval = 10, 45
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(_process_group, "interval", seconds=hot_interval, args=["hot"], id="hot_updater", max_instances=1)
+    scheduler.add_job(
+        _process_group, "interval", seconds=cold_interval, args=["cold"], id="cold_updater", max_instances=1
+    )
+    # Архивация раз в час
+    from datetime import datetime
+    from apscheduler.triggers.interval import IntervalTrigger
+    from src.scheduler.tasks import archive_once
+
+    scheduler.add_job(archive_once, IntervalTrigger(hours=1), id="archiver_hourly", max_instances=1)
+    scheduler.start()
+    app.state.scheduler = scheduler
+    log.info(
+        "scheduler_started",
+        extra={"extra": {"hot_interval": hot_interval, "cold_interval": cold_interval}},
+    )
+    return scheduler
