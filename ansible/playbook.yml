@@ -1,0 +1,19 @@
+- hosts: tothemoon
+  become: true
+  vars:
+    repo_url: "https://github.com/super-sh1z01d/To_The_Moon.git"
+    app_dir: "/srv/tothemoon"
+    app_user: "tothemoon"
+    server_name: "_"
+    database_url: "sqlite:///dev.db"
+    install_node: true
+    install_nginx: false
+    install_postgres: false
+    create_pg_db: false
+    pg_db: "tothemoon"
+    pg_user: "tothemoon"
+    pg_pass: ""
+    install_certbot: false
+    certbot_email: ""
+  roles:
+    - tothemoon

@@ -195,6 +195,27 @@ install_postgres() {
   fi
 }
 
+install_certbot() {
+  if [ "${INSTALL_CERTBOT:-false}" != "true" ]; then
+    log "INSTALL_CERTBOT=false → skipping certbot"
+    return
+  fi
+  if [ -z "${SERVER_NAME:-}" ] || [ "${SERVER_NAME}" = "_" ]; then
+    log "SERVER_NAME not set; cannot request certificate"
+    return
+  fi
+  if [ -z "${CERTBOT_EMAIL:-}" ]; then
+    log "CERTBOT_EMAIL not set; cannot request certificate"
+    return
+  fi
+  if command -v apt-get >/dev/null 2>&1; then
+    log "installing certbot for nginx"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y certbot python3-certbot-nginx || true
+  fi
+  log "requesting/renewing certificate for ${SERVER_NAME}"
+  certbot --nginx -d "$SERVER_NAME" -m "$CERTBOT_EMAIL" --agree-tos --redirect -n || true
+}
+
 need_root
 ensure_packages
 ensure_user
@@ -206,6 +227,8 @@ setup_python
 run_migrations
 build_frontend
 install_systemd
+install_nginx
+install_certbot
 health_check
 
 log "install completed"

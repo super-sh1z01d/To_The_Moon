@@ -1,0 +1,141 @@
+- name: Ensure system packages
+  apt:
+    update_cache: yes
+    name:
+      - python3
+      - python3-venv
+      - python3-pip
+      - git
+      - curl
+    state: present
+
+- name: Ensure app user exists
+  user:
+    name: "{{ app_user }}"
+    system: yes
+    shell: /bin/bash
+    home: "{{ app_dir }}"
+    create_home: yes
+
+- name: Ensure app directory
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+
+- name: Clone or update repo
+  become_user: "{{ app_user }}"
+  git:
+    repo: "{{ repo_url }}"
+    dest: "{{ app_dir }}"
+    version: "main"
+    force: yes
+
+- name: Create venv
+  command: python3 -m venv venv
+  args:
+    chdir: "{{ app_dir }}"
+    creates: "{{ app_dir }}/venv/bin/python"
+  become_user: "{{ app_user }}"
+
+- name: Install python deps
+  become_user: "{{ app_user }}"
+  shell: |
+    set -e
+    ./venv/bin/python -m pip install --upgrade pip
+    ./venv/bin/python -m pip install -r requirements.txt
+  args:
+    chdir: "{{ app_dir }}"
+
+- name: Write environment file
+  copy:
+    dest: /etc/tothemoon.env
+    content: |
+      APP_ENV=prod
+      LOG_LEVEL=INFO
+      DATABASE_URL={{ database_url }}
+      FRONTEND_DIST_PATH={{ app_dir }}/frontend/dist
+      SCHEDULER_ENABLED=true
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Run migrations
+  become_user: "{{ app_user }}"
+  shell: env $(cat /etc/tothemoon.env | xargs) ./venv/bin/python -m alembic upgrade head
+  args:
+    chdir: "{{ app_dir }}"
+
+- name: Optionally install Node.js (NodeSource)
+  when: install_node
+  shell: |
+    set -e
+    if ! command -v node >/dev/null 2>&1; then
+      curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+      apt-get install -y nodejs
+    fi
+
+- name: Build frontend
+  when: install_node
+  become_user: "{{ app_user }}"
+  shell: |
+    set -e
+    cd frontend
+    npm ci
+    npm run build
+  args:
+    chdir: "{{ app_dir }}"
+
+- name: Install systemd service (API)
+  template:
+    src: tothemoon.service.j2
+    dest: /etc/systemd/system/tothemoon.service
+
+- name: Install systemd service (WS)
+  template:
+    src: tothemoon-ws.service.j2
+    dest: /etc/systemd/system/tothemoon-ws.service
+
+- name: Reload and enable services
+  systemd:
+    daemon_reload: yes
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  loop:
+    - tothemoon.service
+    - tothemoon-ws.service
+
+- name: Optionally install nginx and configure site
+  when: install_nginx
+  block:
+    - apt:
+        name: nginx
+        state: present
+    - template:
+        src: tothemoon.conf.j2
+        dest: /etc/nginx/sites-available/tothemoon.conf
+    - file:
+        src: /etc/nginx/sites-available/tothemoon.conf
+        dest: /etc/nginx/sites-enabled/tothemoon.conf
+        state: link
+        force: yes
+    - shell: nginx -t && systemctl reload nginx
+
+- name: Optionally install certbot and request cert
+  when: install_certbot and install_nginx and server_name != '_'
+  block:
+    - apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+    - shell: certbot --nginx -d {{ server_name }} -m {{ certbot_email }} --agree-tos --redirect -n || true
+
+- name: Health check
+  uri:
+    url: http://127.0.0.1:8000/health
+    return_content: no
+  register: hc
+  failed_when: hc.status != 200

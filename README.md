@@ -247,3 +247,18 @@ sudo bash -c "REPO_URL=https://github.com/super-sh1z01d/To_The_Moon.git bash -s"
 - Расширенная сортировка/фильтры по ликвидности, транзакциям, движению цен.
 - Улучшенная пагинация (cursor‑based) и поиск по имени/символу.
 - Метрики Prometheus и дашборд Grafana.
+
+Ansible деплой (опционально)
+----------------------------
+Подготовлен Ansible‑плейбук для автоматического развёртывания:
+
+- inventory: `ansible/inventory.example` (настройте `ansible_host`, `ansible_user` и переменные).
+- запуск: `ansible-playbook -i ansible/inventory.example ansible/playbook.yml`
+
+Переменные (пример в inventory.example):
+- `repo_url`, `app_dir`, `app_user`, `server_name`, `database_url`
+- `install_node` (true), `install_nginx` (false)
+- `install_postgres` (false), `create_pg_db` (false), `pg_db`, `pg_user`, `pg_pass`
+- `install_certbot` (false), `certbot_email`
+
+Роль выполнит установку зависимостей, клонирование репо, создание venv, миграции, сборку фронта, установку systemd юнитов, (опционально) nginx и certbot, перезапуск сервисов и health‑check.

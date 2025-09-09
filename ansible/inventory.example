@@ -1,0 +1,19 @@
+[tothemoon]
+server1 ansible_host=YOUR_SERVER_IP_OR_HOSTNAME
+
+[tothemoon:vars]
+ansible_user=ubuntu
+repo_url=https://github.com/super-sh1z01d/To_The_Moon.git
+app_dir=/srv/tothemoon
+app_user=tothemoon
+server_name=your.domain.tld
+database_url=postgresql+psycopg2://tothemoon:StrongPass@127.0.0.1:5432/tothemoon
+install_node=true
+install_nginx=true
+install_postgres=false
+create_pg_db=false
+pg_db=tothemoon
+pg_user=tothemoon
+pg_pass=StrongPass
+install_certbot=false
+certbot_email=dev@example.com
