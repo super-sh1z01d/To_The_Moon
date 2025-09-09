@@ -120,8 +120,9 @@ class TokensRepository:
         )
         return list(q.all())
 
-    def list_active_with_latest_scores(
+    def list_non_archived_with_latest_scores(
         self,
+        statuses: Optional[List[str]] = None,
         min_score: Optional[float] = None,
         limit: int = 50,
         offset: int = 0,
@@ -144,10 +145,13 @@ class TokensRepository:
                 (TokenScore.token_id == subq.c.token_id) & (TokenScore.created_at == subq.c.max_created_at),
                 isouter=True,
             )
-            .filter(Token.status == "active")
+            .filter(Token.status != "archived")
         )
+        if statuses:
+            q = q.filter(Token.status.in_(statuses))
+        # min_score применяется только к active; monitoring не фильтруем по скору
         if min_score is not None:
-            q = q.filter((TokenScore.score >= min_score))
+            q = q.filter(((Token.status != "active") | (TokenScore.score >= min_score)))
         # Сортировка: по умолчанию score DESC NULLS LAST
         if sort == "score_asc":
             q = q.order_by(TokenScore.score.asc().nullsfirst(), Token.id.desc())
@@ -159,7 +163,7 @@ class TokensRepository:
             q = q.limit(limit)
         return list(q.all())
 
-    def count_active_with_latest_scores(self, min_score: Optional[float] = None) -> int:
+    def count_non_archived_with_latest_scores(self, statuses: Optional[List[str]] = None, min_score: Optional[float] = None) -> int:
         # Подзапрос на последний снапшот per token
         subq = (
             self.db.query(
@@ -176,10 +180,12 @@ class TokensRepository:
                 (TokenScore.token_id == subq.c.token_id) & (TokenScore.created_at == subq.c.max_created_at),
                 isouter=True,
             )
-            .filter(Token.status == "active")
+            .filter(Token.status != "archived")
         )
+        if statuses:
+            q = q.filter(Token.status.in_(statuses))
         if min_score is not None:
-            q = q.filter(TokenScore.score >= min_score)
+            q = q.filter(((Token.status != "active") | (TokenScore.score >= min_score)))
         return int(q.scalar() or 0)
 
     def get_score_history(self, token_id: int, limit: int = 20) -> List[TokenScore]:

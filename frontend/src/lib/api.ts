@@ -24,8 +24,9 @@ export type PoolItem = {
   solscan_url?: string
 }
 
-export async function getTokens(minScore: number, limit=50, offset=0, sort:'score_desc'|'score_asc'='score_desc'): Promise<TokensResponse> {
-  const r = await fetch(`/tokens?min_score=${encodeURIComponent(minScore)}&limit=${limit}&offset=${offset}&sort=${sort}`)
+export async function getTokens(minScore: number, limit=50, offset=0, sort:'score_desc'|'score_asc'='score_desc', statuses: string[] = ['active','monitoring']): Promise<TokensResponse> {
+  const statusesParam = statuses.length ? `&statuses=${encodeURIComponent(statuses.join(','))}` : ''
+  const r = await fetch(`/tokens?min_score=${encodeURIComponent(minScore)}&limit=${limit}&offset=${offset}&sort=${sort}${statusesParam}`)
   if(!r.ok) throw new Error('tokens fetch failed')
   return r.json()
 }

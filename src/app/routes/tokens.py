@@ -18,6 +18,7 @@ class TokenItem(BaseModel):
     mint_address: str
     name: Optional[str] = None
     symbol: Optional[str] = None
+    status: str
     score: Optional[float] = None
     liquidity_usd: Optional[float] = Field(default=None, description="L_tot")
     delta_p_5m: Optional[float] = None
@@ -58,6 +59,7 @@ async def list_tokens(
     offset: int = Query(0, ge=0),
     min_score: Optional[float] = Query(None),
     sort: str = Query("score_desc", pattern="^(score_desc|score_asc)$"),
+    statuses: Optional[str] = Query(None, description="Comma-separated: active,monitoring"),
 ) -> TokensResponse:
     repo = TokensRepository(db)
     settings = SettingsService(db)
@@ -67,8 +69,14 @@ async def list_tokens(
         except Exception:
             min_score = 0.1
 
-    rows = repo.list_active_with_latest_scores(min_score=min_score, limit=limit, offset=offset, sort=sort)
-    total = repo.count_active_with_latest_scores(min_score=min_score)
+    status_list: Optional[list[str]] = None
+    if statuses:
+        status_list = [s.strip() for s in statuses.split(",") if s.strip() in ("active", "monitoring")]
+        if not status_list:
+            status_list = None
+
+    rows = repo.list_non_archived_with_latest_scores(statuses=status_list, min_score=min_score, limit=limit, offset=offset, sort=sort)
+    total = repo.count_non_archived_with_latest_scores(statuses=status_list, min_score=min_score)
     items: list[TokenItem] = []
     for token, snap in rows:
         metrics = snap.metrics if (snap and snap.metrics) else {}
@@ -77,6 +85,7 @@ async def list_tokens(
                 mint_address=token.mint_address,
                 name=token.name,
                 symbol=token.symbol,
+                status=token.status,
                 score=float(snap.score) if (snap and snap.score is not None) else None,
                 liquidity_usd=(float(metrics.get("L_tot")) if metrics and metrics.get("L_tot") is not None else None),
                 delta_p_5m=(float(metrics.get("delta_p_5m")) if metrics and metrics.get("delta_p_5m") is not None else None),
