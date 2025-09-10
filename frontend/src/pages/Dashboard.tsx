@@ -103,6 +103,10 @@ function fmtPct(x?: number){
   if(x==null) return '—'
   return (x*100).toFixed(2)+'%'
 }
+function pctClass(x?: number){
+  if(x==null) return ''
+  return x>0 ? 'pos' : x<0 ? 'neg' : ''
+}
 function statusLabel(s?: string){
   if(!s) return '—'
   if(s==='active') return 'Активен'
