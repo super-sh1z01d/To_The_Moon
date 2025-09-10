@@ -212,11 +212,12 @@ async def get_token_pools(mint: str, db: Session = Depends(get_db)) -> list[Pool
         pairs = DexScreenerClient(timeout=5.0).get_pairs(mint)
         if pairs:
             pools = []
+            _WSOL = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
             for p in pairs:
                 try:
                     base = (p.get("baseToken") or {})
                     quote = (p.get("quoteToken") or {})
-                    if str(base.get("address")) == mint and str(quote.get("symbol")).upper() == "WSOL":
+                    if str(base.get("address")) == mint and str(quote.get("symbol", "")).upper() in _WSOL:
                         pools.append(
                             {
                                 "address": p.get("pairAddress") or p.get("address"),

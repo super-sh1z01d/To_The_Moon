@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+_WSOL_SYMBOLS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
+
 
 def _to_float(x: Any) -> Optional[float]:
     try:
@@ -29,8 +31,8 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
         try:
             base = p.get("baseToken", {})
             quote = p.get("quoteToken", {})
-            # Добавляем в pools ТОЛЬКО пары с искомым mint и WSOL
-            if str(base.get("address")) == mint and str(quote.get("symbol")).upper() == "WSOL":
+            # Добавляем в pools ТОЛЬКО пары с искомым mint и WSOL/SOL
+            if str(base.get("address")) == mint and str(quote.get("symbol", "")).upper() in _WSOL_SYMBOLS:
                 addr = p.get("pairAddress") or p.get("address")
                 pools.append(
                     {
