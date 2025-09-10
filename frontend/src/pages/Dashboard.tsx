@@ -108,7 +108,7 @@ export default function Dashboard(){
               <td>{it.liquidity_usd ? ('$'+Number(it.liquidity_usd).toLocaleString()) : '—'}</td>
               <td><span className={pctClass(it.delta_p_5m)}>{fmtPct(it.delta_p_5m)}</span> / <span className={pctClass(it.delta_p_15m)}>{fmtPct(it.delta_p_15m)}</span></td>
               <td>{it.n_5m ?? '—'}</td>
-              <td>{statusLabel(it.status)}</td>
+              <td>{statusBadge(it.status)}</td>
               <td>
                 <div className="pools" style={{marginTop: 4}}>
                   {(pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='SOL' || (p.quote||'').toUpperCase()==='WSOL').map(p=> (
@@ -148,6 +148,12 @@ function statusLabel(s?: string){
   if(s==='monitoring') return 'Мониторинг'
   if(s==='archived') return 'В архиве'
   return s
+}
+
+function statusBadge(s?: string){
+  const label = statusLabel(s)
+  const cls = `status-badge ${s ? 'status-'+s : ''}`
+  return <span className={cls}>{label}</span>
 }
 
 function dexClass(name?: string){

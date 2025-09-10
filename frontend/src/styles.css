@@ -24,6 +24,10 @@ th{ background: #f8f8f8 }
 .pill.dex-orca{ background:#fff3e0; color:#e65100 }
 .pill.dex-jupiter{ background:#f3e5f5; color:#6a1b9a }
 .pill.dex-unknown{ background:#eee; color:#333 }
+.status-badge{ display:inline-block; padding:2px 8px; border-radius: 10px; font-size: 12px; font-weight: 500 }
+.status-active{ background:#e8f5e9; color:#1b5e20 }
+.status-monitoring{ background:#e3f2fd; color:#0d47a1 }
+.status-archived{ background:#eeeeee; color:#616161 }
 .settings{ display: grid; grid-template-columns: 1fr; gap: 16px }
 .field{ display:flex; gap: 8px; align-items:center; margin: 6px 0 }
 .field span{ min-width: 340px }

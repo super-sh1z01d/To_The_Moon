@@ -42,7 +42,7 @@ export default function TokenDetail(){
           <h2>{data.name||'—'} <span className="muted">({data.symbol||''})</span></h2>
           <div className="kv">
             <div><b>Mint:</b> {data.mint_address}</div>
-            <div><b>Статус:</b> {statusLabel(data.status)}</div>
+            <div><b>Статус:</b> <span className={`status-badge ${'status-'+data.status}`}>{statusLabel(data.status)}</span></div>
             <div><b>Скор:</b> {fmtNum(data.score)}</div>
             <div><a href={data.solscan_url} target="_blank" rel="noreferrer">Открыть в Solscan</a></div>
           </div>
