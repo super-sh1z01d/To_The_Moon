@@ -27,13 +27,14 @@ To The Moon — система скоринга токенов Solana
 - Планировщик (APScheduler): отдельные частоты обновления для «горячих»/«остывших» токенов.
 - Архивация: `active` ниже порога долгое время и `monitoring` с таймаутом.
 - Публичное API: список, детали токена, пулы WSOL, пересчёт on‑demand.
-- Фронтенд (SPA): дашборд, сортировка/пагинация, просмотр пулов, страница настроек, детальная карточка токена.
+- Логи: in‑memory буфер + API для чтения и страницы просмотра с фильтрами.
+- Фронтенд (SPA): дашборд, сортировка/пагинация, просмотр пулов, страница настроек, детальная карточка токена, вкладка логов.
 
 Архитектура
 -----------
-- Backend (FastAPI): `src/app`, маршруты `/health`, `/version`, `/settings`, `/tokens`, `/admin`, `/ui` (минимальный UI) и раздача SPA `/app`.
+- Backend (FastAPI): `src/app`, маршруты `/health`, `/version`, `/settings`, `/tokens`, `/admin`, `/logs`, `/ui` (минимальный UI) и раздача SPA `/app`.
 - DB (PostgreSQL/SQLite dev): ORM SQLAlchemy 2.x, миграции Alembic. Таблицы: `tokens`, `token_scores`, `app_settings`.
-- Scheduler (APScheduler): фоновые задачи обновления «hot/cold» и часовая архивация.
+- Scheduler (APScheduler): фоновые задачи обновления «hot/cold», валидация `monitoring→active` и часовая архивация.
 - Worker Pump.fun (WebSocket): `src/workers/pumpfun_ws.py` — подписка `subscribeMigration` и запись `monitoring` токенов.
 - Внешние API: DexScreener (pairs), Pump.fun WS (migrations). Метрика holders временно исключена.
 
@@ -62,7 +63,7 @@ cd frontend && npm install && npm run build && cd -
 ```
 PYTHONPATH=. python3 -m uvicorn src.app.main:app --host 0.0.0.0 --port 8000
 ```
-5) Откройте интерфейс: http://localhost:8000/app (дашборд, настройки).
+5) Откройте интерфейс: http://localhost:8000/app (Дашборд, Настройки, Логи).
 
 Дополнительно (dev):
 - Заполнить тестовыми данными:
@@ -90,7 +91,7 @@ PUMPFUN_RUN_SECONDS=120 PYTHONPATH=. python3 -m src.workers.pumpfun_ws
   - `HOST`, `PORT` — для uvicorn (если не через systemd)
   - `DATABASE_URL` — например: `postgresql+psycopg2://user:pass@localhost:5432/tothemoon`
   - `FRONTEND_DIST_PATH=frontend/dist` — путь к собранной SPA
-  - `SCHEDULER_ENABLED=true`
+  - `SCHEDULER_ENABLED=true` — включает APScheduler (обновления, валидация, архивация)
 - `app_settings` (через API `/settings`):
   - Весовые коэффициенты: `weight_s`, `weight_l`, `weight_m`, `weight_t`
   - Порог: `min_score`
@@ -109,13 +110,18 @@ API
   - `GET /settings/{key}` — значение (или дефолт), `404` если ключ неизвестен
   - `PUT /settings/{key}` — обновить (строковое значение)
 - Tokens:
-  - `GET /tokens?min_score=&limit=&offset=&sort=score_desc|score_asc`
+  - `GET /tokens?min_score=&limit=&offset=&sort=score_desc|score_asc&statuses=active,monitoring`
+    - Параметры: `limit` (1–100, по умолчанию 50), `offset` (>=0), `statuses` (список через запятую: `active,monitoring`).
     - Возвращает `{ total, items: [...], meta: {total,limit,offset,page,page_size,has_prev,has_next,sort,min_score} }`
   - `GET /tokens/{mint}` — детали токена: последний `score/metrics`, `score_history`, `pools` (только WSOL), `status`, ссылка Solscan
   - `POST /tokens/{mint}/refresh` — on‑demand пересчёт (новый снапшот + score)
   - `GET /tokens/{mint}/pools` — WSOL‑пулы (адрес, dex, ссылка Solscan)
 - Admin:
   - `POST /admin/recalculate` — запустить обновление «горячих» и «остывших» токенов
+- Logs:
+  - `GET /logs?limit=&levels=&loggers=&contains=&since=` — последние записи in‑memory буфера.
+    - `limit` (1–500), `levels` (CSV уровней: `DEBUG,INFO,WARNING,ERROR,CRITICAL`), `loggers` (CSV имён логгеров), `contains` (подстрока), `since` (ISO‑время).
+  - `GET /logs/meta` — метаданные (список доступных `logger`).
 - UI:
   - `/app` — SPA (дашборд и настройки)
   - `/ui` — минималистичный HTML/JS UI (параллельно SPA)
@@ -232,7 +238,7 @@ sudo bash -c "REPO_URL=https://github.com/super-sh1z01d/To_The_Moon.git bash -s"
 Тестирование
 ------------
 - Unit/Integration: `pytest -q` (по мере добавления тестов).
-- Smoke‑скрипты: `scripts/smoke_db.py`, `scripts/validate_monitoring.py`, `scripts/update_metrics.py`, `scripts/compute_scores.py`, `scripts/archive_tokens.py`.
+- Smoke/utility‑скрипты: `scripts/smoke_db.py`, `scripts/validate_monitoring.py`, `scripts/update_metrics.py`, `scripts/compute_scores.py`, `scripts/archive_tokens.py`.
 
 Безопасность и эксплуатация
 ---------------------------
@@ -240,6 +246,7 @@ sudo bash -c "REPO_URL=https://github.com/super-sh1z01d/To_The_Moon.git bash -s"
 - Ограничьте CORS на проде (по умолчанию в dev открыт `*`).
 - Следите за лимитами DexScreener: при 429 в логах будет `rate_limited`.
 - Планировщик и воркер — раздельные процессы (API + APScheduler, WS‑воркер отдельным сервисом).
+- Логи в UI читаются из in‑memory буфера (последние ~2000 записей, обновляются в реальном времени). Для долгосрочного хранения используйте внешние решения (journald/ELK и т.п.).
 
 Дорожная карта
 --------------
