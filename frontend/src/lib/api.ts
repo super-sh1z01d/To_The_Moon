@@ -81,3 +81,16 @@ export async function getLogsMeta(): Promise<LogsMeta> {
   if(!r.ok) throw new Error('logs meta fetch failed')
   return r.json()
 }
+
+export async function clearLogs(): Promise<number>{
+  const r = await fetch('/logs/', {method:'DELETE'})
+  if(!r.ok) throw new Error('clear logs failed')
+  const j = await r.json()
+  return Number(j.cleared || 0)
+}
+
+export async function getDefaultSettings(): Promise<SettingsMap>{
+  const r = await fetch('/settings/defaults')
+  if(!r.ok) throw new Error('defaults fetch failed')
+  return r.json()
+}

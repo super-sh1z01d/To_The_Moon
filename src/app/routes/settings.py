@@ -24,6 +24,12 @@ async def list_settings(db: Session = Depends(get_db)) -> dict[str, str]:
     return svc.get_all()
 
 
+@router.get("/defaults", response_model=dict[str, str])
+async def list_default_settings() -> dict[str, str]:
+    # Возвращаем дефолтные значения без учёта БД
+    return DEFAULT_SETTINGS.copy()
+
+
 @router.get("/{key}", response_model=SettingItem)
 async def get_setting(key: str, db: Session = Depends(get_db)) -> SettingItem:
     svc = SettingsService(db)
@@ -47,4 +53,3 @@ async def put_setting(key: str, payload: SettingValue, db: Session = Depends(get
     # После обновления возвращаем актуальное значение
     value = svc.get(key)
     return SettingItem(key=key, value=value)
-

@@ -13,6 +13,8 @@ export default function Dashboard(){
   const [statusFilter, setStatusFilter] = useState<{active:boolean, monitoring:boolean, archived:boolean}>({active:true, monitoring:true, archived:false})
   const [pools, setPools] = useState<Record<string, PoolItem[]>>({})
   const [pLoading, setPLoading] = useState<Record<string, boolean>>({})
+  const [auto, setAuto] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<string>('')
 
   async function load(){
     setLoading(true)
@@ -33,15 +35,35 @@ export default function Dashboard(){
           })
         }
       }
+      setLastUpdated(new Date().toLocaleTimeString())
     } finally{ setLoading(false) }
   }
   useEffect(()=>{ load() }, [])
 
+  // Load persisted UI state
+  useEffect(()=>{
+    try{
+      const saved = JSON.parse(localStorage.getItem('dash_prefs')||'{}')
+      if(saved.minScore!=null) setMinScore(saved.minScore)
+      if(saved.limit!=null) setLimit(saved.limit)
+      if(saved.sort) setSort(saved.sort)
+      if(saved.statusFilter) setStatusFilter(saved.statusFilter)
+      if(saved.auto!=null) setAuto(saved.auto)
+    }catch{}
+  }, [])
+
+  // Persist UI state
+  useEffect(()=>{
+    const prefs = {minScore, limit, sort, statusFilter, auto}
+    localStorage.setItem('dash_prefs', JSON.stringify(prefs))
+  }, [minScore, limit, sort, statusFilter, auto])
+
   // Auto-refresh every 5 seconds respecting current filters/pagination
   useEffect(()=>{
+    if(!auto) return
     const t = setInterval(()=>{ load() }, 5000)
     return ()=>clearInterval(t)
-  }, [minScore, limit, offset, sort, statusFilter])
+  }, [auto, minScore, limit, offset, sort, statusFilter])
 
   // No toggle anymore; pools are prefetched and shown inline
 
@@ -53,7 +75,9 @@ export default function Dashboard(){
         <label><input type="checkbox" checked={statusFilter.active} onChange={e=>setStatusFilter(s=>({...s, active: e.target.checked}))}/> Активные</label>
         <label><input type="checkbox" checked={statusFilter.monitoring} onChange={e=>setStatusFilter(s=>({...s, monitoring: e.target.checked}))}/> Мониторинг</label>
         <label><input type="checkbox" checked={statusFilter.archived} onChange={e=>setStatusFilter(s=>({...s, archived: e.target.checked}))}/> Архив</label>
+        <label><input type="checkbox" checked={auto} onChange={e=>setAuto(e.target.checked)} /> Автообновление</label>
         <button onClick={()=>{ setOffset(0); load() }} disabled={loading}>{loading? 'Загрузка...' : 'Обновить'}</button>
+        <span className="muted" style={{marginLeft:8}}>Обновлено: {lastUpdated||'—'}</span>
         <div style={{marginLeft: 'auto'}}>
           <button disabled={offset===0 || loading} onClick={()=>{ setOffset(Math.max(0, offset-limit)); setTimeout(load,0) }}>←</button>
           <span style={{margin:'0 8px'}}>{offset+1}–{Math.min(offset+limit, total)} из {total}</span>
@@ -63,22 +87,22 @@ export default function Dashboard(){
       <table>
         <thead>
           <tr>
-            <th>Название (Символ)</th>
-            <th style={{cursor:'pointer'}} onClick={()=>{ setSort(sort==='score_desc'?'score_asc':'score_desc'); setTimeout(load,0) }}>
+            <th title="Имя/символ из DexScreener или миграций">Название (Символ)</th>
+            <th style={{cursor:'pointer'}} title="Скоринг по формуле в Настройках" onClick={()=>{ setSort(sort==='score_desc'?'score_asc':'score_desc'); setTimeout(load,0) }}>
               Скор {sort==='score_desc'?'↓':'↑'}
             </th>
-            <th>Ликвидность (USD)</th>
-            <th>Δ 5м / 15м</th>
-            <th>Транз. 5м</th>
+            <th title="Сумма ликвидности по пулам WSOL/SOL и USDC">Ликвидность (USD)</th>
+            <th title="Δ цены (по самой ликвидной паре)">Δ 5м / 15м</th>
+            <th title="Число сделок за 5 минут (buys+sells) по всем пулам">Транз. 5м</th>
             <th>Статус</th>
-            <th>Пулы (WSOL)</th>
-            <th>Пулы (USDC)</th>
+            <th title="Ссылки на Solscan пулов SOL/WSOL">Пулы (WSOL)</th>
+            <th title="Ссылки на Solscan пулов USDC">Пулы (USDC)</th>
             <th>Solscan</th>
           </tr>
         </thead>
         <tbody>
           {items.map(it=> (
-            <tr key={it.mint_address}>
+            <tr key={it.mint_address} className={it.status==='archived' ? 'row-archived' : ''}>
               <td><Link to={`/token/${it.mint_address}`}>{it.name || '—'}</Link> <span className="muted">({it.symbol || ''})</span></td>
               <td>{it.score ?? '—'}</td>
               <td>{it.liquidity_usd ? ('$'+Number(it.liquidity_usd).toLocaleString()) : '—'}</td>

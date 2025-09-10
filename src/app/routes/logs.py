@@ -71,3 +71,9 @@ def get_logs_meta() -> Dict[str, Any]:
         "hint": "Use /logs?levels=INFO,ERROR&loggers=scheduler,validator&contains=foo&limit=200",
     }
 
+
+@router.delete("/", response_model=dict)
+def clear_logs() -> Dict[str, Any]:
+    count = len(LOG_BUFFER)
+    LOG_BUFFER.clear()
+    return {"cleared": count}

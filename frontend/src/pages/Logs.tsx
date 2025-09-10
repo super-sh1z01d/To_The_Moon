@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getLogs, getLogsMeta, LogEntry } from '../lib/api'
+import { clearLogs, getLogs, getLogsMeta, LogEntry } from '../lib/api'
 
 const LEVELS = ['DEBUG','INFO','WARNING','ERROR','CRITICAL']
 
@@ -12,6 +12,7 @@ export default function Logs(){
   const [items, setItems] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [autorefresh, setAutorefresh] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<string>('')
 
   async function load(){
     setLoading(true)
@@ -20,6 +21,7 @@ export default function Logs(){
       const lg = Object.keys(selectedLoggers).filter(k=>selectedLoggers[k])
       const data = await getLogs({limit, levels: lv, loggers: lg, contains: query || undefined})
       setItems(data)
+      setLastUpdated(new Date().toLocaleTimeString())
     } finally{ setLoading(false) }
   }
 
@@ -53,6 +55,9 @@ export default function Logs(){
         <label>Лимит: <input type="number" min={10} max={500} value={limit} onChange={e=>setLimit(Number(e.target.value))} /></label>
         <label><input type="checkbox" checked={autorefresh} onChange={e=>setAutorefresh(e.target.checked)} /> Автообновление</label>
         <button onClick={load} disabled={loading}>{loading? 'Загрузка...' : 'Обновить'}</button>
+        <button onClick={onExport} disabled={loading}>Экспорт JSON</button>
+        <button onClick={onClear} disabled={loading}>Очистить</button>
+        <span className="muted" style={{marginLeft:8}}>Обновлено: {lastUpdated||'—'}</span>
       </div>
 
       <div className="kv">
@@ -96,7 +101,7 @@ export default function Logs(){
           {items.map((e, idx)=> (
             <tr key={idx}>
               <td><code>{e.ts}</code></td>
-              <td>{e.level}</td>
+              <td><span className={`lvl lvl-${(e.level||'').toLowerCase()}`}>{e.level}</span></td>
               <td>{e.logger}</td>
               <td>
                 <div>{e.msg}</div>
@@ -122,3 +127,21 @@ function summarize(e: LogEntry){
   return parts.join(' | ')
 }
 
+function onExport(){
+  // Build export using current filters by triggering a fetch and then download
+  getLogs().then(data=>{
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `logs_${new Date().toISOString().replace(/[:.]/g,'-')}.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }).catch(()=>{})
+}
+
+async function onClear(){
+  try{ await clearLogs() } finally{}
+}
