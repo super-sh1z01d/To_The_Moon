@@ -8,6 +8,8 @@ export type TokenItem = {
   delta_p_15m?: number
   n_5m?: number
   primary_dex?: string
+  fetched_at?: string
+  scored_at?: string
   solscan_url: string
 }
 

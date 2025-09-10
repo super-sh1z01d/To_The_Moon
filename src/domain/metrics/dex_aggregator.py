@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from datetime import datetime, timezone
 
 _WSOL_SYMBOLS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
 _USDC_SYMBOLS = {"USDC", "usdc"}
@@ -105,4 +106,5 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
         "primary_liq_usd": round(primary_lq, 6) if primary_lq >= 0 else None,
         "source": "dexscreener",
         "pools": pools,
+        "fetched_at": datetime.now(tz=timezone.utc).isoformat(),
     }

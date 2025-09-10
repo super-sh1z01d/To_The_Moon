@@ -25,6 +25,8 @@ class TokenItem(BaseModel):
     delta_p_15m: Optional[float] = None
     n_5m: Optional[int] = None
     primary_dex: Optional[str] = None
+    fetched_at: Optional[str] = None
+    scored_at: Optional[str] = None
     solscan_url: str
 
 
@@ -95,6 +97,8 @@ async def list_tokens(
                 ),
                 n_5m=(int(metrics.get("n_5m")) if metrics and metrics.get("n_5m") is not None else None),
                 primary_dex=(str(metrics.get("primary_dex")) if metrics and metrics.get("primary_dex") else None),
+                fetched_at=(str(metrics.get("fetched_at")) if metrics and metrics.get("fetched_at") else None),
+                scored_at=(str(metrics.get("scored_at")) if metrics and metrics.get("scored_at") else None),
                 solscan_url=f"https://solscan.io/token/{token.mint_address}",
             )
         )

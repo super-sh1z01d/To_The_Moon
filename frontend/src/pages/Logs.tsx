@@ -12,7 +12,6 @@ export default function Logs(){
   const [items, setItems] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [autorefresh, setAutorefresh] = useState(true)
-  const [lastUpdated, setLastUpdated] = useState<string>('')
 
   async function load(){
     setLoading(true)
@@ -21,7 +20,6 @@ export default function Logs(){
       const lg = Object.keys(selectedLoggers).filter(k=>selectedLoggers[k])
       const data = await getLogs({limit, levels: lv, loggers: lg, contains: query || undefined})
       setItems(data)
-      setLastUpdated(new Date().toLocaleTimeString())
     } finally{ setLoading(false) }
   }
 
@@ -57,7 +55,6 @@ export default function Logs(){
         <button onClick={load} disabled={loading}>{loading? 'Загрузка...' : 'Обновить'}</button>
         <button onClick={onExport} disabled={loading}>Экспорт JSON</button>
         <button onClick={onClear} disabled={loading}>Очистить</button>
-        <span className="muted" style={{marginLeft:8}}>Обновлено: {lastUpdated||'—'}</span>
       </div>
 
       <div className="kv">

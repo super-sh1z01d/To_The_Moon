@@ -99,6 +99,15 @@ class TokensRepository:
         if snap is None:
             return
         snap.score = score
+        # try to stamp scored_at inside metrics JSON for UI/UX
+        try:
+            from datetime import datetime, timezone
+            if isinstance(snap.metrics, dict):
+                m = dict(snap.metrics)
+                m["scored_at"] = datetime.now(tz=timezone.utc).isoformat()
+                snap.metrics = m
+        except Exception:
+            pass
         self.db.add(snap)
         self.db.commit()
         logging.getLogger("tokens_repo").info(

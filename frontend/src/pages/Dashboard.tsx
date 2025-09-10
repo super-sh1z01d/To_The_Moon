@@ -14,7 +14,6 @@ export default function Dashboard(){
   const [pools, setPools] = useState<Record<string, PoolItem[]>>({})
   const [pLoading, setPLoading] = useState<Record<string, boolean>>({})
   const [auto, setAuto] = useState(true)
-  const [lastUpdated, setLastUpdated] = useState<string>('')
 
   async function load(){
     setLoading(true)
@@ -35,7 +34,6 @@ export default function Dashboard(){
           })
         }
       }
-      setLastUpdated(new Date().toLocaleTimeString())
     } finally{ setLoading(false) }
   }
   useEffect(()=>{ load() }, [])
@@ -77,7 +75,6 @@ export default function Dashboard(){
         <label><input type="checkbox" checked={statusFilter.archived} onChange={e=>setStatusFilter(s=>({...s, archived: e.target.checked}))}/> Архив</label>
         <label><input type="checkbox" checked={auto} onChange={e=>setAuto(e.target.checked)} /> Автообновление</label>
         <button onClick={()=>{ setOffset(0); load() }} disabled={loading}>{loading? 'Загрузка...' : 'Обновить'}</button>
-        <span className="muted" style={{marginLeft:8}}>Обновлено: {lastUpdated||'—'}</span>
         <div style={{marginLeft: 'auto'}}>
           <button disabled={offset===0 || loading} onClick={()=>{ setOffset(Math.max(0, offset-limit)); setTimeout(load,0) }}>←</button>
           <span style={{margin:'0 8px'}}>{offset+1}–{Math.min(offset+limit, total)} из {total}</span>
@@ -97,6 +94,7 @@ export default function Dashboard(){
             <th>Статус</th>
             <th title="Ссылки на Solscan пулов SOL/WSOL">Пулы (WSOL)</th>
             <th title="Ссылки на Solscan пулов USDC">Пулы (USDC)</th>
+            <th title="Время последнего обновления метрик и пересчёта скора">Расчёт</th>
             <th>Solscan</th>
           </tr>
         </thead>
@@ -125,12 +123,13 @@ export default function Dashboard(){
                   {(!pools[it.mint_address] || (pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='USDC').length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
                 </div>
               </td>
+              <td>{renderCalc(it)}</td>
               <td><a href={it.solscan_url} target="_blank" rel="noreferrer">Открыть</a></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
   )
 }
 
@@ -154,6 +153,24 @@ function statusBadge(s?: string){
   const label = statusLabel(s)
   const cls = `status-badge ${s ? 'status-'+s : ''}`
   return <span className={cls}>{label}</span>
+}
+
+function renderCalc(it: TokenItem){
+  const f = it.fetched_at ? fmtDate(it.fetched_at) : '—'
+  const s = it.scored_at ? fmtDate(it.scored_at) : '—'
+  return <span className="muted" title={`Dex: ${it.fetched_at||'-'}\nScore: ${it.scored_at||'-'}`}>Dex: {f} / Score: {s}</span>
+}
+
+function fmtDate(iso: string){
+  try{
+    const d = new Date(iso)
+    const y = d.getFullYear()
+    const m = String(d.getMonth()+1).padStart(2,'0')
+    const da = String(d.getDate()).padStart(2,'0')
+    const hh = String(d.getHours()).padStart(2,'0')
+    const mm = String(d.getMinutes()).padStart(2,'0')
+    return `${y}-${m}-${da} ${hh}:${mm}`
+  }catch{ return iso }
 }
 
 function dexClass(name?: string){
