@@ -55,7 +55,8 @@ sudo -u "$APP_USER" $PY -m pip install --upgrade pip
 sudo -u "$APP_USER" $PY -m pip install -r requirements.txt
 
 echo "[deploy] alembic upgrade head"
-sudo -u "$APP_USER" env $(cat "$ENV_FILE" | xargs) $PY -m alembic upgrade head
+# Load env variables safely (ignore comments/blank lines) and run alembic
+sudo -u "$APP_USER" bash -lc "set -a; [ -f '$ENV_FILE' ] && sed -e '/^#/d' -e '/^$/d' '$ENV_FILE' > /tmp/.tmoonenva && source /tmp/.tmoonenva; rm -f /tmp/.tmoonenva; set +a; '$PY' -m alembic upgrade head"
 
 if [ -d frontend ]; then
   echo "[deploy] build frontend"

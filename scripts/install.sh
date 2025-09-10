@@ -88,7 +88,7 @@ setup_python() {
 run_migrations() {
   log "running alembic migrations"
   cd "$APP_DIR"
-  sudo -u "$APP_USER" env "$(cat "$ENV_FILE" | xargs)" venv/bin/python -m alembic upgrade head
+  sudo -u "$APP_USER" bash -lc "set -a; [ -f '$ENV_FILE' ] && sed -e '/^#/d' -e '/^$/d' '$ENV_FILE' > /tmp/.tmoonenva && source /tmp/.tmoonenva; rm -f /tmp/.tmoonenva; set +a; ./venv/bin/python -m alembic upgrade head"
 }
 
 build_frontend() {
