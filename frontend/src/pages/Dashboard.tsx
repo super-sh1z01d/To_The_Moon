@@ -10,14 +10,14 @@ export default function Dashboard(){
   const [offset, setOffset] = useState(0)
   const [sort, setSort] = useState<'score_desc'|'score_asc'>('score_desc')
   const [loading, setLoading] = useState(false)
-  const [statusFilter, setStatusFilter] = useState<{active:boolean, monitoring:boolean}>({active:true, monitoring:true})
+  const [statusFilter, setStatusFilter] = useState<{active:boolean, monitoring:boolean, archived:boolean}>({active:true, monitoring:true, archived:false})
   const [pools, setPools] = useState<Record<string, PoolItem[]>>({})
   const [pLoading, setPLoading] = useState<Record<string, boolean>>({})
 
   async function load(){
     setLoading(true)
     try{
-      const statuses = [ statusFilter.active ? 'active' : null, statusFilter.monitoring ? 'monitoring' : null ].filter(Boolean) as string[]
+      const statuses = [ statusFilter.active ? 'active' : null, statusFilter.monitoring ? 'monitoring' : null, statusFilter.archived ? 'archived' : null ].filter(Boolean) as string[]
       const res = await getTokens(minScore, limit, offset, sort, statuses)
       setItems(res.items)
       setTotal(res.total)
@@ -52,6 +52,7 @@ export default function Dashboard(){
         <label>Лимит: <input type="number" min={1} max={100} value={limit} onChange={e=>setLimit(Number(e.target.value))} /></label>
         <label><input type="checkbox" checked={statusFilter.active} onChange={e=>setStatusFilter(s=>({...s, active: e.target.checked}))}/> Активные</label>
         <label><input type="checkbox" checked={statusFilter.monitoring} onChange={e=>setStatusFilter(s=>({...s, monitoring: e.target.checked}))}/> Мониторинг</label>
+        <label><input type="checkbox" checked={statusFilter.archived} onChange={e=>setStatusFilter(s=>({...s, archived: e.target.checked}))}/> Архив</label>
         <button onClick={()=>{ setOffset(0); load() }} disabled={loading}>{loading? 'Загрузка...' : 'Обновить'}</button>
         <div style={{marginLeft: 'auto'}}>
           <button disabled={offset===0 || loading} onClick={()=>{ setOffset(Math.max(0, offset-limit)); setTimeout(load,0) }}>←</button>
@@ -112,6 +113,7 @@ function statusLabel(s?: string){
   if(!s) return '—'
   if(s==='active') return 'Активен'
   if(s==='monitoring') return 'Мониторинг'
+  if(s==='archived') return 'В архиве'
   return s
 }
 

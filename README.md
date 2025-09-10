@@ -117,8 +117,9 @@ API
   - `GET /settings/{key}` — значение (или дефолт), `404` если ключ неизвестен
   - `PUT /settings/{key}` — обновить (строковое значение)
 - Tokens:
-  - `GET /tokens?min_score=&limit=&offset=&sort=score_desc|score_asc&statuses=active,monitoring`
-    - Параметры: `limit` (1–100, по умолчанию 50), `offset` (>=0), `statuses` (список через запятую: `active,monitoring`).
+  - `GET /tokens?min_score=&limit=&offset=&sort=score_desc|score_asc&statuses=active,monitoring,archived`
+    - Параметры: `limit` (1–100, по умолчанию 50), `offset` (>=0), `statuses` (список через запятую: `active,monitoring,archived`).
+    - По умолчанию архив исключён; чтобы видеть архив — добавьте `statuses=archived` или комбинируйте со списком.
     - Возвращает `{ total, items: [...], meta: {total,limit,offset,page,page_size,has_prev,has_next,sort,min_score} }`
     - Поля `items[]`: `mint_address`, `name`, `symbol`, `status`, `score`, `liquidity_usd (L_tot)`, `delta_p_5m`, `delta_p_15m`, `n_5m`, `primary_dex`, `solscan_url`.
   - `GET /tokens/{mint}` — детали токена: последний `score/metrics`, `score_history`, `pools` (только WSOL), `status`, ссылка Solscan

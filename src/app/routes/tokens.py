@@ -60,7 +60,7 @@ async def list_tokens(
     offset: int = Query(0, ge=0),
     min_score: Optional[float] = Query(None),
     sort: str = Query("score_desc", pattern="^(score_desc|score_asc)$"),
-    statuses: Optional[str] = Query(None, description="Comma-separated: active,monitoring"),
+    statuses: Optional[str] = Query(None, description="Comma-separated: active,monitoring,archived"),
 ) -> TokensResponse:
     repo = TokensRepository(db)
     settings = SettingsService(db)
@@ -72,7 +72,7 @@ async def list_tokens(
 
     status_list: Optional[list[str]] = None
     if statuses:
-        status_list = [s.strip() for s in statuses.split(",") if s.strip() in ("active", "monitoring")]
+        status_list = [s.strip() for s in statuses.split(",") if s.strip() in ("active", "monitoring", "archived")]
         if not status_list:
             status_list = None
 

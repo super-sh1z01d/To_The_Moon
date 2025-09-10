@@ -165,9 +165,11 @@ class TokensRepository:
                 (TokenScore.token_id == subq.c.token_id) & (TokenScore.created_at == subq.c.max_created_at),
                 isouter=True,
             )
-            .filter(Token.status != "archived")
         )
-        if statuses:
+        # По умолчанию скрываем archived. Если явный фильтр статусов задан — используем его как есть
+        if statuses is None:
+            q = q.filter(Token.status != "archived")
+        else:
             q = q.filter(Token.status.in_(statuses))
         # min_score применяется только к active; monitoring не фильтруем по скору
         if min_score is not None:
@@ -200,9 +202,10 @@ class TokensRepository:
                 (TokenScore.token_id == subq.c.token_id) & (TokenScore.created_at == subq.c.max_created_at),
                 isouter=True,
             )
-            .filter(Token.status != "archived")
         )
-        if statuses:
+        if statuses is None:
+            q = q.filter(Token.status != "archived")
+        else:
             q = q.filter(Token.status.in_(statuses))
         if min_score is not None:
             q = q.filter(((Token.status != "active") | (TokenScore.score >= min_score)))
