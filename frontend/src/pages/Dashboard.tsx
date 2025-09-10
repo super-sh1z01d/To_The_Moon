@@ -21,6 +21,18 @@ export default function Dashboard(){
       const res = await getTokens(minScore, limit, offset, sort, statuses)
       setItems(res.items)
       setTotal(res.total)
+      // Prefetch pools for visible tokens if not loaded yet
+      for(const it of res.items){
+        const mint = it.mint_address
+        if(!pools[mint] && !pLoading[mint]){
+          setPLoading(prev=>({...prev, [mint]: true}))
+          getPools(mint).then(data=>{
+            setPools(prev=>({...prev, [mint]: data}))
+          }).finally(()=>{
+            setPLoading(prev=>({...prev, [mint]: false}))
+          })
+        }
+      }
     } finally{ setLoading(false) }
   }
   useEffect(()=>{ load() }, [])
@@ -31,20 +43,7 @@ export default function Dashboard(){
     return ()=>clearInterval(t)
   }, [minScore, limit, offset, sort, statusFilter])
 
-  async function togglePools(mint: string){
-    const opened = pools[mint]
-    if(opened){
-      setPools(prev=>{ const n={...prev}; delete n[mint]; return n })
-      return
-    }
-    setPLoading(prev=>({...prev, [mint]: true}))
-    try{
-      const data = await getPools(mint)
-      setPools(prev=>({...prev, [mint]: data}))
-    } finally{
-      setPLoading(prev=>({...prev, [mint]: false}))
-    }
-  }
+  // No toggle anymore; pools are prefetched and shown inline
 
   return (
     <div>
@@ -86,15 +85,17 @@ export default function Dashboard(){
               <td>{statusLabel(it.status)}</td>
               <td>
                 {it.primary_dex && <span className="pill" title="Основная пара по ликвидности">Осн.: {it.primary_dex}</span>}
-                <button style={{marginLeft:6}} onClick={()=>togglePools(it.mint_address)} disabled={pLoading[it.mint_address]}>Пулы</button>
-                <div className="pools">
+                <div className="pools" style={{marginTop: 4}}>
                   {(pools[it.mint_address]||[]).map(p=> (
                     <span key={(p.address||'')+ (p.dex||'')} className="pool">
-                      {p.address ? <a href={p.solscan_url!} target="_blank" rel="noreferrer">{p.address}</a> : '—'}
-                      <span className="pill">{p.dex || '—'}</span>
+                      {p.solscan_url ? (
+                        <a href={p.solscan_url} target="_blank" rel="noreferrer">{p.dex || '—'}</a>
+                      ) : (
+                        <span className="muted">{p.dex || '—'}</span>
+                      )}
                     </span>
                   ))}
-                  {pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : null}
+                  {(!pools[it.mint_address] || (pools[it.mint_address]||[]).length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
                 </div>
               </td>
               <td><a href={it.solscan_url} target="_blank" rel="noreferrer">Открыть</a></td>
