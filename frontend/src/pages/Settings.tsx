@@ -42,6 +42,7 @@ export default function Settings(){
             <Field label="Вес ликвидности (W_l)" hint="Отражает устойчивость актива и глубину рынка" k="weight_l" v={vals['weight_l']} set={update} />
             <Field label="Вес импульса (W_m)" hint="Соотношение движений 5м/15м для выявления импульса" k="weight_m" v={vals['weight_m']} set={update} />
             <Field label="Вес частоты торгов (W_t)" hint="Число сделок как прокси интереса трейдеров" k="weight_t" v={vals['weight_t']} set={update} />
+            <Formula />
           </section>
           <section>
             <h3>Пороги</h3>
@@ -49,11 +50,11 @@ export default function Settings(){
           </section>
           <section>
             <h3>Тайминги и жизненный цикл</h3>
-            <Field label="Интервал для горячих (сек)" hint="Частота обновлений для токенов с высоким скором" k="hot_interval_sec" v={vals['hot_interval_sec']} set={update} />
-            <Field label="Интервал для остывших (сек)" hint="Частота обновлений для токенов с низким скором" k="cold_interval_sec" v={vals['cold_interval_sec']} set={update} />
-            <Field label="Период неактивности для архивации (час)" hint="Сколько часов подряд скор ниже порога, чтобы архивировать" k="archive_below_hours" v={vals['archive_below_hours']} set={update} />
-            <Field label="Таймаут мониторинга (час)" hint="Через сколько часов мониторинг без активации — архив" k="monitoring_timeout_hours" v={vals['monitoring_timeout_hours']} set={update} />
-            <Field label="Мин. ликвидность внешнего пула для активации (USD)" hint="Монета активируется при наличии внешнего пула (не pumpswap/pumpfun) с ликвидностью ≥ этого порога; при падении ниже — возвращается в мониторинг" k="activation_min_liquidity_usd" v={vals['activation_min_liquidity_usd']} set={update} />
+            <Field label="Интервал для горячих (сек)" hint="Статус: active с последним скором ≥ τ (min_score). Частота обновлений метрик/скора для таких токенов." k="hot_interval_sec" v={vals['hot_interval_sec']} set={update} />
+            <Field label="Интервал для остывших (сек)" hint="Статус: active с последним скором < τ либо без скора. Обновляются реже, чтобы экономить лимиты." k="cold_interval_sec" v={vals['cold_interval_sec']} set={update} />
+            <Field label="Период неактивности для архивации (час)" hint="Статус: active → archived, если в течение этого периода ни разу не было скора ≥ τ." k="archive_below_hours" v={vals['archive_below_hours']} set={update} />
+            <Field label="Таймаут мониторинга (час)" hint="Статус: monitoring → archived, если за этот период не выполнены условия активации." k="monitoring_timeout_hours" v={vals['monitoring_timeout_hours']} set={update} />
+            <Field label="Мин. ликвидность внешнего пула для активации (USD)" hint="Статусы: monitoring↔active. Активируем при наличии внешнего пула WSOL/SOL/USDC (не pumpfun/pumpswap/pumpfun-amm) с ликвидностью ≥ порога; при отсутствии — возвращаем в monitoring." k="activation_min_liquidity_usd" v={vals['activation_min_liquidity_usd']} set={update} />
           </section>
           <div className="actions">
             <button disabled={saving} onClick={()=>save(false)}>{saving? 'Сохранение...' : 'Сохранить'}</button>
@@ -72,5 +73,28 @@ function Field({label, hint, k, v, set}:{label:string, hint?:string, k:string,v?
       <span>{label}</span>
       <input value={v??''} onChange={e=>set(k, e.target.value)} title={hint} />
     </label>
+  )
+}
+
+function Formula(){
+  return (
+    <div style={{marginTop:8}}>
+      <h4 style={{margin:'8px 0'}}>Формула скоринга</h4>
+      <pre style={{whiteSpace:'pre-wrap', background:'#fafafa', border:'1px solid #eee', padding:8, borderRadius:4}}>
+S = HD_norm · (W_s·s + W_l·l + W_m·m + W_t·t)
+
+где:
+- l = clip((log10(L_tot) − 4) / 2)
+- s = clip(|ΔP_5m| / 0.1)
+- m = clip(|ΔP_5м| / (|ΔP_15м| + 0.001))
+- t = clip((N_5м / 5) / 300)
+- clip(x) = min(max(x, 0), 1)
+
+Примечания:
+- L_tot — суммарная ликвидность по WSOL/SOL/USDC пулам (без classic pumpfun).
+- ΔP берётся по самой ликвидной паре; если m15 отсутствует, используется h1/4.
+- N_5м — сумма (buys+sells) за 5 минут по всем учтённым пулам.
+      </pre>
+    </div>
   )
 }

@@ -1,4 +1,4 @@
-import { Link, NavLink, Route, Routes } from 'react-router-dom'
+import { NavLink, Route, Routes } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
 import TokenDetail from './pages/TokenDetail'
@@ -8,7 +8,7 @@ export default function App(){
   return (
     <div className="container">
       <header>
-        <h1><Link to="/">To The Moon</Link></h1>
+        <h1>To The Moon</h1>
         <nav>
           <NavLink to="/" end className={({isActive})=> isActive ? 'active' : ''}>Дашборд</NavLink>
           <NavLink to="/settings" className={({isActive})=> isActive ? 'active' : ''}>Настройки</NavLink>
