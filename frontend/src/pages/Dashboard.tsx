@@ -79,7 +79,8 @@ export default function Dashboard(){
               <td>{it.n_5m ?? '—'}</td>
               <td>{statusLabel(it.status)}</td>
               <td>
-                <button onClick={()=>togglePools(it.mint_address)} disabled={pLoading[it.mint_address]}>Пулы</button>
+                {it.primary_dex && <span className="pill" title="Основная пара по ликвидности">Осн.: {it.primary_dex}</span>}
+                <button style={{marginLeft:6}} onClick={()=>togglePools(it.mint_address)} disabled={pLoading[it.mint_address]}>Пулы</button>
                 <div className="pools">
                   {(pools[it.mint_address]||[]).map(p=> (
                     <span key={(p.address||'')+ (p.dex||'')} className="pool">

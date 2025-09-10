@@ -23,6 +23,7 @@ To The Moon — система скоринга токенов Solana
 - Подписка на миграции токенов через WebSocket Pump.fun → создание записей (status: `monitoring`).
 - Валидация через DexScreener: проверка наличия WSOL/pumpfun-amm и внешнего пула → `active`.
 - Сбор метрик по WSOL‑парам: ликвидность, дельты 5м/15м, транзакции 5м.
+- Определение основного DEX (по наибольшей ликвидности WSOL/SOL‑пары) и подсветка в UI.
 - Расчёт скоринга по формулам ТЗ (временная заглушка holders: `HD_norm=1`).
 - Планировщик (APScheduler): отдельные частоты обновления для «горячих»/«остывших» токенов.
 - Архивация: `active` ниже порога долгое время и `monitoring` с таймаутом.
@@ -35,8 +36,10 @@ To The Moon — система скоринга токенов Solana
 - Backend (FastAPI): `src/app`, маршруты `/health`, `/version`, `/settings`, `/tokens`, `/admin`, `/logs`, `/ui` (минимальный UI) и раздача SPA `/app`.
 - DB (PostgreSQL/SQLite dev): ORM SQLAlchemy 2.x, миграции Alembic. Таблицы: `tokens`, `token_scores`, `app_settings`.
 - Scheduler (APScheduler): фоновые задачи обновления «hot/cold», валидация `monitoring→active` и часовая архивация.
+  - При активации пытаемся заполнить `name`/`symbol` из `baseToken` DexScreener, если они были пустыми.
 - Worker Pump.fun (WebSocket): `src/workers/pumpfun_ws.py` — подписка `subscribeMigration` и запись `monitoring` токенов.
 - Внешние API: DexScreener (pairs), Pump.fun WS (migrations). Метрика holders временно исключена.
+  - Примечание: WSOL распознаётся как `WSOL` и `SOL` (а также варианты `W_SOL`, `W-SOL`). Pump.fun пары идентифицируются через `dexId` в {`pumpfun-amm`,`pumpfun`,`pumpswap`}.
 
 Требования
 ----------
@@ -113,6 +116,7 @@ API
   - `GET /tokens?min_score=&limit=&offset=&sort=score_desc|score_asc&statuses=active,monitoring`
     - Параметры: `limit` (1–100, по умолчанию 50), `offset` (>=0), `statuses` (список через запятую: `active,monitoring`).
     - Возвращает `{ total, items: [...], meta: {total,limit,offset,page,page_size,has_prev,has_next,sort,min_score} }`
+    - Поля `items[]`: `mint_address`, `name`, `symbol`, `status`, `score`, `liquidity_usd (L_tot)`, `delta_p_5m`, `delta_p_15m`, `n_5m`, `primary_dex`, `solscan_url`.
   - `GET /tokens/{mint}` — детали токена: последний `score/metrics`, `score_history`, `pools` (только WSOL), `status`, ссылка Solscan
   - `POST /tokens/{mint}/refresh` — on‑demand пересчёт (новый снапшот + score)
   - `GET /tokens/{mint}/pools` — WSOL‑пулы (адрес, dex, ссылка Solscan)

@@ -58,6 +58,7 @@ export default function TokenDetail(){
                 <tr><td>Δ 5м</td><td className={pctClass(data.metrics?.delta_p_5m)}>{fmtPct(data.metrics?.delta_p_5m)}</td></tr>
                 <tr><td>Δ 15м</td><td className={pctClass(data.metrics?.delta_p_15m)}>{fmtPct(data.metrics?.delta_p_15m)}</td></tr>
                 <tr><td>Транзакции 5м</td><td>{fmtInt(data.metrics?.n_5m)}</td></tr>
+                <tr><td>Основной DEX</td><td>{data.metrics?.primary_dex || '—'}</td></tr>
               </tbody>
             </table>
           </section>
@@ -112,4 +113,3 @@ function Sparkline({data, width, height}:{data:number[], width:number, height:nu
     </svg>
   )
 }
-

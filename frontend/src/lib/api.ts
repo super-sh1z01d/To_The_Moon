@@ -7,6 +7,7 @@ export type TokenItem = {
   delta_p_5m?: number
   delta_p_15m?: number
   n_5m?: number
+  primary_dex?: string
   solscan_url: string
 }
 
