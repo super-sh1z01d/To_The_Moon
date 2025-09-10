@@ -143,11 +143,13 @@ async def get_token_detail(mint: str, db: Session = Depends(get_db), history_lim
     history = repo.get_score_history(token.id, limit=history_limit)
     pools: list[PoolItem] | None = None
     if snap and snap.metrics and isinstance(snap.metrics, dict) and "pools" in snap.metrics:
+        pump_family = {"pumpfun-amm", "pumpfun", "pumpswap"}
         pools = [
             PoolItem(
                 address=p.get("address"), dex=p.get("dex"), quote=p.get("quote"),
                 solscan_url=(f"https://solscan.io/address/{p.get('address')}" if p.get('address') else None)
-            ) for p in (snap.metrics.get("pools") or []) if isinstance(p, dict) and p.get("is_wsol")
+            ) for p in (snap.metrics.get("pools") or [])
+            if isinstance(p, dict) and p.get("is_wsol") and str(p.get("dex") or "") not in pump_family
         ]
     return TokenDetail(
         mint_address=token.mint_address,
@@ -208,22 +210,28 @@ async def get_token_pools(mint: str, db: Session = Depends(get_db)) -> list[Pool
     snap = repo.get_latest_snapshot(token.id)
     pools = []
     if snap and snap.metrics and isinstance(snap.metrics, dict) and "pools" in snap.metrics:
-        pools = [p for p in (snap.metrics.get("pools") or []) if isinstance(p, dict) and p.get("is_wsol")]
+        pump_family = {"pumpfun-amm", "pumpfun", "pumpswap"}
+        pools = [
+            p for p in (snap.metrics.get("pools") or [])
+            if isinstance(p, dict) and p.get("is_wsol") and str(p.get("dex") or "") not in pump_family
+        ]
     else:
         # Фолбэк: получить актуальные пары напрямую
         pairs = DexScreenerClient(timeout=5.0).get_pairs(mint)
         if pairs:
             pools = []
             _WSOL = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
+            pump_family = {"pumpfun-amm", "pumpfun", "pumpswap"}
             for p in pairs:
                 try:
                     base = (p.get("baseToken") or {})
                     quote = (p.get("quoteToken") or {})
-                    if str(base.get("address")) == mint and str(quote.get("symbol", "")).upper() in _WSOL:
+                    dex_id = str(p.get("dexId") or "")
+                    if str(base.get("address")) == mint and str(quote.get("symbol", "")).upper() in _WSOL and dex_id not in pump_family:
                         pools.append(
                             {
                                 "address": p.get("pairAddress") or p.get("address"),
-                                "dex": p.get("dexId"),
+                                "dex": dex_id,
                                 "quote": quote.get("symbol"),
                             }
                         )

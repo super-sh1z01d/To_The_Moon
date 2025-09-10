@@ -22,8 +22,9 @@ To The Moon — система скоринга токенов Solana
 -----------
 - Подписка на миграции токенов через WebSocket Pump.fun → создание записей (status: `monitoring`).
 - Валидация через DexScreener: проверка наличия WSOL/pumpfun-amm и внешнего пула → `active`.
-- Сбор метрик по WSOL‑парам: ликвидность, дельты 5м/15м, транзакции 5м.
+- Сбор метрик по внешним WSOL/SOL‑парам: ликвидность, дельты 5м/15м, транзакции 5м (пулы семейства Pump.fun исключены из расчёта).
 - Определение основного DEX (по наибольшей ликвидности WSOL/SOL‑пары) и подсветка в UI.
+  - Основной DEX выбирается только среди внешних пулов (семейство Pump.fun исключено).
 - Расчёт скоринга по формулам ТЗ (временная заглушка holders: `HD_norm=1`).
 - Планировщик (APScheduler): отдельные частоты обновления для «горячих»/«остывших» токенов.
 - Архивация: `active` ниже порога долгое время и `monitoring` с таймаутом.
@@ -39,7 +40,7 @@ To The Moon — система скоринга токенов Solana
   - При активации пытаемся заполнить `name`/`symbol` из `baseToken` DexScreener, если они были пустыми.
 - Worker Pump.fun (WebSocket): `src/workers/pumpfun_ws.py` — подписка `subscribeMigration` и запись `monitoring` токенов.
 - Внешние API: DexScreener (pairs), Pump.fun WS (migrations). Метрика holders временно исключена.
-  - Примечание: WSOL распознаётся как `WSOL` и `SOL` (а также варианты `W_SOL`, `W-SOL`). Pump.fun пары идентифицируются через `dexId` в {`pumpfun-amm`,`pumpfun`,`pumpswap`}.
+  - Примечание: WSOL распознаётся как `WSOL` и `SOL` (а также варианты `W_SOL`, `W-SOL`). Pump.fun пары идентифицируются через `dexId` в {`pumpfun-amm`,`pumpfun`,`pumpswap`} и не учитываются в метриках/скоре.
 
 Требования
 ----------
@@ -119,7 +120,7 @@ API
     - Поля `items[]`: `mint_address`, `name`, `symbol`, `status`, `score`, `liquidity_usd (L_tot)`, `delta_p_5m`, `delta_p_15m`, `n_5m`, `primary_dex`, `solscan_url`.
   - `GET /tokens/{mint}` — детали токена: последний `score/metrics`, `score_history`, `pools` (только WSOL), `status`, ссылка Solscan
   - `POST /tokens/{mint}/refresh` — on‑demand пересчёт (новый снапшот + score)
-  - `GET /tokens/{mint}/pools` — WSOL‑пулы (адрес, dex, ссылка Solscan)
+  - `GET /tokens/{mint}/pools` — WSOL/SOL‑пулы (адрес, dex, ссылка Solscan), только внешние DEX (Pump.fun исключён)
 - Admin:
   - `POST /admin/recalculate` — запустить обновление «горячих» и «остывших» токенов
 - Logs:
