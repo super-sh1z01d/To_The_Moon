@@ -22,9 +22,9 @@ To The Moon — система скоринга токенов Solana
 -----------
 - Подписка на миграции токенов через WebSocket Pump.fun → создание записей (status: `monitoring`).
 - Валидация через DexScreener: проверка наличия WSOL/pumpfun-amm и внешнего пула → `active`.
-- Сбор метрик по WSOL/SOL‑парам: учитываются `pumpfun-amm`, `pumpswap` и внешние DEX; classic `pumpfun` исключён. Метрики: ликвидность, дельты 5м/15м, транзакции 5м.
+- Сбор метрик по WSOL/SOL и USDC‑парам: учитываются `pumpfun-amm`, `pumpswap` и внешние DEX; classic `pumpfun` исключён. Метрики: суммарная ликвидность (WSOL+USDC), дельты 5м/15м (по наиболее ликвидной паре), транзакции 5м (сумма).
   - Примечание по Δ15м: если DexScreener не отдаёт `priceChange.m15`, используется приближённое значение `h1/4`.
-- Определение основного DEX (по наибольшей ликвидности среди учитываемых WSOL/SOL‑пар) и подсветка в UI.
+- Определение основного DEX (по наибольшей ликвидности среди учитываемых WSOL/SOL/USDC‑пар) и подсветка в UI.
   - Учитываемые пулы: `pumpfun-amm`, `pumpswap` и внешние DEX; classic `pumpfun` исключён.
 - Расчёт скоринга по формулам ТЗ (временная заглушка holders: `HD_norm=1`).
 - Планировщик (APScheduler): отдельные частоты обновления для «горячих»/«остывших» токенов.
@@ -39,10 +39,10 @@ To The Moon — система скоринга токенов Solana
 - DB (PostgreSQL/SQLite dev): ORM SQLAlchemy 2.x, миграции Alembic. Таблицы: `tokens`, `token_scores`, `app_settings`.
 - Scheduler (APScheduler): фоновые задачи обновления «hot/cold», валидация `monitoring→active` и часовая архивация.
   - При активации пытаемся заполнить `name`/`symbol` из `baseToken` DexScreener, если они были пустыми.
-  - Правило активации/демоции по ликвидности внешних пулов: токен становится `active`, если есть хотя бы один внешний WSOL/SOL пул (DEX не в {pumpfun, pumpfun-amm, pumpswap}) с ликвидностью ≥ `activation_min_liquidity_usd`. Если для `active` токена больше нет таких пулов — статус возвращается в `monitoring`.
+  - Правило активации/демоции по ликвидности внешних пулов: токен становится `active`, если есть хотя бы один внешний пул WSOL/SOL/USDC (DEX не в {pumpfun, pumpfun-amm, pumpswap}) с ликвидностью ≥ `activation_min_liquidity_usd`. Если для `active` токена больше нет таких пулов — статус возвращается в `monitoring`.
 - Worker Pump.fun (WebSocket): `src/workers/pumpfun_ws.py` — подписка `subscribeMigration` и запись `monitoring` токенов.
 - Внешние API: DexScreener (pairs), Pump.fun WS (migrations). Метрика holders временно исключена.
-  - Примечание: WSOL распознаётся как `WSOL` и `SOL` (а также варианты `W_SOL`, `W-SOL`). Пулы Pump.fun определяются `dexId` ∈ {`pumpfun-amm`,`pumpfun`,`pumpswap`}; из расчёта исключён только `pumpfun` (classic), `pumpfun-amm` и `pumpswap` учитываются.
+  - Примечание: WSOL распознаётся как `WSOL` и `SOL` (а также варианты `W_SOL`, `W-SOL`); USDC распознаётся по символу `USDC`. Пулы Pump.fun определяются `dexId` ∈ {`pumpfun-amm`,`pumpfun`,`pumpswap`}; из расчёта исключён только `pumpfun` (classic), `pumpfun-amm` и `pumpswap` учитываются.
 
 Требования
 ----------

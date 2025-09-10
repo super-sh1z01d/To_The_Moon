@@ -72,6 +72,7 @@ export default function Dashboard(){
             <th>Транз. 5м</th>
             <th>Статус</th>
             <th>Пулы (WSOL)</th>
+            <th>Пулы (USDC)</th>
             <th>Solscan</th>
           </tr>
         </thead>
@@ -86,10 +87,18 @@ export default function Dashboard(){
               <td>{statusLabel(it.status)}</td>
               <td>
                 <div className="pools" style={{marginTop: 4}}>
-                  {(pools[it.mint_address]||[]).map(p=> (
-                    <span key={(p.address||'')+ (p.dex||'')} className="pool">{renderDexPill(p)}</span>
+                  {(pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='SOL' || (p.quote||'').toUpperCase()==='WSOL').map(p=> (
+                    <span key={(p.address||'')+ (p.dex||'')+ 'w'} className="pool">{renderDexPill(p)}</span>
                   ))}
-                  {(!pools[it.mint_address] || (pools[it.mint_address]||[]).length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
+                  {(!pools[it.mint_address] || (pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='SOL' || (p.quote||'').toUpperCase()==='WSOL').length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
+                </div>
+              </td>
+              <td>
+                <div className="pools" style={{marginTop: 4}}>
+                  {(pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='USDC').map(p=> (
+                    <span key={(p.address||'')+ (p.dex||'')+ 'u'} className="pool">{renderDexPill(p)}</span>
+                  ))}
+                  {(!pools[it.mint_address] || (pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='USDC').length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
                 </div>
               </td>
               <td><a href={it.solscan_url} target="_blank" rel="noreferrer">Открыть</a></td>

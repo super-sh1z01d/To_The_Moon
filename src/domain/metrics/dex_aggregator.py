@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Any, Optional
 
 _WSOL_SYMBOLS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
-# Exclude only classic pumpfun; include pumpfun-amm and pumpswap
+_USDC_SYMBOLS = {"USDC", "usdc"}
+# Exclude only classic pumpfun; include pumpfun-amm and pumpswap for metrics
 _EXCLUDE_DEX_IDS = {"pumpfun"}
 
 
@@ -26,38 +27,40 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
       - primary_dex: str | None
       - primary_liq_usd: float | None
     """
-    # Фильтруем только пары WSOL/токен, где baseToken.address == mint
+    # Фильтруем только пары WSOL/токен и USDC/токен, где baseToken.address == mint
     ws_pairs: list[dict[str, Any]] = []
+    usdc_pairs: list[dict[str, Any]] = []
     pools: list[dict[str, Any]] = []
     for p in pairs:
         try:
             base = p.get("baseToken", {})
             quote = p.get("quoteToken", {})
             dex_id = str(p.get("dexId") or "")
-            # Используем WSOL/SOL пары данного mint за исключением pumpfun (classic)
+            # Используем WSOL/SOL или USDC пары данного mint за исключением pumpfun (classic)
             # (включая pumpfun-amm, pumpswap и внешние DEX)
-            if (
-                str(base.get("address")) == mint
-                and str(quote.get("symbol", "")).upper() in _WSOL_SYMBOLS
-                and dex_id not in _EXCLUDE_DEX_IDS
-            ):
+            qsym = str(quote.get("symbol", "")).upper()
+            if (str(base.get("address")) == mint and dex_id not in _EXCLUDE_DEX_IDS and (qsym in _WSOL_SYMBOLS or qsym in _USDC_SYMBOLS)):
                 addr = p.get("pairAddress") or p.get("address")
                 pools.append(
                     {
                         "address": addr,
                         "dex": dex_id,
                         "quote": (quote or {}).get("symbol"),
-                        "is_wsol": True,
+                        "is_wsol": True if qsym in _WSOL_SYMBOLS else False,
+                        "is_usdc": True if qsym in _USDC_SYMBOLS else False,
                     }
                 )
-                ws_pairs.append(p)
+                if qsym in _WSOL_SYMBOLS:
+                    ws_pairs.append(p)
+                elif qsym in _USDC_SYMBOLS:
+                    usdc_pairs.append(p)
         except Exception:
             continue
 
     l_tot = 0.0
     primary = None
     primary_lq = -1.0
-    for p in ws_pairs:
+    for p in (ws_pairs + usdc_pairs):
         liq_usd = _to_float((p.get("liquidity") or {}).get("usd"))
         if liq_usd:
             l_tot += liq_usd
@@ -83,9 +86,9 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
             if h1 is not None:
                 dp15 = (h1 / 4.0) / 100.0
 
-    # N_5m — сумма buys + sells по всем WSOL-парам за m5
+    # N_5m — сумма buys + sells по всем выбранным парам за m5
     n5m = 0
-    for p in ws_pairs:
+    for p in (ws_pairs + usdc_pairs):
         tx = (p.get("txns") or {}).get("m5") or {}
         buys = _to_float(tx.get("buys")) or 0.0
         sells = _to_float(tx.get("sells")) or 0.0
@@ -97,6 +100,7 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
         "delta_p_15m": round(dp15, 6),
         "n_5m": int(n5m),
         "ws_pairs": len(ws_pairs),
+        "usdc_pairs": len(usdc_pairs),
         "primary_dex": (primary or {}).get("dexId") if primary else None,
         "primary_liq_usd": round(primary_lq, 6) if primary_lq >= 0 else None,
         "source": "dexscreener",

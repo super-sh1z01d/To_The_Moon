@@ -42,8 +42,9 @@ def validate_monitoring_once(limit: int = 100) -> None:
     enforce_activation_once(limit_monitoring=limit, limit_active=0)
 
 
-def _external_wsol_liq_ge(mint: str, pairs: list[dict], threshold: float) -> bool:
+def _external_liq_ge(mint: str, pairs: list[dict], threshold: float) -> bool:
     WS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
+    USD = {"USDC", "usdc"}
     EXCL = {"pumpfun", "pumpfun-amm", "pumpswap"}
     for p in pairs:
         try:
@@ -54,7 +55,7 @@ def _external_wsol_liq_ge(mint: str, pairs: list[dict], threshold: float) -> boo
             dex = str(p.get("dexId") or "")
             if dex in EXCL:
                 continue
-            if str(quote.get("symbol", "")).upper() not in WS:
+            if str(quote.get("symbol", "")).upper() not in WS | USD:
                 continue
             lq = (p.get("liquidity") or {}).get("usd")
             if lq is None:
@@ -86,7 +87,7 @@ def enforce_activation_once(limit_monitoring: int = 200, limit_active: int = 200
                 pairs = client.get_pairs(t.mint_address)
                 if not pairs:
                     continue
-                if _external_wsol_liq_ge(t.mint_address, pairs, threshold):
+                if _external_liq_ge(t.mint_address, pairs, threshold):
                     # best effort: fill name/symbol if empty
                     name = None
                     symbol = None
@@ -114,7 +115,7 @@ def enforce_activation_once(limit_monitoring: int = 200, limit_active: int = 200
                 pairs = client.get_pairs(t.mint_address)
                 if pairs is None:
                     continue
-                if not _external_wsol_liq_ge(t.mint_address, pairs, threshold):
+                if not _external_liq_ge(t.mint_address, pairs, threshold):
                     repo.set_monitoring(t)
                     demoted += 1
                     logv.info("demoted_by_liquidity", extra={"extra": {"mint": t.mint_address, "threshold": threshold}})

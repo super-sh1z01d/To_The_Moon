@@ -214,7 +214,7 @@ async def get_token_pools(mint: str, db: Session = Depends(get_db)) -> list[Pool
         exclude = {"pumpfun"}
         pools = [
             p for p in (snap.metrics.get("pools") or [])
-            if isinstance(p, dict) and p.get("is_wsol") and str(p.get("dex") or "") not in exclude
+            if isinstance(p, dict) and str(p.get("dex") or "") not in exclude and (p.get("is_wsol") or p.get("is_usdc"))
         ]
     else:
         # Фолбэк: получить актуальные пары напрямую
@@ -222,13 +222,14 @@ async def get_token_pools(mint: str, db: Session = Depends(get_db)) -> list[Pool
         if pairs:
             pools = []
             _WSOL = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
+            _USDC = {"USDC", "usdc"}
             exclude = {"pumpfun"}
             for p in pairs:
                 try:
                     base = (p.get("baseToken") or {})
                     quote = (p.get("quoteToken") or {})
                     dex_id = str(p.get("dexId") or "")
-                    if str(base.get("address")) == mint and str(quote.get("symbol", "")).upper() in _WSOL and dex_id not in exclude:
+                    if str(base.get("address")) == mint and str(quote.get("symbol", "")).upper() in (_WSOL | _USDC) and dex_id not in exclude:
                         pools.append(
                             {
                                 "address": p.get("pairAddress") or p.get("address"),
