@@ -54,6 +54,14 @@ class TokensRepository:
         self.db.add(token)
         self.db.commit()
 
+    def set_monitoring(self, token: Token) -> None:
+        from datetime import datetime, timezone
+
+        token.status = "monitoring"
+        token.last_updated_at = datetime.now(tz=timezone.utc)
+        self.db.add(token)
+        self.db.commit()
+
     def update_token_fields(self, token: Token, name: Optional[str] = None, symbol: Optional[str] = None) -> None:
         updated = False
         if name and not token.name:

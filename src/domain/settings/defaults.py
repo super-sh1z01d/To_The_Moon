@@ -12,5 +12,6 @@ DEFAULT_SETTINGS: dict[str, str] = {
     # Жизненный цикл
     "archive_below_hours": "12",
     "monitoring_timeout_hours": "12",
+    # Порог ликвидности внешнего пула для активации/демоции (USD)
+    "activation_min_liquidity_usd": "200",
 }
-

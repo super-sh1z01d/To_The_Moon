@@ -39,6 +39,7 @@ To The Moon — система скоринга токенов Solana
 - DB (PostgreSQL/SQLite dev): ORM SQLAlchemy 2.x, миграции Alembic. Таблицы: `tokens`, `token_scores`, `app_settings`.
 - Scheduler (APScheduler): фоновые задачи обновления «hot/cold», валидация `monitoring→active` и часовая архивация.
   - При активации пытаемся заполнить `name`/`symbol` из `baseToken` DexScreener, если они были пустыми.
+  - Правило активации/демоции по ликвидности внешних пулов: токен становится `active`, если есть хотя бы один внешний WSOL/SOL пул (DEX не в {pumpfun, pumpfun-amm, pumpswap}) с ликвидностью ≥ `activation_min_liquidity_usd`. Если для `active` токена больше нет таких пулов — статус возвращается в `monitoring`.
 - Worker Pump.fun (WebSocket): `src/workers/pumpfun_ws.py` — подписка `subscribeMigration` и запись `monitoring` токенов.
 - Внешние API: DexScreener (pairs), Pump.fun WS (migrations). Метрика holders временно исключена.
   - Примечание: WSOL распознаётся как `WSOL` и `SOL` (а также варианты `W_SOL`, `W-SOL`). Пулы Pump.fun определяются `dexId` ∈ {`pumpfun-amm`,`pumpfun`,`pumpswap`}; из расчёта исключён только `pumpfun` (classic), `pumpfun-amm` и `pumpswap` учитываются.
@@ -101,6 +102,7 @@ PUMPFUN_RUN_SECONDS=120 PYTHONPATH=. python3 -m src.workers.pumpfun_ws
   - Весовые коэффициенты: `weight_s`, `weight_l`, `weight_m`, `weight_t`
   - Порог: `min_score`
   - Тайминги: `hot_interval_sec`, `cold_interval_sec`, `archive_below_hours`, `monitoring_timeout_hours`
+  - Активация: `activation_min_liquidity_usd` — минимальная ликвидность внешнего пула (USD) для активации/демоции
 
 Миграции
 --------

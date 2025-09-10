@@ -3,7 +3,8 @@ import { getSettings, putSetting, recalc, SettingsMap } from '../lib/api'
 
 const keys = [
   'weight_s','weight_l','weight_m','weight_t',
-  'min_score','hot_interval_sec','cold_interval_sec','archive_below_hours','monitoring_timeout_hours'
+  'min_score','hot_interval_sec','cold_interval_sec','archive_below_hours','monitoring_timeout_hours',
+  'activation_min_liquidity_usd'
 ]
 
 export default function Settings(){
@@ -52,6 +53,7 @@ export default function Settings(){
             <Field label="Интервал для остывших (сек)" hint="Частота обновлений для токенов с низким скором" k="cold_interval_sec" v={vals['cold_interval_sec']} set={update} />
             <Field label="Период неактивности для архивации (час)" hint="Сколько часов подряд скор ниже порога, чтобы архивировать" k="archive_below_hours" v={vals['archive_below_hours']} set={update} />
             <Field label="Таймаут мониторинга (час)" hint="Через сколько часов мониторинг без активации — архив" k="monitoring_timeout_hours" v={vals['monitoring_timeout_hours']} set={update} />
+            <Field label="Мин. ликвидность внешнего пула для активации (USD)" hint="Монета активируется при наличии внешнего пула (не pumpswap/pumpfun) с ликвидностью ≥ этого порога; при падении ниже — возвращается в мониторинг" k="activation_min_liquidity_usd" v={vals['activation_min_liquidity_usd']} set={update} />
           </section>
           <div className="actions">
             <button disabled={saving} onClick={()=>save(false)}>{saving? 'Сохранение...' : 'Сохранить'}</button>

@@ -7,7 +7,6 @@ from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.settings.service import SettingsService
 from src.adapters.services.dexscreener_client import DexScreenerClient
-from src.domain.validation.dex_rules import check_activation_conditions
 
 
 log = logging.getLogger("archiver")
@@ -39,39 +38,84 @@ def archive_once() -> None:
 
 
 def validate_monitoring_once(limit: int = 100) -> None:
-    logv = logging.getLogger("validator")
+    # Сохранён для обратной совместимости; перенаправляем на новый механизм
+    enforce_activation_once(limit_monitoring=limit, limit_active=0)
+
+
+def _external_wsol_liq_ge(mint: str, pairs: list[dict], threshold: float) -> bool:
+    WS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
+    EXCL = {"pumpfun", "pumpfun-amm", "pumpswap"}
+    for p in pairs:
+        try:
+            base = p.get("baseToken") or {}
+            quote = p.get("quoteToken") or {}
+            if str(base.get("address")) != mint:
+                continue
+            dex = str(p.get("dexId") or "")
+            if dex in EXCL:
+                continue
+            if str(quote.get("symbol", "")).upper() not in WS:
+                continue
+            lq = (p.get("liquidity") or {}).get("usd")
+            if lq is None:
+                continue
+            if float(lq) >= threshold:
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def enforce_activation_once(limit_monitoring: int = 200, limit_active: int = 200) -> None:
+    logv = logging.getLogger("activation")
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
-        tokens = repo.list_by_status("monitoring", limit=limit)
+        settings = SettingsService(sess)
+        try:
+            threshold = float(settings.get("activation_min_liquidity_usd") or 200.0)
+        except Exception:
+            threshold = 200.0
+
         client = DexScreenerClient(timeout=5.0)
-        checked = 0
-        activated = 0
-        for t in tokens:
-            checked += 1
-            pairs = client.get_pairs(t.mint_address)
-            if pairs is None:
-                logv.warning("pairs_fetch_failed", extra={"extra": {"mint": t.mint_address}})
-                continue
-            ok = check_activation_conditions(t.mint_address, pairs)
-            if ok:
-                # Пробуем обновить name/symbol из данных пары (если пусто)
-                name = None
-                symbol = None
-                try:
-                    # берем первое вхождение baseToken.name/symbol, где адрес совпадает
-                    for p in pairs:
-                        base = (p.get("baseToken") or {})
-                        if str(base.get("address")) == t.mint_address:
-                            name = base.get("name") or name
-                            symbol = base.get("symbol") or symbol
-                            if name or symbol:
-                                break
-                except Exception:
-                    pass
-                repo.update_token_fields(t, name=name, symbol=symbol)
-                repo.set_active(t)
-                activated += 1
-                logv.info("activated", extra={"extra": {"mint": t.mint_address, "name": name, "symbol": symbol}})
-            else:
-                logv.info("kept_monitoring", extra={"extra": {"mint": t.mint_address}})
-        logv.info("validator_summary", extra={"extra": {"checked": checked, "activated": activated}})
+
+        # Promote monitoring → active if has external WSOL/SOL pool with Lq >= threshold
+        if limit_monitoring:
+            mons = repo.list_by_status("monitoring", limit=limit_monitoring)
+            promoted = 0
+            for t in mons:
+                pairs = client.get_pairs(t.mint_address)
+                if not pairs:
+                    continue
+                if _external_wsol_liq_ge(t.mint_address, pairs, threshold):
+                    # best effort: fill name/symbol if empty
+                    name = None
+                    symbol = None
+                    try:
+                        for p in pairs:
+                            base = (p.get("baseToken") or {})
+                            if str(base.get("address")) == t.mint_address:
+                                name = name or base.get("name")
+                                symbol = symbol or base.get("symbol")
+                                if name and symbol:
+                                    break
+                    except Exception:
+                        pass
+                    repo.update_token_fields(t, name=name, symbol=symbol)
+                    repo.set_active(t)
+                    promoted += 1
+                    logv.info("activated_by_liquidity", extra={"extra": {"mint": t.mint_address, "threshold": threshold}})
+            logv.info("promotion_summary", extra={"extra": {"checked": len(mons), "promoted": promoted, "threshold": threshold}})
+
+        # Demote active → monitoring if no external WSOL/SOL pools with Lq >= threshold
+        if limit_active:
+            acts = repo.list_by_status("active", limit=limit_active)
+            demoted = 0
+            for t in acts:
+                pairs = client.get_pairs(t.mint_address)
+                if pairs is None:
+                    continue
+                if not _external_wsol_liq_ge(t.mint_address, pairs, threshold):
+                    repo.set_monitoring(t)
+                    demoted += 1
+                    logv.info("demoted_by_liquidity", extra={"extra": {"mint": t.mint_address, "threshold": threshold}})
+            logv.info("demotion_summary", extra={"extra": {"checked": len(acts), "demoted": demoted, "threshold": threshold}})
