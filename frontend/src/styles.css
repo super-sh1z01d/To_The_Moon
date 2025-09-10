@@ -15,6 +15,14 @@ th{ background: #f8f8f8 }
 .pools{ margin-top: 4px }
 .pool{ font-size: 12px; margin-right: 8px }
 .pool a{ text-decoration: none }
+/* Color variants for known DEX badges */
+.pill.dex-pumpswap{ background:#ede7f6; color:#4527a0 }
+.pill.dex-pumpfun-amm{ background:#e3f2fd; color:#0d47a1 }
+.pill.dex-meteora{ background:#e1f5fe; color:#0277bd }
+.pill.dex-raydium{ background:#e8f5e9; color:#1b5e20 }
+.pill.dex-orca{ background:#fff3e0; color:#e65100 }
+.pill.dex-jupiter{ background:#f3e5f5; color:#6a1b9a }
+.pill.dex-unknown{ background:#eee; color:#333 }
 .settings{ display: grid; grid-template-columns: 1fr; gap: 16px }
 .field{ display:flex; gap: 8px; align-items:center; margin: 6px 0 }
 .field span{ min-width: 340px }

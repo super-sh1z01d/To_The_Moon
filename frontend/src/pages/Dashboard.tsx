@@ -84,16 +84,9 @@ export default function Dashboard(){
               <td>{it.n_5m ?? '—'}</td>
               <td>{statusLabel(it.status)}</td>
               <td>
-                {it.primary_dex && <span className="pill" title="Основная пара по ликвидности">Осн.: {it.primary_dex}</span>}
                 <div className="pools" style={{marginTop: 4}}>
                   {(pools[it.mint_address]||[]).map(p=> (
-                    <span key={(p.address||'')+ (p.dex||'')} className="pool">
-                      {p.solscan_url ? (
-                        <a href={p.solscan_url} target="_blank" rel="noreferrer">{p.dex || '—'}</a>
-                      ) : (
-                        <span className="muted">{p.dex || '—'}</span>
-                      )}
-                    </span>
+                    <span key={(p.address||'')+ (p.dex||'')} className="pool">{renderDexPill(p)}</span>
                   ))}
                   {(!pools[it.mint_address] || (pools[it.mint_address]||[]).length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
                 </div>
@@ -120,4 +113,18 @@ function statusLabel(s?: string){
   if(s==='active') return 'Активен'
   if(s==='monitoring') return 'Мониторинг'
   return s
+}
+
+function dexClass(name?: string){
+  const slug = (name||'unknown').toLowerCase().replace(/[^a-z0-9]+/g,'-')
+  return `pill dex-${slug}`
+}
+
+function renderDexPill(p: PoolItem){
+  const label = p.dex || '—'
+  const cls = dexClass(p.dex)
+  if(p.solscan_url){
+    return <a className={cls} href={p.solscan_url} target="_blank" rel="noreferrer">{label}</a>
+  }
+  return <span className={cls}>{label}</span>
 }
