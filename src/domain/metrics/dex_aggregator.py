@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Any, Optional
 
 _WSOL_SYMBOLS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
-_PUMPFUN_DEX_IDS = {"pumpfun-amm", "pumpfun", "pumpswap"}
+# Exclude only classic pumpfun; include pumpfun-amm and pumpswap
+_EXCLUDE_DEX_IDS = {"pumpfun"}
 
 
 def _to_float(x: Any) -> Optional[float]:
@@ -33,11 +34,12 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
             base = p.get("baseToken", {})
             quote = p.get("quoteToken", {})
             dex_id = str(p.get("dexId") or "")
-            # Используем ТОЛЬКО внешние (не pumpfun family) WSOL/SOL пары данного mint
+            # Используем WSOL/SOL пары данного mint за исключением pumpfun (classic)
+            # (включая pumpfun-amm, pumpswap и внешние DEX)
             if (
                 str(base.get("address")) == mint
                 and str(quote.get("symbol", "")).upper() in _WSOL_SYMBOLS
-                and dex_id not in _PUMPFUN_DEX_IDS
+                and dex_id not in _EXCLUDE_DEX_IDS
             ):
                 addr = p.get("pairAddress") or p.get("address")
                 pools.append(
