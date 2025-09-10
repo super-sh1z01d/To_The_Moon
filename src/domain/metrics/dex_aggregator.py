@@ -77,6 +77,11 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
             dp5 = raw5 / 100.0
         if raw15 is not None:
             dp15 = raw15 / 100.0
+        else:
+            # Fallback: DexScreener часто не возвращает m15 на Solana; используем h1/4 как приблизительную оценку
+            h1 = _to_float(pc.get("h1"))
+            if h1 is not None:
+                dp15 = (h1 / 4.0) / 100.0
 
     # N_5m — сумма buys + sells по всем WSOL-парам за m5
     n5m = 0
