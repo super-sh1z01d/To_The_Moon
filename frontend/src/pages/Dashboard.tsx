@@ -25,6 +25,12 @@ export default function Dashboard(){
   }
   useEffect(()=>{ load() }, [])
 
+  // Auto-refresh every 5 seconds respecting current filters/pagination
+  useEffect(()=>{
+    const t = setInterval(()=>{ load() }, 5000)
+    return ()=>clearInterval(t)
+  }, [minScore, limit, offset, sort, statusFilter])
+
   async function togglePools(mint: string){
     const opened = pools[mint]
     if(opened){
