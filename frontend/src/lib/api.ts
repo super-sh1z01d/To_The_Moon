@@ -51,3 +51,32 @@ export async function putSetting(key: string, value: string): Promise<void>{
 export async function recalc(): Promise<void>{
   await fetch('/admin/recalculate', {method:'POST'})
 }
+
+// Logs
+export type LogEntry = {
+  ts: string
+  level: string
+  logger: string
+  msg: string
+  [k: string]: any
+}
+
+export type LogsMeta = { loggers: string[] }
+
+export async function getLogs(params: {limit?: number, levels?: string[], loggers?: string[], contains?: string, since?: string} = {}): Promise<LogEntry[]> {
+  const q = new URLSearchParams()
+  if(params.limit!=null) q.set('limit', String(params.limit))
+  if(params.levels && params.levels.length) q.set('levels', params.levels.join(','))
+  if(params.loggers && params.loggers.length) q.set('loggers', params.loggers.join(','))
+  if(params.contains) q.set('contains', params.contains)
+  if(params.since) q.set('since', params.since)
+  const r = await fetch(`/logs/?${q.toString()}`)
+  if(!r.ok) throw new Error('logs fetch failed')
+  return r.json()
+}
+
+export async function getLogsMeta(): Promise<LogsMeta> {
+  const r = await fetch('/logs/meta')
+  if(!r.ok) throw new Error('logs meta fetch failed')
+  return r.json()
+}

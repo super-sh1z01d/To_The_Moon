@@ -93,11 +93,12 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     scheduler.add_job(
         _process_group, "interval", seconds=cold_interval, args=["cold"], id="cold_updater", max_instances=1
     )
-    # Архивация раз в час
-    from datetime import datetime
+    # Валидация monitoring → active каждую минуту
     from apscheduler.triggers.interval import IntervalTrigger
-    from src.scheduler.tasks import archive_once
+    from src.scheduler.tasks import archive_once, validate_monitoring_once
 
+    scheduler.add_job(validate_monitoring_once, IntervalTrigger(minutes=1), id="monitoring_validator", max_instances=1)
+    # Архивация раз в час
     scheduler.add_job(archive_once, IntervalTrigger(hours=1), id="archiver_hourly", max_instances=1)
     scheduler.start()
     app.state.scheduler = scheduler

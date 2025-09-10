@@ -54,6 +54,18 @@ class TokensRepository:
         self.db.add(token)
         self.db.commit()
 
+    def update_token_fields(self, token: Token, name: Optional[str] = None, symbol: Optional[str] = None) -> None:
+        updated = False
+        if name and not token.name:
+            token.name = name
+            updated = True
+        if symbol and not token.symbol:
+            token.symbol = symbol
+            updated = True
+        if updated:
+            self.db.add(token)
+            self.db.commit()
+
     def insert_score_snapshot(self, token_id: int, metrics: dict, score: Optional[float] = None) -> int:
         from datetime import datetime, timezone
 

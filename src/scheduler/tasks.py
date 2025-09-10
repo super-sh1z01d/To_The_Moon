@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.settings.service import SettingsService
+from src.adapters.services.dexscreener_client import DexScreenerClient
+from src.domain.validation.dex_rules import check_activation_conditions
 
 
 log = logging.getLogger("archiver")
@@ -35,3 +37,41 @@ def archive_once() -> None:
             m_arch += 1
         log.info("archiver_monitoring", extra={"extra": {"archived": m_arch, "timeout_h": monitoring_timeout_hours}})
 
+
+def validate_monitoring_once(limit: int = 100) -> None:
+    logv = logging.getLogger("validator")
+    with SessionLocal() as sess:
+        repo = TokensRepository(sess)
+        tokens = repo.list_by_status("monitoring", limit=limit)
+        client = DexScreenerClient(timeout=5.0)
+        checked = 0
+        activated = 0
+        for t in tokens:
+            checked += 1
+            pairs = client.get_pairs(t.mint_address)
+            if pairs is None:
+                logv.warning("pairs_fetch_failed", extra={"extra": {"mint": t.mint_address}})
+                continue
+            ok = check_activation_conditions(t.mint_address, pairs)
+            if ok:
+                # Пробуем обновить name/symbol из данных пары (если пусто)
+                name = None
+                symbol = None
+                try:
+                    # берем первое вхождение baseToken.name/symbol, где адрес совпадает
+                    for p in pairs:
+                        base = (p.get("baseToken") or {})
+                        if str(base.get("address")) == t.mint_address:
+                            name = base.get("name") or name
+                            symbol = base.get("symbol") or symbol
+                            if name or symbol:
+                                break
+                except Exception:
+                    pass
+                repo.update_token_fields(t, name=name, symbol=symbol)
+                repo.set_active(t)
+                activated += 1
+                logv.info("activated", extra={"extra": {"mint": t.mint_address, "name": name, "symbol": symbol}})
+            else:
+                logv.info("kept_monitoring", extra={"extra": {"mint": t.mint_address}})
+        logv.info("validator_summary", extra={"extra": {"checked": checked, "activated": activated}})

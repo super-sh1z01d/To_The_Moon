@@ -15,11 +15,15 @@ from .routes.settings import router as settings_router
 from .routes.tokens import router as tokens_router
 from .routes.ui import router as ui_router
 from .routes.admin import router as admin_router
+from .routes.logs import router as logs_router
+from .logs_buffer import attach_buffer_handler
 
 
 def create_app() -> FastAPI:
     cfg = get_config()
     configure_logging(level=cfg.log_level, service=cfg.app_name, version=cfg.app_version, env=cfg.app_env)
+    # Attach in-memory buffer for logs API
+    attach_buffer_handler()
     app = FastAPI(title=cfg.app_name, version=cfg.app_version)
 
     # Middlewares
@@ -111,6 +115,7 @@ def create_app() -> FastAPI:
     app.include_router(tokens_router)
     app.include_router(ui_router)
     app.include_router(admin_router)
+    app.include_router(logs_router)
 
     # Static SPA (if built)
     mount_spa(app)
