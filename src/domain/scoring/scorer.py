@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 
 def _clip01(x: float) -> float:
@@ -40,12 +40,16 @@ def compute_components(metrics: dict) -> dict:
     LIQ = math.log10(L_tot) if L_tot > 0 else 0.0
     l = _clip01((LIQ - 4.0) / 2.0)
 
-    # SV = abs(ΔP_5m); s = clip(SV / 0.1)
+    # SV = abs(ΔP_5m); s = логарифмическое сглаживание для меньшей чувствительности 
     SV = dp5
-    s = _clip01(SV / 0.1)
+    # Было: s = clip(SV / 0.1) - слишком резкое
+    # Стало: логарифмическое сглаживание дает более плавную нормализацию
+    s = _clip01(math.log(1 + SV * 10) / math.log(11)) if SV > 0 else 0.0
 
-    # MV = abs(ΔP_5m)/(abs(ΔP_15m)+0.001); m = clip(MV)
-    MV = dp5 / (dp15 + 0.001)
+    # MV = abs(ΔP_5m)/(max(abs(ΔP_15m), 0.01)); m = clip(MV)
+    # Было: MV = dp5 / (dp15 + 0.001) - проблема при малых dp15
+    # Стало: используем max для избежания деления на очень малые числа
+    MV = dp5 / max(abs(dp15), 0.01)
     m = _clip01(MV)
 
     # TF = N_5m / 5; t = clip(TF/300)
@@ -75,4 +79,31 @@ def compute_score(metrics: dict, weights: dict[str, float]) -> Tuple[float, dict
 
     score = comps["HD_norm"] * (Ws * comps["s"] + Wl * comps["l"] + Wm * comps["m"] + Wt * comps["t"])
     return float(round(score, 6)), comps
+
+
+def compute_smoothed_score(
+    new_score: float, 
+    previous_smoothed_score: Optional[float], 
+    alpha: float = 0.3
+) -> float:
+    """Вычисляет сглаженный скор с использованием экспоненциального скользящего среднего.
+    
+    Args:
+        new_score: Новый вычисленный скор
+        previous_smoothed_score: Предыдущий сглаженный скор (None для первого расчета)
+        alpha: Коэффициент сглаживания (0.0-1.0), чем больше - тем быстрее адаптация
+        
+    Returns:
+        Сглаженный скор
+        
+    Формула: smoothed_score = α * new_score + (1-α) * previous_smoothed_score
+    """
+    if previous_smoothed_score is None:
+        # Первый расчет - возвращаем новый скор как есть
+        return float(round(new_score, 6))
+    
+    # Экспоненциальное скользящее среднее
+    alpha = max(0.0, min(1.0, alpha))  # Клампим alpha к диапазону [0, 1]
+    smoothed = alpha * new_score + (1 - alpha) * previous_smoothed_score
+    return float(round(smoothed, 6))
 

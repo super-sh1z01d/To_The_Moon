@@ -74,15 +74,22 @@ class TokensRepository:
             self.db.add(token)
             self.db.commit()
 
-    def insert_score_snapshot(self, token_id: int, metrics: dict, score: Optional[float] = None) -> int:
+    def insert_score_snapshot(self, token_id: int, metrics: dict, score: Optional[float] = None, smoothed_score: Optional[float] = None) -> int:
         from datetime import datetime, timezone
 
-        snap = TokenScore(token_id=token_id, score=score, metrics=metrics, created_at=datetime.now(tz=timezone.utc))
+        snap = TokenScore(
+            token_id=token_id, 
+            score=score, 
+            smoothed_score=smoothed_score,
+            metrics=metrics, 
+            created_at=datetime.now(tz=timezone.utc)
+        )
         self.db.add(snap)
         self.db.commit()
         self.db.refresh(snap)
         logging.getLogger("tokens_repo").info(
-            "score_snapshot_inserted", extra={"extra": {"token_id": token_id, "score": score}}
+            "score_snapshot_inserted", 
+            extra={"extra": {"token_id": token_id, "score": score, "smoothed_score": smoothed_score}}
         )
         return snap.id
 
@@ -94,11 +101,24 @@ class TokensRepository:
             .first()
         )
 
-    def update_snapshot_score(self, snapshot_id: int, score: float) -> None:
+    def get_previous_smoothed_score(self, token_id: int) -> Optional[float]:
+        """Получить предыдущий сглаженный скор для вычисления нового сглаженного значения."""
+        latest = (
+            self.db.query(TokenScore)
+            .filter(TokenScore.token_id == token_id)
+            .filter(TokenScore.smoothed_score.isnot(None))
+            .order_by(TokenScore.created_at.desc(), TokenScore.id.desc())
+            .first()
+        )
+        return float(latest.smoothed_score) if latest and latest.smoothed_score is not None else None
+
+    def update_snapshot_score(self, snapshot_id: int, score: float, smoothed_score: Optional[float] = None) -> None:
         snap = self.db.query(TokenScore).get(snapshot_id)
         if snap is None:
             return
         snap.score = score
+        if smoothed_score is not None:
+            snap.smoothed_score = smoothed_score
         # try to stamp scored_at inside metrics JSON for UI/UX
         try:
             from datetime import datetime, timezone
@@ -111,7 +131,8 @@ class TokensRepository:
         self.db.add(snap)
         self.db.commit()
         logging.getLogger("tokens_repo").info(
-            "score_snapshot_updated", extra={"extra": {"snapshot_id": snapshot_id, "score": score}}
+            "score_snapshot_updated", 
+            extra={"extra": {"snapshot_id": snapshot_id, "score": score, "smoothed_score": smoothed_score}}
         )
 
     # --- Архивация ---

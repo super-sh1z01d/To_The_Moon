@@ -10,6 +10,7 @@ from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.settings.service import SettingsService
 from src.domain.scoring.scorer import compute_score
+from src.domain.validation.data_filters import should_skip_score_update
 
 
 def main() -> int:
@@ -24,6 +25,9 @@ def main() -> int:
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
         settings = SettingsService(sess)
+        smoothing_alpha = float(settings.get("score_smoothing_alpha") or 0.3)
+        min_score_change = float(settings.get("min_score_change") or 0.05)
+        
         weights = {
             "weight_s": float(settings.get("weight_s") or 0.35),
             "weight_l": float(settings.get("weight_l") or 0.25),
@@ -39,11 +43,34 @@ def main() -> int:
             if not snap or not snap.metrics:
                 log.info("no_metrics", extra={"extra": {"token_id": t.id, "mint": t.mint_address}})
                 continue
+            
+            # Get previous smoothed score
+            previous_smoothed_score = repo.get_previous_smoothed_score(t.id)
+            
             score, comps = compute_score(snap.metrics, weights)
+            
+            # Check if we should skip minor score changes (unless forced with --insert_new)
+            if not args.insert_new and should_skip_score_update(score, snap.score, min_score_change):
+                log.debug("score_update_skipped", extra={"extra": {"mint": t.mint_address, "change": abs(score - (snap.score or 0))}})
+                continue
+            
+            # Compute smoothed score
+            from src.domain.scoring.scorer import compute_smoothed_score
+            smoothed_score = compute_smoothed_score(score, previous_smoothed_score, smoothing_alpha)
+            
             if args.insert_new:
-                repo.insert_score_snapshot(token_id=t.id, metrics=snap.metrics, score=score)
+                repo.insert_score_snapshot(
+                    token_id=t.id, 
+                    metrics=snap.metrics, 
+                    score=score, 
+                    smoothed_score=smoothed_score
+                )
             else:
-                repo.update_snapshot_score(snapshot_id=snap.id, score=score)
+                repo.update_snapshot_score(
+                    snapshot_id=snap.id, 
+                    score=score, 
+                    smoothed_score=smoothed_score
+                )
             scored += 1
             log.info(
                 "score_computed",
@@ -51,6 +78,8 @@ def main() -> int:
                     "extra": {
                         "mint": t.mint_address,
                         "score": score,
+                        "smoothed_score": smoothed_score,
+                        "alpha": smoothing_alpha,
                         "l": comps["l"],
                         "s": comps["s"],
                         "m": comps["m"],

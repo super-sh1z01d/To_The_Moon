@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 from datetime import datetime, timezone
+
+from ..validation.data_filters import (
+    filter_low_liquidity_pools,
+    detect_price_anomalies,
+    sanitize_price_changes,
+    validate_metrics_consistency,
+)
 
 _WSOL_SYMBOLS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
 _USDC_SYMBOLS = {"USDC", "usdc"}
@@ -16,8 +24,19 @@ def _to_float(x: Any) -> Optional[float]:
         return None
 
 
-def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, Any]:
-    """Собирает агрегаты по WSOL/токен парам для данного mint.
+def aggregate_wsol_metrics(
+    mint: str, 
+    pairs: list[dict[str, Any]], 
+    min_liquidity_usd: float = 500,
+    max_price_change: float = 0.5
+) -> dict[str, Any]:
+    """Собирает агрегаты по WSOL/токен парам для данного mint с фильтрацией данных.
+
+    Args:
+        mint: Адрес токена
+        pairs: Список пар от DexScreener
+        min_liquidity_usd: Минимальная ликвидность пула для учета
+        max_price_change: Максимальное изменение цены (для детекции аномалий)
 
     Возвращает словарь с ключами:
       - L_tot: float
@@ -27,12 +46,21 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
       - ws_pairs: int
       - primary_dex: str | None
       - primary_liq_usd: float | None
+      - filtered_pools_count: int (количество отфильтрованных пулов)
     """
-    # Фильтруем только пары WSOL/токен и USDC/токен, где baseToken.address == mint
+    log = logging.getLogger("dex_aggregator")
+    
+    # 1. Фильтруем пулы с низкой ликвидностью
+    filtered_pairs = filter_low_liquidity_pools(pairs, min_liquidity_usd)
+    
+    if len(filtered_pairs) < len(pairs):
+        log.debug(f"Filtered {len(pairs) - len(filtered_pairs)} low liquidity pools for {mint}")
+    
+    # 2. Фильтруем только пары WSOL/токен и USDC/токен, где baseToken.address == mint
     ws_pairs: list[dict[str, Any]] = []
     usdc_pairs: list[dict[str, Any]] = []
     pools: list[dict[str, Any]] = []
-    for p in pairs:
+    for p in filtered_pairs:
         try:
             base = p.get("baseToken", {})
             quote = p.get("quoteToken", {})
@@ -69,7 +97,7 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
                 primary_lq = liq_usd
                 primary = p
 
-    # ΔP берём из наиболее ликвидной WSOL-пары
+    # 3. ΔP берём из наиболее ликвидной WSOL-пары с фильтрацией аномалий
     dp5 = 0.0
     dp15 = 0.0
     if primary is not None:
@@ -87,6 +115,11 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
             if h1 is not None:
                 dp15 = (h1 / 4.0) / 100.0
 
+        # 4. Детекция и очистка аномальных изменений цены
+        if detect_price_anomalies(dp5, dp15, max_price_change):
+            log.warning(f"Price anomaly detected for {mint}: dp5={dp5:.1%}, dp15={dp15:.1%}")
+            dp5, dp15 = sanitize_price_changes(dp5, dp15, max_price_change)
+
     # N_5m — сумма buys + sells по всем выбранным парам за m5
     n5m = 0
     for p in (ws_pairs + usdc_pairs):
@@ -95,7 +128,8 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
         sells = _to_float(tx.get("sells")) or 0.0
         n5m += int(buys + sells)
 
-    return {
+    # 5. Формируем итоговые метрики
+    metrics = {
         "L_tot": round(l_tot, 6),
         "delta_p_5m": round(dp5, 6),
         "delta_p_15m": round(dp15, 6),
@@ -107,4 +141,16 @@ def aggregate_wsol_metrics(mint: str, pairs: list[dict[str, Any]]) -> dict[str, 
         "source": "dexscreener",
         "pools": pools,
         "fetched_at": datetime.now(tz=timezone.utc).isoformat(),
+        # Информация о фильтрации
+        "total_pairs_received": len(pairs),
+        "filtered_pairs_used": len(filtered_pairs),
+        "pools_filtered_out": len(pairs) - len(filtered_pairs),
     }
+    
+    # 6. Валидация консистентности финальных метрик
+    if not validate_metrics_consistency(metrics):
+        log.warning(f"Metrics consistency check failed for {mint}")
+        # Добавляем флаг о потенциальных проблемах с данными
+        metrics["data_quality_warning"] = True
+    
+    return metrics

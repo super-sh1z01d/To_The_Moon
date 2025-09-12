@@ -85,8 +85,8 @@ export default function Dashboard(){
         <thead>
           <tr>
             <th title="Имя/символ из DexScreener или миграций">Название (Символ)</th>
-            <th style={{cursor:'pointer'}} title="Скоринг по формуле в Настройках" onClick={()=>{ setSort(sort==='score_desc'?'score_asc':'score_desc'); setTimeout(load,0) }}>
-              Скор {sort==='score_desc'?'↓':'↑'}
+            <th style={{cursor:'pointer'}} title="Сглаженный скор (экспоненциальное скользящее среднее для снижения волатильности)" onClick={()=>{ setSort(sort==='score_desc'?'score_asc':'score_desc'); setTimeout(load,0) }}>
+              Скор* {sort==='score_desc'?'↓':'↑'}
             </th>
             <th title="Сумма ликвидности по пулам WSOL/SOL и USDC">Ликвидность (USD)</th>
             <th title="Δ цены (по самой ликвидной паре)">Δ 5м / 15м</th>
@@ -129,6 +129,9 @@ export default function Dashboard(){
         ))}
       </tbody>
     </table>
+    <div style={{marginTop: '8px', fontSize: '0.85em', color: '#666', fontStyle: 'italic'}}>
+      * Скоры сглажены для снижения волатильности (экспоненциальное скользящее среднее)
+    </div>
   </div>
   )
 }

@@ -3,7 +3,8 @@ import { getDefaultSettings, getSettings, putSetting, recalc, SettingsMap } from
 
 const keys = [
   'weight_s','weight_l','weight_m','weight_t',
-  'min_score','hot_interval_sec','cold_interval_sec','archive_below_hours','monitoring_timeout_hours',
+  'min_score','score_smoothing_alpha','min_pool_liquidity_usd','max_price_change_5m','min_score_change','max_liquidity_change_ratio',
+  'hot_interval_sec','cold_interval_sec','archive_below_hours','monitoring_timeout_hours',
   'activation_min_liquidity_usd'
 ]
 
@@ -58,6 +59,54 @@ export default function Settings(){
             <Field label="Минимальное значение скора (τ)" type="number" hint="Токены ниже порога не отображаются на дашборде" k="min_score" v={vals['min_score']} set={update} />
           </section>
           <section>
+            <h3>Сглаживание скоров</h3>
+            <Field 
+              label="Коэффициент сглаживания (α)" 
+              type="number" 
+              hint="Экспоненциальное скользящее среднее: 0.1 = сильное сглаживание, 0.3 = баланс (рекомендуется), 0.5 = быстрая адаптация, 1.0 = без сглаживания" 
+              k="score_smoothing_alpha" 
+              v={vals['score_smoothing_alpha']} 
+              set={update} 
+            />
+            <SmoothingHelp alpha={vals['score_smoothing_alpha']} />
+          </section>
+          <section>
+            <h3>Фильтрация данных</h3>
+            <Field 
+              label="Мин. ликвидность пула (USD)" 
+              type="number" 
+              hint="Пулы с ликвидностью ниже этого значения игнорируются (фильтрация пылинок)" 
+              k="min_pool_liquidity_usd" 
+              v={vals['min_pool_liquidity_usd']} 
+              set={update} 
+            />
+            <Field 
+              label="Макс. изменение цены за 5м (%)" 
+              type="number" 
+              hint="Изменения цены выше этого значения считаются аномалиями и ограничиваются" 
+              k="max_price_change_5m" 
+              v={vals['max_price_change_5m']} 
+              set={update} 
+            />
+            <Field 
+              label="Мин. изменение скора для обновления" 
+              type="number" 
+              hint="Изменения скора меньше этого значения игнорируются (снижение шума)" 
+              k="min_score_change" 
+              v={vals['min_score_change']} 
+              set={update} 
+            />
+            <Field 
+              label="Макс. изменение ликвидности (коэффициент)" 
+              type="number" 
+              hint="Максимальное отношение изменения ликвидности за одно обновление (защита от резких скачков)" 
+              k="max_liquidity_change_ratio" 
+              v={vals['max_liquidity_change_ratio']} 
+              set={update} 
+            />
+            <DataFilteringHelp />
+          </section>
+          <section>
             <h3>Тайминги и жизненный цикл</h3>
             <Field label="Интервал для горячих (сек)" type="number" hint="Статус: active с последним скором ≥ τ (min_score). Частота обновлений метрик/скора для таких токенов." k="hot_interval_sec" v={vals['hot_interval_sec']} set={update} />
             <Field label="Интервал для остывших (сек)" type="number" hint="Статус: active с последним скором < τ либо без скора. Обновляются реже, чтобы экономить лимиты." k="cold_interval_sec" v={vals['cold_interval_sec']} set={update} />
@@ -95,15 +144,20 @@ S = HD_norm · (W_s·s + W_l·l + W_m·m + W_t·t)
 
 где:
 - l = clip((log10(L_tot) − 4) / 2)
-- s = clip(|ΔP_5m| / 0.1)
-- m = clip(|ΔP_5м| / (|ΔP_15м| + 0.001))
+- s = clip(log(1 + |ΔP_5m| × 10) / log(11))  📈 исправлено
+- m = clip(|ΔP_5м| / max(|ΔP_15м|, 0.01))     🔧 исправлено  
 - t = clip((N_5м / 5) / 300)
 - clip(x) = min(max(x, 0), 1)
+
+Исправления волатильности:
+- s: логарифмическое сглаживание вместо линейного деления
+- m: защита от деления на очень малые числа
 
 Примечания:
 - L_tot — суммарная ликвидность по WSOL/SOL/USDC пулам (без classic pumpfun).
 - ΔP берётся по самой ликвидной паре; если m15 отсутствует, используется h1/4.
 - N_5м — сумма (buys+sells) за 5 минут по всем учтённым пулам.
+- Скоры дополнительно сглажены через экспоненциальное скользящее среднее.
       </pre>
     </div>
   )
@@ -114,4 +168,58 @@ function WeightsSum({ws, wl, wm, wt}:{ws?:string, wl?:string, wm?:string, wt?:st
   try{ sum = (parseFloat(ws||'0')||0) + (parseFloat(wl||'0')||0) + (parseFloat(wm||'0')||0) + (parseFloat(wt||'0')||0) }catch{}
   const ok = Math.abs(sum - 1) <= 0.05
   return <div className="muted">ΣW ≈ {sum.toFixed(2)} {ok? '' : ' (внимание: рекомендуется ≈ 1.00)'}</div>
+}
+
+function SmoothingHelp({alpha}:{alpha?:string}){
+  const a = parseFloat(alpha || '0.3')
+  const isValid = a >= 0 && a <= 1
+  
+  let description = ''
+  if (!isValid) {
+    description = '❌ Значение должно быть от 0.0 до 1.0'
+  } else if (a <= 0.1) {
+    description = '🐌 Максимальное сглаживание, очень медленная адаптация'
+  } else if (a <= 0.3) {
+    description = '✅ Оптимальный баланс (рекомендуется)'
+  } else if (a <= 0.5) {
+    description = '⚡ Быстрая адаптация, умеренное сглаживание'
+  } else if (a < 1.0) {
+    description = '🏃 Минимальное сглаживание'
+  } else {
+    description = '🚫 Без сглаживания (как было раньше)'
+  }
+  
+  return (
+    <div style={{marginTop: 8}}>
+      <div className="muted" style={{fontSize: '0.9em'}}>
+        {description}
+      </div>
+      <div style={{marginTop: 4, fontSize: '0.85em', color: '#666'}}>
+        Формула: smoothed = {a.toFixed(1)} × new + {(1-a).toFixed(1)} × previous
+      </div>
+    </div>
+  )
+}
+
+function DataFilteringHelp(){
+  return (
+    <div style={{marginTop: 8, padding: 8, background: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: 4}}>
+      <h4 style={{margin: '0 0 8px 0', fontSize: '0.9em'}}>🛡️ Фильтрация данных</h4>
+      <div style={{fontSize: '0.85em', color: '#666'}}>
+        <div><strong>Цель:</strong> Устранение аномалий и шума в данных для стабилизации скоров</div>
+        <div style={{marginTop: 4}}>
+          <strong>Эффекты:</strong>
+          <ul style={{margin: '4px 0', paddingLeft: 16}}>
+            <li>🧹 Фильтрация пулов-пылинок (&lt; $500)</li>
+            <li>🚫 Блокировка экстремальных изменений цены (&gt; 50%)</li>
+            <li>🔇 Игнорирование незначительного шума (&lt; 5%)</li>
+            <li>⚡ Сглаживание резких скачков ликвидности</li>
+          </ul>
+        </div>
+        <div style={{marginTop: 4, fontStyle: 'italic'}}>
+          Ожидаемый эффект: дополнительное снижение волатильности на 15-25%
+        </div>
+      </div>
+    </div>
+  )
 }

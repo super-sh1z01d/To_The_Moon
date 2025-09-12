@@ -89,7 +89,7 @@ async def list_tokens(
                 name=token.name,
                 symbol=token.symbol,
                 status=token.status,
-                score=float(snap.score) if (snap and snap.score is not None) else None,
+                score=float(snap.smoothed_score) if (snap and snap.smoothed_score is not None) else (float(snap.score) if (snap and snap.score is not None) else None),
                 liquidity_usd=(float(metrics.get("L_tot")) if metrics and metrics.get("L_tot") is not None else None),
                 delta_p_5m=(float(metrics.get("delta_p_5m")) if metrics and metrics.get("delta_p_5m") is not None else None),
                 delta_p_15m=(
@@ -161,7 +161,7 @@ async def get_token_detail(mint: str, db: Session = Depends(get_db), history_lim
         name=token.name,
         symbol=token.symbol,
         status=token.status,
-        score=float(snap.score) if (snap and snap.score is not None) else None,
+        score=float(snap.smoothed_score) if (snap and snap.smoothed_score is not None) else (float(snap.score) if (snap and snap.score is not None) else None),
         metrics=(snap.metrics if (snap and snap.metrics) else None),
         score_history=[
             TokenHistoryItem(created_at=ts.created_at.isoformat(), score=(float(ts.score) if ts.score is not None else None), metrics=ts.metrics)
@@ -187,22 +187,45 @@ async def refresh_token(mint: str, db: Session = Depends(get_db)) -> RefreshResu
     pairs = DexScreenerClient(timeout=5.0).get_pairs(mint)
     if pairs is None:
         raise HTTPException(status_code=503, detail="dexscreener unavailable")
-    # Aggregate metrics and insert snapshot
-    from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
-    metrics = aggregate_wsol_metrics(mint, pairs)
-    snap_id = repo.insert_score_snapshot(token_id=token.id, metrics=metrics, score=None)
-    # Compute score using current settings
+    
+    # Get settings
     settings = SettingsService(db)
+    smoothing_alpha = float(settings.get("score_smoothing_alpha") or 0.3)
+    min_pool_liquidity = float(settings.get("min_pool_liquidity_usd") or 500)
+    max_price_change = float(settings.get("max_price_change_5m") or 0.5)
+    
     weights = {
         "weight_s": float(settings.get("weight_s") or 0.35),
         "weight_l": float(settings.get("weight_l") or 0.25),
         "weight_m": float(settings.get("weight_m") or 0.20),
         "weight_t": float(settings.get("weight_t") or 0.20),
     }
-    from src.domain.scoring.scorer import compute_score
+    
+    # Get previous smoothed score
+    previous_smoothed_score = repo.get_previous_smoothed_score(token.id)
+    
+    # Aggregate metrics with data filtering
+    from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
+    metrics = aggregate_wsol_metrics(
+        mint, 
+        pairs, 
+        min_liquidity_usd=min_pool_liquidity,
+        max_price_change=max_price_change
+    )
+    
+    from src.domain.scoring.scorer import compute_score, compute_smoothed_score
     score, _ = compute_score(metrics, weights)
-    repo.update_snapshot_score(snap_id, score)
-    return RefreshResult(updated_snapshot_id=snap_id, score=score)
+    smoothed_score = compute_smoothed_score(score, previous_smoothed_score, smoothing_alpha)
+    
+    # Insert snapshot with both scores
+    snap_id = repo.insert_score_snapshot(
+        token_id=token.id, 
+        metrics=metrics, 
+        score=score, 
+        smoothed_score=smoothed_score
+    )
+    
+    return RefreshResult(updated_snapshot_id=snap_id, score=smoothed_score)
 
 
 @router.get("/{mint}/pools", response_model=list[PoolItem])

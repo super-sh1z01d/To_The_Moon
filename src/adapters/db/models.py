@@ -52,6 +52,7 @@ class TokenScore(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     token_id: Mapped[int] = mapped_column(ForeignKey("tokens.id", ondelete="CASCADE"), index=True, nullable=False)
     score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
+    smoothed_score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
     metrics: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False)
 

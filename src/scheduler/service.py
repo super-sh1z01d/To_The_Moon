@@ -28,6 +28,13 @@ async def _process_group(group: str) -> None:
         repo = TokensRepository(sess)
         settings = SettingsService(sess)
         min_score = float(settings.get("min_score") or 0.1)
+        smoothing_alpha = float(settings.get("score_smoothing_alpha") or 0.3)
+        
+        # Настройки фильтрации данных
+        min_pool_liquidity = float(settings.get("min_pool_liquidity_usd") or 500)
+        max_price_change = float(settings.get("max_price_change_5m") or 0.5)
+        min_score_change = float(settings.get("min_score_change") or 0.05)
+        
         weights = {
             "weight_s": float(settings.get("weight_s") or 0.35),
             "weight_l": float(settings.get("weight_l") or 0.25),
@@ -53,10 +60,43 @@ async def _process_group(group: str) -> None:
             if pairs is None:
                 log.warning("pairs_fetch_failed", extra={"extra": {"group": group, "mint": t.mint_address}})
                 continue
-            metrics = aggregate_wsol_metrics(t.mint_address, pairs)
-            snapshot_id = repo.insert_score_snapshot(token_id=t.id, metrics=metrics, score=None)
+            
+            # Получаем предыдущий сглаженный скор для данного токена
+            previous_smoothed_score = repo.get_previous_smoothed_score(t.id)
+            
+            # Агрегируем метрики с фильтрацией данных
+            metrics = aggregate_wsol_metrics(
+                t.mint_address, 
+                pairs, 
+                min_liquidity_usd=min_pool_liquidity,
+                max_price_change=max_price_change
+            )
+            
+            # Проверяем качество данных
+            if metrics.get("data_quality_warning"):
+                log.warning("data_quality_issue", extra={"extra": {"group": group, "mint": t.mint_address}})
+                # Можно пропустить обновление при серьезных проблемах с данными
+                # continue
+            
             score, comps = compute_score(metrics, weights)
-            repo.update_snapshot_score(snapshot_id, score)
+            
+            # Проверяем, стоит ли пропустить обновление из-за незначительных изменений
+            from src.domain.validation.data_filters import should_skip_score_update
+            if should_skip_score_update(score, last_score, min_score_change):
+                log.debug("score_update_skipped", extra={"extra": {"group": group, "mint": t.mint_address, "change": abs(score - (last_score or 0))}})
+                continue
+            
+            # Вычисляем сглаженный скор
+            from src.domain.scoring.scorer import compute_smoothed_score
+            smoothed_score = compute_smoothed_score(score, previous_smoothed_score, smoothing_alpha)
+            
+            snapshot_id = repo.insert_score_snapshot(
+                token_id=t.id, 
+                metrics=metrics, 
+                score=score, 
+                smoothed_score=smoothed_score
+            )
+            
             updated += 1
             log.info(
                 "token_updated",
@@ -65,8 +105,12 @@ async def _process_group(group: str) -> None:
                         "group": group,
                         "mint": t.mint_address,
                         "score": score,
+                        "smoothed_score": smoothed_score,
+                        "alpha": smoothing_alpha,
                         "L_tot": metrics["L_tot"],
                         "n_5m": metrics["n_5m"],
+                        "filtered_pools": metrics.get("pools_filtered_out", 0),
+                        "data_quality_ok": not metrics.get("data_quality_warning", False),
                     }
                 },
             )
