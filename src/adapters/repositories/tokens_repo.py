@@ -77,6 +77,15 @@ class TokensRepository:
     def insert_score_snapshot(self, token_id: int, metrics: dict, score: Optional[float] = None, smoothed_score: Optional[float] = None) -> int:
         from datetime import datetime, timezone
 
+        # Add scored_at timestamp to metrics for UI display
+        try:
+            if isinstance(metrics, dict):
+                metrics_with_timestamp = dict(metrics)
+                metrics_with_timestamp["scored_at"] = datetime.now(tz=timezone.utc).isoformat()
+                metrics = metrics_with_timestamp
+        except Exception:
+            pass
+
         snap = TokenScore(
             token_id=token_id, 
             score=score, 
