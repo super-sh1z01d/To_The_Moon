@@ -213,11 +213,17 @@ class TokensRepository:
         # min_score применяется только к active; monitoring не фильтруем по скору
         if min_score is not None:
             q = q.filter(((Token.status != "active") | (TokenScore.score >= min_score)))
-        # Сортировка: по умолчанию score DESC NULLS LAST
+        # Сортировка: приоритет smoothed_score с fallback на score (как в отображении)
         if sort == "score_asc":
-            q = q.order_by(TokenScore.score.asc().nullsfirst(), Token.id.desc())
+            q = q.order_by(
+                func.coalesce(TokenScore.smoothed_score, TokenScore.score).asc().nullsfirst(), 
+                Token.id.desc()
+            )
         else:
-            q = q.order_by(TokenScore.score.desc().nullslast(), Token.id.desc())
+            q = q.order_by(
+                func.coalesce(TokenScore.smoothed_score, TokenScore.score).desc().nullslast(), 
+                Token.id.desc()
+            )
         if offset:
             q = q.offset(offset)
         if limit:
