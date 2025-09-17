@@ -125,6 +125,14 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     if not cfg.scheduler_enabled:
         log.info("scheduler_disabled")
         return None
+    
+    # В multi-worker setup запускаем планировщик только в одном процессе
+    # Используем переменную окружения для контроля
+    import os
+    disable_scheduler = os.environ.get("DISABLE_SCHEDULER_IN_WORKER", "false").lower() == "true"
+    if disable_scheduler:
+        log.info("scheduler_disabled_by_env_var")
+        return None
 
     with SessionLocal() as sess:
         settings = SettingsService(sess)
