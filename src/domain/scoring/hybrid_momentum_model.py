@@ -265,12 +265,12 @@ class HybridMomentumModel:
             WeightConfig with current settings
         """
         try:
-            w_tx = float(self.settings.get("w_tx", "0.25"))
-            w_vol = float(self.settings.get("w_vol", "0.25"))
-            w_fresh = float(self.settings.get("w_fresh", "0.25"))
-            w_oi = float(self.settings.get("w_oi", "0.25"))
-            ewma_alpha = float(self.settings.get("ewma_alpha", "0.3"))
-            freshness_threshold = float(self.settings.get("freshness_threshold_hours", "6.0"))
+            w_tx = float(self.settings.get("w_tx") or "0.25")
+            w_vol = float(self.settings.get("w_vol") or "0.25")
+            w_fresh = float(self.settings.get("w_fresh") or "0.25")
+            w_oi = float(self.settings.get("w_oi") or "0.25")
+            ewma_alpha = float(self.settings.get("ewma_alpha") or "0.3")
+            freshness_threshold = float(self.settings.get("freshness_threshold_hours") or "6.0")
             
             return WeightConfig(
                 w_tx=w_tx,

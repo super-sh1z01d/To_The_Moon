@@ -60,7 +60,7 @@ class ScoringService:
         """
         try:
             # Get active scoring model from settings
-            active_model = self.settings.get("scoring_model_active", "legacy")
+            active_model = self.settings.get("scoring_model_active") or "legacy"
             
             if active_model == "hybrid_momentum":
                 return self._calculate_hybrid_momentum_score(token, pairs)
@@ -96,8 +96,8 @@ class ScoringService:
         """
         try:
             # Get enhanced metrics
-            min_liquidity = float(self.settings.get("min_pool_liquidity_usd", "500"))
-            max_price_change = float(self.settings.get("max_price_change_5m", "0.5"))
+            min_liquidity = float(self.settings.get("min_pool_liquidity_usd") or "500")
+            max_price_change = float(self.settings.get("max_price_change_5m") or "0.5")
             
             metrics = aggregate_enhanced_metrics(
                 token.mint_address,
@@ -157,15 +157,15 @@ class ScoringService:
         """
         try:
             # Get legacy settings
-            min_liquidity = float(self.settings.get("min_pool_liquidity_usd", "500"))
-            max_price_change = float(self.settings.get("max_price_change_5m", "0.5"))
-            smoothing_alpha = float(self.settings.get("score_smoothing_alpha", "0.3"))
+            min_liquidity = float(self.settings.get("min_pool_liquidity_usd") or "500")
+            max_price_change = float(self.settings.get("max_price_change_5m") or "0.5")
+            smoothing_alpha = float(self.settings.get("score_smoothing_alpha") or "0.3")
             
             weights = {
-                "weight_s": float(self.settings.get("weight_s", "0.35")),
-                "weight_l": float(self.settings.get("weight_l", "0.25")),
-                "weight_m": float(self.settings.get("weight_m", "0.20")),
-                "weight_t": float(self.settings.get("weight_t", "0.20")),
+                "weight_s": float(self.settings.get("weight_s") or "0.35"),
+                "weight_l": float(self.settings.get("weight_l") or "0.25"),
+                "weight_m": float(self.settings.get("weight_m") or "0.20"),
+                "weight_t": float(self.settings.get("weight_t") or "0.20"),
             }
             
             # Get legacy metrics
@@ -231,7 +231,7 @@ class ScoringService:
             ID of created score snapshot
         """
         try:
-            active_model = self.settings.get("scoring_model_active", "legacy")
+            active_model = self.settings.get("scoring_model_active") or "legacy"
             
             snapshot_id = self.repository.insert_score_snapshot(
                 token_id=token.id,
