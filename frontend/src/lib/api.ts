@@ -96,3 +96,19 @@ export async function getDefaultSettings(): Promise<SettingsMap>{
   if(!r.ok) throw new Error('defaults fetch failed')
   return r.json()
 }
+
+export async function getActiveModel(): Promise<string>{
+  const r = await fetch('/settings/scoring_model_active')
+  if(!r.ok) throw new Error('active model fetch failed')
+  const data = await r.json()
+  return data.value || 'legacy'
+}
+
+export async function switchModel(model: string): Promise<void>{
+  const r = await fetch('/settings/scoring_model_active', {
+    method: 'PUT', 
+    headers: {'Content-Type': 'application/json'}, 
+    body: JSON.stringify({value: model})
+  })
+  if(!r.ok) throw new Error('model switch failed')
+}
