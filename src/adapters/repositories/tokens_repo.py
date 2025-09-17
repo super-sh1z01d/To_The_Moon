@@ -106,6 +106,13 @@ class TokensRepository:
             created_at=datetime.now(tz=timezone.utc)
         )
         self.db.add(snap)
+        
+        # Update token's last_updated_at timestamp
+        token = self.db.query(Token).filter(Token.id == token_id).first()
+        if token:
+            token.last_updated_at = datetime.now(tz=timezone.utc)
+            self.db.add(token)
+        
         self.db.commit()
         self.db.refresh(snap)
         logging.getLogger("tokens_repo").info(
