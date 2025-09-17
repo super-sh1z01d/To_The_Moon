@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from datetime import timezone
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -136,12 +137,12 @@ async def list_tokens(
                 n_5m=(int(metrics.get("n_5m")) if metrics and metrics.get("n_5m") is not None else None),
                 primary_dex=(str(metrics.get("primary_dex")) if metrics and metrics.get("primary_dex") else None),
                 fetched_at=(str(metrics.get("fetched_at")) if metrics and metrics.get("fetched_at") else None),
-                scored_at=(snap.created_at.isoformat() if snap and snap.created_at else None),
+                scored_at=(snap.created_at.replace(tzinfo=timezone.utc).isoformat() if snap and snap.created_at else None),
                 solscan_url=f"https://solscan.io/token/{token.mint_address}",
                 raw_components=raw_components,
                 smoothed_components=smoothed_components,
                 scoring_model=snap.scoring_model if snap else None,
-                created_at=token.created_at.isoformat() if token.created_at else None,
+                created_at=token.created_at.replace(tzinfo=timezone.utc).isoformat() if token.created_at else None,
             )
         )
 
