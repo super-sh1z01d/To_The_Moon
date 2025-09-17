@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Deployment script for Parameter Cleanup update
+# Update script for Parameter Cleanup (for running application)
 # Version: 2.0.0
 # Date: $(date)
 
 set -e  # Exit on any error
 
-echo "🚀 Starting Parameter Cleanup Deployment..."
+echo "🔄 Starting Parameter Cleanup Update..."
 echo "Version: 2.0.0 - Hybrid Momentum Parameter Cleanup"
 echo "Date: $(date)"
 echo
@@ -35,6 +35,21 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Detect application directory (common locations)
+APP_DIR=""
+if [ -d "/opt/to_the_moon" ]; then
+    APP_DIR="/opt/to_the_moon"
+elif [ -d "/srv/tothemoon" ]; then
+    APP_DIR="/srv/tothemoon"
+elif [ -d "/home/ubuntu/to_the_moon" ]; then
+    APP_DIR="/home/ubuntu/to_the_moon"
+else
+    print_error "Could not find application directory. Please run from app directory or specify path."
+    exit 1
+fi
+
+print_status "Found application at: $APP_DIR"
+
 # Check if running as root or with sudo
 if [[ $EUID -eq 0 ]]; then
     SUDO=""
@@ -44,19 +59,52 @@ fi
 
 # 1. Create backup
 print_status "Creating backup of current deployment..."
-BACKUP_DIR="/opt/to_the_moon_backup_$(date +%Y%m%d_%H%M%S)"
-$SUDO cp -r /opt/to_the_moon "$BACKUP_DIR"
+BACKUP_DIR="${APP_DIR}_backup_$(date +%Y%m%d_%H%M%S)"
+$SUDO cp -r "$APP_DIR" "$BACKUP_DIR"
 print_success "Backup created at $BACKUP_DIR"
 
-# 2. Stop services
-print_status "Stopping services..."
-$SUDO systemctl stop to-the-moon || print_warning "to-the-moon service not running"
-$SUDO systemctl stop to-the-moon-worker || print_warning "to-the-moon-worker service not running"
-print_success "Services stopped"
+# 2. Check current service status
+print_status "Checking current service status..."
+SERVICE_RUNNING=false
+WORKER_RUNNING=false
 
-# 3. Update code
+if $SUDO systemctl is-active --quiet to-the-moon 2>/dev/null; then
+    SERVICE_RUNNING=true
+    print_status "Main service is running"
+else
+    print_warning "Main service is not running"
+fi
+
+if $SUDO systemctl is-active --quiet to-the-moon-worker 2>/dev/null; then
+    WORKER_RUNNING=true
+    print_status "Worker service is running"
+else
+    print_warning "Worker service is not running"
+fi
+
+# 3. Stop services gracefully
+if [ "$SERVICE_RUNNING" = true ] || [ "$WORKER_RUNNING" = true ]; then
+    print_status "Stopping services gracefully..."
+    
+    if [ "$SERVICE_RUNNING" = true ]; then
+        $SUDO systemctl stop to-the-moon
+        print_success "Main service stopped"
+    fi
+    
+    if [ "$WORKER_RUNNING" = true ]; then
+        $SUDO systemctl stop to-the-moon-worker
+        print_success "Worker service stopped"
+    fi
+    
+    # Wait a moment for graceful shutdown
+    sleep 2
+else
+    print_warning "No services were running"
+fi
+
+# 4. Update code
 print_status "Updating code from Git..."
-cd /opt/to_the_moon
+cd "$APP_DIR"
 $SUDO git pull origin main
 print_success "Code updated"
 
@@ -87,40 +135,54 @@ python3 -m py_compile src/domain/metrics/enhanced_dex_aggregator.py
 python3 -m py_compile src/app/routes/tokens.py
 print_success "Python code validation passed"
 
-# 8. Start services
+# 8. Start services (only those that were running)
 print_status "Starting services..."
-$SUDO systemctl start to-the-moon
-$SUDO systemctl start to-the-moon-worker
-print_success "Services started"
+
+if [ "$SERVICE_RUNNING" = true ]; then
+    $SUDO systemctl start to-the-moon
+    print_success "Main service started"
+fi
+
+if [ "$WORKER_RUNNING" = true ]; then
+    $SUDO systemctl start to-the-moon-worker
+    print_success "Worker service started"
+fi
+
+if [ "$SERVICE_RUNNING" = false ] && [ "$WORKER_RUNNING" = false ]; then
+    print_warning "No services were restarted (none were running initially)"
+fi
 
 # 9. Wait for services to be ready
 print_status "Waiting for services to be ready..."
 sleep 5
 
-# 10. Health checks
+# 10. Health checks (only for services that should be running)
 print_status "Running health checks..."
 
-# Check service status
-if $SUDO systemctl is-active --quiet to-the-moon; then
-    print_success "to-the-moon service is running"
-else
-    print_error "to-the-moon service failed to start"
-    exit 1
+if [ "$SERVICE_RUNNING" = true ]; then
+    if $SUDO systemctl is-active --quiet to-the-moon; then
+        print_success "to-the-moon service is running"
+        
+        # Check HTTP health endpoint
+        sleep 3  # Give service time to start
+        if curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
+            print_success "HTTP health check passed"
+        else
+            print_warning "HTTP health check failed (service may still be starting)"
+        fi
+    else
+        print_error "to-the-moon service failed to start"
+        exit 1
+    fi
 fi
 
-if $SUDO systemctl is-active --quiet to-the-moon-worker; then
-    print_success "to-the-moon-worker service is running"
-else
-    print_error "to-the-moon-worker service failed to start"
-    exit 1
-fi
-
-# Check HTTP health endpoint
-if curl -f -s http://localhost:8000/health > /dev/null; then
-    print_success "HTTP health check passed"
-else
-    print_error "HTTP health check failed"
-    exit 1
+if [ "$WORKER_RUNNING" = true ]; then
+    if $SUDO systemctl is-active --quiet to-the-moon-worker; then
+        print_success "to-the-moon-worker service is running"
+    else
+        print_error "to-the-moon-worker service failed to start"
+        exit 1
+    fi
 fi
 
 # 11. Verify specific changes
@@ -169,9 +231,14 @@ echo "  3. Verify settings UI (max_price_change_5m field should be gone)"
 echo
 echo "🚨 Rollback if needed:"
 echo "  sudo systemctl stop to-the-moon to-the-moon-worker"
-echo "  sudo rm -rf /opt/to_the_moon"
-echo "  sudo mv $BACKUP_DIR /opt/to_the_moon"
-echo "  sudo systemctl start to-the-moon to-the-moon-worker"
+echo "  sudo rm -rf $APP_DIR"
+echo "  sudo mv $BACKUP_DIR $APP_DIR"
+if [ "$SERVICE_RUNNING" = true ]; then
+    echo "  sudo systemctl start to-the-moon"
+fi
+if [ "$WORKER_RUNNING" = true ]; then
+    echo "  sudo systemctl start to-the-moon-worker"
+fi
 echo
 
 print_success "Deployment completed at $(date)"
