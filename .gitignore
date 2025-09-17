@@ -43,3 +43,17 @@ doc/
 
 # Keep docs/ folder for architecture documentation
 # docs/ - removed from gitignore to include documentation
+
+# Generated documentation files (keep in VCS for reference)
+# All .md files in root are kept for documentation
+# IMPLEMENTATION_SUMMARY.md - keep
+# DASHBOARD_ENHANCEMENT_SUMMARY.md - keep
+# FINAL_DASHBOARD_REPORT.md - keep
+# TABLE_CLEANUP_SUMMARY.md - keep
+# CHANGELOG.md - keep
+# MIGRATION_GUIDE.md - keep
+# API_REFERENCE.md - keep
+# ARCHITECTURE.md - keep
+# DEVELOPMENT.md - keep
+# PROJECT_SUMMARY.md - keep
+# DOCUMENTATION_INDEX.md - keep

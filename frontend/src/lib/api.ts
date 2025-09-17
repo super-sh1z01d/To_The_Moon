@@ -1,3 +1,10 @@
+export type ComponentBreakdown = {
+  tx_accel: number
+  vol_momentum: number
+  token_freshness: number
+  orderflow_imbalance: number
+}
+
 export type TokenItem = {
   mint_address: string
   name?: string
@@ -11,6 +18,11 @@ export type TokenItem = {
   fetched_at?: string
   scored_at?: string
   solscan_url: string
+  raw_components?: ComponentBreakdown
+  smoothed_components?: ComponentBreakdown
+  scoring_model?: string
+  created_at?: string
+  status?: string
 }
 
 export type TokensResponse = {

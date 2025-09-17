@@ -14,6 +14,13 @@ from src.adapters.services.dexscreener_client import DexScreenerClient
 router = APIRouter(prefix="/tokens", tags=["tokens"])
 
 
+class ComponentBreakdown(BaseModel):
+    tx_accel: float
+    vol_momentum: float
+    token_freshness: float
+    orderflow_imbalance: float
+
+
 class TokenItem(BaseModel):
     mint_address: str
     name: Optional[str] = None
@@ -28,6 +35,10 @@ class TokenItem(BaseModel):
     fetched_at: Optional[str] = None
     scored_at: Optional[str] = None
     solscan_url: str
+    raw_components: Optional[ComponentBreakdown] = None
+    smoothed_components: Optional[ComponentBreakdown] = None
+    scoring_model: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 class TokensMeta(BaseModel):
@@ -83,6 +94,33 @@ async def list_tokens(
     items: list[TokenItem] = []
     for token, snap in rows:
         metrics = snap.metrics if (snap and snap.metrics) else {}
+        # Extract component data if available
+        raw_components = None
+        smoothed_components = None
+        if snap and snap.raw_components:
+            try:
+                raw_data = snap.raw_components if isinstance(snap.raw_components, dict) else {}
+                raw_components = ComponentBreakdown(
+                    tx_accel=float(raw_data.get("tx_accel", 0)),
+                    vol_momentum=float(raw_data.get("vol_momentum", 0)),
+                    token_freshness=float(raw_data.get("token_freshness", 0)),
+                    orderflow_imbalance=float(raw_data.get("orderflow_imbalance", 0))
+                )
+            except (ValueError, TypeError):
+                raw_components = None
+        
+        if snap and snap.smoothed_components:
+            try:
+                smoothed_data = snap.smoothed_components if isinstance(snap.smoothed_components, dict) else {}
+                smoothed_components = ComponentBreakdown(
+                    tx_accel=float(smoothed_data.get("tx_accel", 0)),
+                    vol_momentum=float(smoothed_data.get("vol_momentum", 0)),
+                    token_freshness=float(smoothed_data.get("token_freshness", 0)),
+                    orderflow_imbalance=float(smoothed_data.get("orderflow_imbalance", 0))
+                )
+            except (ValueError, TypeError):
+                smoothed_components = None
+
         items.append(
             TokenItem(
                 mint_address=token.mint_address,
@@ -98,8 +136,12 @@ async def list_tokens(
                 n_5m=(int(metrics.get("n_5m")) if metrics and metrics.get("n_5m") is not None else None),
                 primary_dex=(str(metrics.get("primary_dex")) if metrics and metrics.get("primary_dex") else None),
                 fetched_at=(str(metrics.get("fetched_at")) if metrics and metrics.get("fetched_at") else None),
-                scored_at=(str(metrics.get("scored_at")) if metrics and metrics.get("scored_at") else None),
+                scored_at=(str(snap.created_at) if snap and snap.created_at else None),
                 solscan_url=f"https://solscan.io/token/{token.mint_address}",
+                raw_components=raw_components,
+                smoothed_components=smoothed_components,
+                scoring_model=snap.scoring_model if snap else None,
+                created_at=token.created_at.isoformat() if token.created_at else None,
             )
         )
 
