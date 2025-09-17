@@ -174,6 +174,7 @@ class TokenDetail(BaseModel):
     symbol: Optional[str] = None
     status: str
     score: Optional[float] = None
+    liquidity_usd: Optional[float] = Field(default=None, description="L_tot")
     metrics: Optional[dict] = None
     score_history: list[TokenHistoryItem]
     pools: Optional[list[PoolItem]] = None
@@ -205,6 +206,7 @@ async def get_token_detail(mint: str, db: Session = Depends(get_db), history_lim
         symbol=token.symbol,
         status=token.status,
         score=float(snap.smoothed_score) if (snap and snap.smoothed_score is not None) else (float(snap.score) if (snap and snap.score is not None) else None),
+        liquidity_usd=(float(snap.metrics.get("L_tot")) if snap and snap.metrics and snap.metrics.get("L_tot") is not None else None),
         metrics=(snap.metrics if (snap and snap.metrics) else None),
         score_history=[
             TokenHistoryItem(created_at=ts.created_at.isoformat(), score=(float(ts.score) if ts.score is not None else None), metrics=ts.metrics)
