@@ -2,13 +2,19 @@
 
 ## [2.0.0] - 2025-09-17
 
-### 🧹 Code Cleanup
+### 🧹 Code Cleanup & UX Improvements
 
 #### Parameter Removal
 - **REMOVED**: `max_price_change_5m` parameter from Hybrid Momentum model
 - **REASON**: Parameter not used in new scoring components (TX Accel, Vol Momentum, etc.)
 - **IMPACT**: Simplified settings UI, cleaner code, no functional changes
 - **LEGACY**: Parameter still used in legacy scoring model for backward compatibility
+
+#### Settings UI Enhancement
+- **ADDED**: Detailed descriptions for all settings fields with "Что это:" prefix
+- **IMPROVED**: User experience with comprehensive tooltips and explanations
+- **ENHANCED**: Field descriptions explain algorithm steps and parameter impact
+- **BENEFIT**: Users can better understand and configure system parameters
 
 ### 🎯 Major Features
 
