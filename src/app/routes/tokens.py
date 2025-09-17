@@ -136,7 +136,7 @@ async def list_tokens(
                 n_5m=(int(metrics.get("n_5m")) if metrics and metrics.get("n_5m") is not None else None),
                 primary_dex=(str(metrics.get("primary_dex")) if metrics and metrics.get("primary_dex") else None),
                 fetched_at=(str(metrics.get("fetched_at")) if metrics and metrics.get("fetched_at") else None),
-                scored_at=(str(snap.created_at) if snap and snap.created_at else None),
+                scored_at=(snap.created_at.isoformat() if snap and snap.created_at else None),
                 solscan_url=f"https://solscan.io/token/{token.mint_address}",
                 raw_components=raw_components,
                 smoothed_components=smoothed_components,
