@@ -29,8 +29,7 @@ def aggregate_enhanced_metrics(
     mint: str, 
     pairs: list[dict[str, Any]], 
     created_at: datetime,
-    min_liquidity_usd: float = 500,
-    max_price_change: float = 0.5
+    min_liquidity_usd: float = 500
 ) -> dict[str, Any]:
     """
     Collect enhanced metrics for hybrid momentum scoring model.
@@ -43,11 +42,10 @@ def aggregate_enhanced_metrics(
         pairs: List of pairs from DexScreener API
         created_at: Token creation timestamp for freshness calculation
         min_liquidity_usd: Minimum pool liquidity for inclusion
-        max_price_change: Maximum price change for anomaly detection
         
     Returns:
         Dictionary with enhanced metrics including:
-        - All existing metrics from aggregate_wsol_metrics
+        - All existing metrics from aggregate_wsol_metrics (with default price limits)
         - tx_count_5m, tx_count_1h: Transaction counts
         - volume_5m, volume_1h: Trading volumes
         - buys_volume_5m, sells_volume_5m: Estimated buy/sell volumes
@@ -55,8 +53,8 @@ def aggregate_enhanced_metrics(
     """
     log = logging.getLogger("enhanced_dex_aggregator")
     
-    # Start with existing metrics
-    base_metrics = aggregate_wsol_metrics(mint, pairs, min_liquidity_usd, max_price_change)
+    # Start with existing metrics (using default price change limit for legacy compatibility)
+    base_metrics = aggregate_wsol_metrics(mint, pairs, min_liquidity_usd, 0.5)
     
     # Filter pairs using same logic as base aggregator
     filtered_pairs = filter_low_liquidity_pools(pairs, min_liquidity_usd)

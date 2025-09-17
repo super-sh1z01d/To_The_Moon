@@ -230,11 +230,11 @@ async def refresh_token(mint: str, db: Session = Depends(get_db)) -> RefreshResu
     if pairs is None:
         raise HTTPException(status_code=503, detail="dexscreener unavailable")
     
-    # Get settings
+    # Get settings (legacy scoring endpoint)
     settings = SettingsService(db)
     smoothing_alpha = float(settings.get("score_smoothing_alpha") or 0.3)
     min_pool_liquidity = float(settings.get("min_pool_liquidity_usd") or 500)
-    max_price_change = float(settings.get("max_price_change_5m") or 0.5)
+    max_price_change = 0.5  # Fixed value for legacy compatibility
     
     weights = {
         "weight_s": float(settings.get("weight_s") or 0.35),

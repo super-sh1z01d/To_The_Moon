@@ -176,7 +176,6 @@ PUMPFUN_RUN_SECONDS=120 PYTHONPATH=. python3 -m src.workers.pumpfun_ws
 
 **Фильтрация данных**:
 - `min_pool_liquidity_usd` (500) — минимальная ликвидность пула для учета
-- `max_price_change_5m` (0.5) — максимальное изменение цены за 5м (50%)
 - `min_score_change` (0.05) — минимальное изменение скора для обновления
 
 Миграции

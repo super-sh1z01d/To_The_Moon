@@ -32,7 +32,7 @@ def test_complete_stabilization():
         # Получаем все настройки стабилизации
         smoothing_alpha = float(settings.get("score_smoothing_alpha") or 0.3)
         min_pool_liquidity = float(settings.get("min_pool_liquidity_usd") or 500)
-        max_price_change = float(settings.get("max_price_change_5m") or 0.5)
+        max_price_change = 0.5  # Fixed value for legacy compatibility
         min_score_change = float(settings.get("min_score_change") or 0.05)
         
         weights = {

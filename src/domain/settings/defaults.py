@@ -37,7 +37,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
     
     # Data filtering for stability
     "min_pool_liquidity_usd": "500",        # Minimum pool liquidity for inclusion (USD)
-    "max_price_change_5m": "0.5",           # Maximum 5m price change (50%)
+    # NOTE: max_price_change_5m removed - not used in Hybrid Momentum model
     "min_score_change": "0.05",             # Minimum score change for update (5%)
     "max_liquidity_change_ratio": "3.0",    # Maximum liquidity change ratio
 }

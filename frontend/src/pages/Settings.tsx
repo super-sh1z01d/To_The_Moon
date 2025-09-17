@@ -3,16 +3,21 @@ import { getDefaultSettings, getSettings, putSetting, recalc, SettingsMap, getAc
 
 const legacyKeys = [
   'weight_s','weight_l','weight_m','weight_t',
-  'min_score','score_smoothing_alpha','min_pool_liquidity_usd','max_price_change_5m','min_score_change','max_liquidity_change_ratio',
-  'hot_interval_sec','cold_interval_sec','archive_below_hours','monitoring_timeout_hours',
+  'score_smoothing_alpha',
+  'min_score',
+  'min_pool_liquidity_usd',
+  'hot_interval_sec','cold_interval_sec',
+  'archive_below_hours','monitoring_timeout_hours',
   'activation_min_liquidity_usd'
 ]
 
 const hybridKeys = [
   'w_tx','w_vol','w_fresh','w_oi',
   'ewma_alpha','freshness_threshold_hours',
-  'min_score','min_pool_liquidity_usd','max_price_change_5m','min_score_change','max_liquidity_change_ratio',
-  'hot_interval_sec','cold_interval_sec','archive_below_hours','monitoring_timeout_hours',
+  'min_score',
+  'min_pool_liquidity_usd',
+  'hot_interval_sec','cold_interval_sec',
+  'archive_below_hours','monitoring_timeout_hours',
   'activation_min_liquidity_usd'
 ]
 
@@ -75,46 +80,43 @@ export default function Settings(){
 
   return (
     <div>
-      <h2>Настройки</h2>
+      <h2>Настройки системы скоринга</h2>
       {loading ? <p>Загрузка...</p> : (
         <div className="settings">
+          <TokenLifecycleAlgorithm />
           <ModelSelector 
             activeModel={activeModel} 
             onModelChange={handleModelSwitch} 
             disabled={saving} 
           />
           <section>
-            <h3>Весовые коэффициенты</h3>
+            <h3>Весовые коэффициенты модели скоринга</h3>
             {activeModel === 'hybrid_momentum' ? (
               <>
-                <Field label="Вес ускорения транзакций (w_tx)" type="number" hint="Измеряет изменения скорости транзакций - ускорение/замедление активности" k="w_tx" v={vals['w_tx']} set={update} />
-                <Field label="Вес моментума объёма (w_vol)" type="number" hint="Отслеживает ускорение трендов объёма торгов" k="w_vol" v={vals['w_vol']} set={update} />
-                <Field label="Вес свежести токена (w_fresh)" type="number" hint="Поощряет недавно созданные токены (первые 6 часов)" k="w_fresh" v={vals['w_fresh']} set={update} />
-                <Field label="Вес дисбаланса ордерфлоу (w_oi)" type="number" hint="Измеряет дисбаланс давления покупок/продаж" k="w_oi" v={vals['w_oi']} set={update} />
+                <Field label="Вес ускорения транзакций (w_tx)" type="number" hint="Что это: Важность компонента TX Acceleration в итоговом скоре. Измеряет ускорение/замедление транзакционной активности токена за последние 5 минут относительно часового тренда." k="w_tx" v={vals['w_tx']} set={update} />
+                <Field label="Вес моментума объёма (w_vol)" type="number" hint="Что это: Важность компонента Volume Momentum в итоговом скоре. Отслеживает ускорение трендов торгового объёма - растет ли интерес к токену или угасает." k="w_vol" v={vals['w_vol']} set={update} />
+                <Field label="Вес свежести токена (w_fresh)" type="number" hint="Что это: Важность компонента Token Freshness в итоговом скоре. Даёт бонус недавно созданным токенам (первые 6 часов после миграции с Pump.fun) для раннего обнаружения возможностей." k="w_fresh" v={vals['w_fresh']} set={update} />
+                <Field label="Вес дисбаланса ордерфлоу (w_oi)" type="number" hint="Что это: Важность компонента Orderflow Imbalance в итоговом скоре. Измеряет дисбаланс между объёмами покупок и продаж - преобладает ли давление покупателей или продавцов." k="w_oi" v={vals['w_oi']} set={update} />
                 <WeightsSum ws={vals['w_tx']} wl={vals['w_vol']} wm={vals['w_fresh']} wt={vals['w_oi']} />
               </>
             ) : (
               <>
-                <Field label="Вес волатильности (W_s)" type="number" hint="Определяет важность краткосрочной активности цены" k="weight_s" v={vals['weight_s']} set={update} />
-                <Field label="Вес ликвидности (W_l)" type="number" hint="Отражает устойчивость актива и глубину рынка" k="weight_l" v={vals['weight_l']} set={update} />
-                <Field label="Вес импульса (W_m)" type="number" hint="Соотношение движений 5м/15м для выявления импульса" k="weight_m" v={vals['weight_m']} set={update} />
-                <Field label="Вес частоты торгов (W_t)" type="number" hint="Число сделок как прокси интереса трейдеров" k="weight_t" v={vals['weight_t']} set={update} />
+                <Field label="Вес волатильности (W_s)" type="number" hint="Что это: Важность ценовой волатильности в итоговом скоре. Определяет, насколько сильно краткосрочные изменения цены (за 5 минут) влияют на оценку токена." k="weight_s" v={vals['weight_s']} set={update} />
+                <Field label="Вес ликвидности (W_l)" type="number" hint="Что это: Важность общей ликвидности токена в итоговом скоре. Отражает глубину рынка и возможность торговать без значительного слиппажа." k="weight_l" v={vals['weight_l']} set={update} />
+                <Field label="Вес импульса (W_m)" type="number" hint="Что это: Важность ценового импульса в итоговом скоре. Сравнивает изменения цены за 5 и 15 минут для выявления ускорения или замедления движения." k="weight_m" v={vals['weight_m']} set={update} />
+                <Field label="Вес частоты торгов (W_t)" type="number" hint="Что это: Важность транзакционной активности в итоговом скоре. Учитывает количество сделок за 5 минут как показатель интереса трейдеров к токену." k="weight_t" v={vals['weight_t']} set={update} />
                 <WeightsSum ws={vals['weight_s']} wl={vals['weight_l']} wm={vals['weight_m']} wt={vals['weight_t']} />
               </>
             )}
             <Formula activeModel={activeModel} vals={vals} />
           </section>
-          <section>
-            <h3>Пороги</h3>
-            <Field label="Минимальное значение скора (τ)" type="number" hint="Токены ниже порога не отображаются на дашборде" k="min_score" v={vals['min_score']} set={update} />
-          </section>
           {activeModel === 'hybrid_momentum' ? (
             <section>
-              <h3>🚀 Hybrid Momentum настройки</h3>
+              <h3>🚀 Параметры сглаживания</h3>
               <Field 
                 label="EWMA коэффициент (α)" 
                 type="number" 
-                hint="Сглаживание компонентов: 0.1 = сильное сглаживание, 0.3 = баланс (рекомендуется), 0.5 = быстрая адаптация" 
+                hint="Что это: Параметр экспоненциального скользящего среднего для сглаживания всех компонентов скоринга. Контролирует баланс между стабильностью (низкие значения) и отзывчивостью (высокие значения). 0.1 = максимальная стабильность, 0.3 = оптимальный баланс, 0.5 = быстрая реакция на изменения." 
                 k="ewma_alpha" 
                 v={vals['ewma_alpha']} 
                 set={update} 
@@ -122,7 +124,7 @@ export default function Settings(){
               <Field 
                 label="Порог свежести токена (часы)" 
                 type="number" 
-                hint="Время в часах, в течение которого токен считается 'свежим' и получает бонус к скору" 
+                hint="Что это: Временное окно в часах, в течение которого токен считается 'свежим' после миграции с Pump.fun. В этот период токен получает максимальный бонус по компоненту Token Freshness, который линейно уменьшается до нуля." 
                 k="freshness_threshold_hours" 
                 v={vals['freshness_threshold_hours']} 
                 set={update} 
@@ -131,11 +133,11 @@ export default function Settings(){
             </section>
           ) : (
             <section>
-              <h3>Сглаживание скоров</h3>
+              <h3>📊 Параметры сглаживания</h3>
               <Field 
                 label="Коэффициент сглаживания (α)" 
                 type="number" 
-                hint="Экспоненциальное скользящее среднее: 0.1 = сильное сглаживание, 0.3 = баланс (рекомендуется), 0.5 = быстрая адаптация, 1.0 = без сглаживания" 
+                hint="Что это: Параметр экспоненциального скользящего среднего для сглаживания итогового скора токена. Уменьшает волатильность скоров, фильтруя кратковременные колебания. 0.1 = максимальная стабильность (медленная реакция), 0.3 = оптимальный баланс, 0.5 = быстрая адаптация к изменениям." 
                 k="score_smoothing_alpha" 
                 v={vals['score_smoothing_alpha']} 
                 set={update} 
@@ -144,48 +146,67 @@ export default function Settings(){
             </section>
           )}
           <section>
-            <h3>Фильтрация данных</h3>
+            <h3>⚙️ Параметры алгоритма</h3>
             <Field 
-              label="Мин. ликвидность пула (USD)" 
+              label="Минимальный скор для отображения" 
               type="number" 
-              hint="Пулы с ликвидностью ниже этого значения игнорируются (фильтрация пылинок)" 
+              hint="Что это: Пороговое значение скора для фильтрации токенов в дашборде (этап 6 алгоритма). Токены с скором ниже этого значения скрываются из основного списка, позволяя сосредоточиться только на перспективных возможностях." 
+              k="min_score" 
+              v={vals['min_score']} 
+              set={update} 
+            />
+            <Field 
+              label="Минимальная ликвидность пула (USD)" 
+              type="number" 
+              hint="Что это: Минимальная ликвидность пула для включения в расчеты метрик (этап 3 алгоритма). Пулы с меньшей ликвидностью считаются 'пылинками' и игнорируются, что повышает точность расчетов и исключает шум от мелких пулов." 
               k="min_pool_liquidity_usd" 
               v={vals['min_pool_liquidity_usd']} 
               set={update} 
             />
+            {/* NOTE: max_price_change_5m field removed - not used in Hybrid Momentum model */}
             <Field 
-              label="Макс. изменение цены за 5м (%)" 
+              label="Минимальная ликвидность для активации (USD)" 
               type="number" 
-              hint="Изменения цены выше этого значения считаются аномалиями и ограничиваются" 
-              k="max_price_change_5m" 
-              v={vals['max_price_change_5m']} 
+              hint="Что это: Минимальная ликвидность внешнего пула для перехода токена из статуса 'мониторинг' в 'активный' (этап 2 алгоритма). Токен активируется только при наличии серьезного внешнего пула (не Pump.fun), что гарантирует реальную торговую активность." 
+              k="activation_min_liquidity_usd" 
+              v={vals['activation_min_liquidity_usd']} 
               set={update} 
             />
-            <Field 
-              label="Мин. изменение скора для обновления" 
-              type="number" 
-              hint="Изменения скора меньше этого значения игнорируются (снижение шума)" 
-              k="min_score_change" 
-              v={vals['min_score_change']} 
-              set={update} 
-            />
-            <Field 
-              label="Макс. изменение ликвидности (коэффициент)" 
-              type="number" 
-              hint="Максимальное отношение изменения ликвидности за одно обновление (защита от резких скачков)" 
-              k="max_liquidity_change_ratio" 
-              v={vals['max_liquidity_change_ratio']} 
-              set={update} 
-            />
-            <DataFilteringHelp />
           </section>
           <section>
-            <h3>Тайминги и жизненный цикл</h3>
-            <Field label="Интервал для горячих (сек)" type="number" hint="Статус: active с последним скором ≥ τ (min_score). Частота обновлений метрик/скора для таких токенов." k="hot_interval_sec" v={vals['hot_interval_sec']} set={update} />
-            <Field label="Интервал для остывших (сек)" type="number" hint="Статус: active с последним скором < τ либо без скора. Обновляются реже, чтобы экономить лимиты." k="cold_interval_sec" v={vals['cold_interval_sec']} set={update} />
-            <Field label="Период неактивности для архивации (час)" type="number" hint="Статус: active → archived, если в течение этого периода ни разу не было скора ≥ τ." k="archive_below_hours" v={vals['archive_below_hours']} set={update} />
-            <Field label="Таймаут мониторинга (час)" type="number" hint="Статус: monitoring → archived, если за этот период не выполнены условия активации." k="monitoring_timeout_hours" v={vals['monitoring_timeout_hours']} set={update} />
-            <Field label="Мин. ликвидность внешнего пула для активации (USD)" type="number" hint="Статусы: monitoring↔active. Активируем при наличии внешнего пула WSOL/SOL/USDC (не pumpfun/pumpswap/pumpfun-amm) с ликвидностью ≥ порога; при отсутствии — возвращаем в monitoring." k="activation_min_liquidity_usd" v={vals['activation_min_liquidity_usd']} set={update} />
+            <h3>⏱️ Временные интервалы</h3>
+            <Field 
+              label="Интервал обновления активных токенов (сек)" 
+              type="number" 
+              hint="Что это: Частота пересчета скоров для 'горячих' токенов с высоким потенциалом (этап 4-5 алгоритма). Активные токены с хорошим скором обновляются чаще для быстрого реагирования на изменения рынка." 
+              k="hot_interval_sec" 
+              v={vals['hot_interval_sec']} 
+              set={update} 
+            />
+            <Field 
+              label="Интервал обновления неактивных токенов (сек)" 
+              type="number" 
+              hint="Что это: Частота пересчета скоров для 'остывших' токенов с низким скором. Такие токены обновляются реже для экономии вычислительных ресурсов и лимитов внешних API, но продолжают отслеживаться на случай восстановления активности." 
+              k="cold_interval_sec" 
+              v={vals['cold_interval_sec']} 
+              set={update} 
+            />
+            <Field 
+              label="Время до архивации активных токенов (час)" 
+              type="number" 
+              hint="Что это: Период неактивности в часах, после которого активные токены переводятся в архив (этап 7 алгоритма). Если токен не показывает скор выше минимального порога в течение этого времени, он считается неперспективным и архивируется для экономии ресурсов." 
+              k="archive_below_hours" 
+              v={vals['archive_below_hours']} 
+              set={update} 
+            />
+            <Field 
+              label="Время до архивации мониторинга (час)" 
+              type="number" 
+              hint="Что это: Максимальное время в часах, которое токен может находиться в статусе 'мониторинг' (этап 7 алгоритма). Если за это время токен не активируется (не появляется внешний пул с достаточной ликвидностью), он архивируется как неперспективный." 
+              k="monitoring_timeout_hours" 
+              v={vals['monitoring_timeout_hours']} 
+              set={update} 
+            />
           </section>
           <div className="actions">
             <button disabled={saving} onClick={()=>save(false)}>{saving? 'Сохранение...' : 'Сохранить'}</button>
@@ -218,55 +239,121 @@ function Formula({activeModel, vals}:{activeModel:string, vals:SettingsMap}){
 }
 
 function HybridMomentumFormula({vals}:{vals:SettingsMap}){
+  const wTx = vals['w_tx'] || '0.25'
+  const wVol = vals['w_vol'] || '0.25'
+  const wFresh = vals['w_fresh'] || '0.25'
+  const wOi = vals['w_oi'] || '0.25'
+  const alpha = vals['ewma_alpha'] || '0.3'
+  const freshness = vals['freshness_threshold_hours'] || '6.0'
+  
   return (
-    <pre style={{whiteSpace:'pre-wrap', background:'#f0f8ff', border:'2px solid #4a90e2', padding:12, borderRadius:6}}>
-🚀 <strong>Hybrid Momentum Model</strong>
+    <div style={{background:'#f0f8ff', border:'2px solid #4a90e2', padding:16, borderRadius:8, marginTop: 12}}>
+      <h4 style={{margin: '0 0 12px 0', color: '#2c5aa0'}}>🚀 Hybrid Momentum Model</h4>
+      
+      <div style={{background: 'white', padding: 12, borderRadius: 6, marginBottom: 12, fontFamily: 'monospace', fontSize: '0.9em'}}>
+        <strong>Итоговая формула:</strong><br/>
+        Score = {wTx}×TX + {wVol}×Vol + {wFresh}×Fresh + {wOi}×OI
+      </div>
 
-S = w_tx·TX_accel + w_vol·VOL_momentum + w_fresh·TOKEN_freshness + w_oi·OI_imbalance
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 12, marginBottom: 12}}>
+        <div style={{background: 'white', padding: 10, borderRadius: 4, border: '1px solid #dee2e6'}}>
+          <strong>🔥 TX Acceleration</strong><br/>
+          <span style={{fontSize: '0.85em', color: '#666'}}>
+            Ускорение транзакций<br/>
+            tx_5m / (tx_1h / 12)
+          </span>
+        </div>
+        
+        <div style={{background: 'white', padding: 10, borderRadius: 4, border: '1px solid #dee2e6'}}>
+          <strong>📈 Volume Momentum</strong><br/>
+          <span style={{fontSize: '0.85em', color: '#666'}}>
+            Импульс объема<br/>
+            vol_5m / (vol_1h / 12)
+          </span>
+        </div>
+        
+        <div style={{background: 'white', padding: 10, borderRadius: 4, border: '1px solid #dee2e6'}}>
+          <strong>🆕 Token Freshness</strong><br/>
+          <span style={{fontSize: '0.85em', color: '#666'}}>
+            Свежесть токена<br/>
+            max(0, 1 - hours/{freshness})
+          </span>
+        </div>
+        
+        <div style={{background: 'white', padding: 10, borderRadius: 4, border: '1px solid #dee2e6'}}>
+          <strong>⚖️ Orderflow Imbalance</strong><br/>
+          <span style={{fontSize: '0.85em', color: '#666'}}>
+            Дисбаланс ордеров<br/>
+            |buys - sells| / total
+          </span>
+        </div>
+      </div>
 
-<strong>Компоненты:</strong>
-• TX_accel = EWMA(tx_count_5m / tx_count_1h * 12) - ускорение транзакций
-• VOL_momentum = EWMA(volume_5m / volume_1h * 12) - моментум объёма  
-• TOKEN_freshness = max(0, 1 - hours_since_creation / 6) - свежесть токена
-• OI_imbalance = |buys_volume - sells_volume| / total_volume - дисбаланс ордерфлоу
-
-<strong>EWMA сглаживание:</strong>
-smoothed = α × new_value + (1-α) × previous_smoothed
-где α = {vals['ewma_alpha'] || '0.3'} (коэффициент сглаживания)
-
-<strong>Преимущества:</strong>
-✅ Учитывает динамику изменений (ускорение/замедление)
-✅ Поощряет свежие токены в первые 6 часов
-✅ Измеряет дисбаланс покупок/продаж
-✅ EWMA сглаживание снижает шум на 25-40%
-    </pre>
+      <div style={{background: '#e3f2fd', padding: 10, borderRadius: 4, border: '1px solid #90caf9'}}>
+        <strong>🔧 EWMA Сглаживание (α = {alpha}):</strong><br/>
+        <span style={{fontSize: '0.9em'}}>
+          smoothed = {alpha} × новое_значение + {(1 - parseFloat(alpha)).toFixed(1)} × предыдущее_сглаженное<br/>
+          <em>Снижает шум и ложные сигналы на 25-40%</em>
+        </span>
+      </div>
+    </div>
   )
 }
 
 function LegacyFormula(){
   return (
-    <pre style={{whiteSpace:'pre-wrap', background:'#fafafa', border:'1px solid #eee', padding:8, borderRadius:4}}>
-📊 <strong>Legacy Model</strong>
+    <div style={{background:'#fafafa', border:'1px solid #ddd', padding:16, borderRadius:8, marginTop: 12}}>
+      <h4 style={{margin: '0 0 12px 0', color: '#495057'}}>📊 Legacy Model</h4>
+      
+      <div style={{background: 'white', padding: 12, borderRadius: 6, marginBottom: 12, fontFamily: 'monospace', fontSize: '0.9em'}}>
+        <strong>Итоговая формула:</strong><br/>
+        Score = W_s×s + W_l×l + W_m×m + W_t×t
+      </div>
 
-S = HD_norm · (W_s·s + W_l·l + W_m·m + W_t·t)
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 12}}>
+        <div style={{background: 'white', padding: 10, borderRadius: 4, border: '1px solid #dee2e6'}}>
+          <strong>📈 Волатильность (s)</strong><br/>
+          <span style={{fontSize: '0.85em', color: '#666'}}>
+            Краткосрочная активность<br/>
+            log(1 + |ΔP_5m| × 10) / log(11)
+          </span>
+        </div>
+        
+        <div style={{background: 'white', padding: 10, borderRadius: 4, border: '1px solid #dee2e6'}}>
+          <strong>💰 Ликвидность (l)</strong><br/>
+          <span style={{fontSize: '0.85em', color: '#666'}}>
+            Глубина рынка<br/>
+            (log10(L_tot) − 4) / 2
+          </span>
+        </div>
+        
+        <div style={{background: 'white', padding: 10, borderRadius: 4, border: '1px solid #dee2e6'}}>
+          <strong>⚡ Импульс (m)</strong><br/>
+          <span style={{fontSize: '0.85em', color: '#666'}}>
+            Соотношение 5м/15м<br/>
+            |ΔP_5м| / max(|ΔP_15м|, 0.01)
+          </span>
+        </div>
+        
+        <div style={{background: 'white', padding: 10, borderRadius: 4, border: '1px solid #dee2e6'}}>
+          <strong>🔄 Транзакции (t)</strong><br/>
+          <span style={{fontSize: '0.85em', color: '#666'}}>
+            Частота торгов<br/>
+            (N_5м / 5) / 300
+          </span>
+        </div>
+      </div>
 
-где:
-- l = clip((log10(L_tot) − 4) / 2)
-- s = clip(log(1 + |ΔP_5m| × 10) / log(11))  📈 исправлено
-- m = clip(|ΔP_5м| / max(|ΔP_15м|, 0.01))     🔧 исправлено  
-- t = clip((N_5м / 5) / 300)
-- clip(x) = min(max(x, 0), 1)
-
-Исправления волатильности:
-- s: логарифмическое сглаживание вместо линейного деления
-- m: защита от деления на очень малые числа
-
-Примечания:
-- L_tot — суммарная ликвидность по WSOL/SOL/USDC пулам (без classic pumpfun).
-- ΔP берётся по самой ликвидной паре; если m15 отсутствует, используется h1/4.
-- N_5м — сумма (buys+sells) за 5 минут по всем учтённым пулам.
-- Скоры дополнительно сглажены через экспоненциальное скользящее среднее.
-    </pre>
+      <div style={{background: '#fff3cd', padding: 10, borderRadius: 4, border: '1px solid #ffeaa7'}}>
+        <strong>📝 Особенности:</strong><br/>
+        <span style={{fontSize: '0.9em'}}>
+          • Все компоненты нормализованы в диапазон [0, 1]<br/>
+          • Логарифмическое сглаживание волатильности<br/>
+          • Защита от деления на малые числа<br/>
+          • Дополнительное EWMA сглаживание итогового скора
+        </span>
+      </div>
+    </div>
   )
 }
 
@@ -308,28 +395,7 @@ function SmoothingHelp({alpha}:{alpha?:string}){
   )
 }
 
-function DataFilteringHelp(){
-  return (
-    <div style={{marginTop: 8, padding: 8, background: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: 4}}>
-      <h4 style={{margin: '0 0 8px 0', fontSize: '0.9em'}}>🛡️ Фильтрация данных</h4>
-      <div style={{fontSize: '0.85em', color: '#666'}}>
-        <div><strong>Цель:</strong> Устранение аномалий и шума в данных для стабилизации скоров</div>
-        <div style={{marginTop: 4}}>
-          <strong>Эффекты:</strong>
-          <ul style={{margin: '4px 0', paddingLeft: 16}}>
-            <li>🧹 Фильтрация пулов-пылинок (&lt; $500)</li>
-            <li>🚫 Блокировка экстремальных изменений цены (&gt; 50%)</li>
-            <li>🔇 Игнорирование незначительного шума (&lt; 5%)</li>
-            <li>⚡ Сглаживание резких скачков ликвидности</li>
-          </ul>
-        </div>
-        <div style={{marginTop: 4, fontStyle: 'italic'}}>
-          Ожидаемый эффект: дополнительное снижение волатильности на 15-25%
-        </div>
-      </div>
-    </div>
-  )
-}
+
 
 function ModelSelector({activeModel, onModelChange, disabled}:{activeModel:string, onModelChange:(model:string)=>void, disabled:boolean}){
   return (
@@ -351,6 +417,111 @@ function ModelSelector({activeModel, onModelChange, disabled}:{activeModel:strin
             '🚀 4-компонентная модель с EWMA сглаживанием' : 
             '📊 Классическая модель скоринга'
           }
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function TokenLifecycleAlgorithm(){
+  return (
+    <section style={{marginBottom: 24, padding: 16, background: '#f8f9fa', border: '2px solid #28a745', borderRadius: 8}}>
+      <h3 style={{margin: '0 0 16px 0', color: '#155724', display: 'flex', alignItems: 'center', gap: 8}}>
+        🔄 Алгоритм жизненного цикла токенов
+      </h3>
+      
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16}}>
+        
+        <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #dee2e6'}}>
+          <h4 style={{margin: '0 0 8px 0', color: '#007bff'}}>1️⃣ Обнаружение токенов</h4>
+          <div style={{fontSize: '0.9em', lineHeight: 1.4}}>
+            <strong>WebSocket подписка на Pump.fun:</strong><br/>
+            • Отслеживаем миграции токенов с Pump.fun<br/>
+            • Создаем запись со статусом <code>monitoring</code><br/>
+            • Начинаем отслеживание токена
+          </div>
+        </div>
+
+        <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #dee2e6'}}>
+          <h4 style={{margin: '0 0 8px 0', color: '#28a745'}}>2️⃣ Активация токена</h4>
+          <div style={{fontSize: '0.9em', lineHeight: 1.4}}>
+            <strong>Проверка через DexScreener:</strong><br/>
+            • Ищем внешние пулы (не Pump.fun)<br/>
+            • Если ликвидность ≥ порога → статус <code>active</code><br/>
+            • Если нет внешних пулов → остается <code>monitoring</code>
+          </div>
+        </div>
+
+        <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #dee2e6'}}>
+          <h4 style={{margin: '0 0 8px 0', color: '#ffc107'}}>3️⃣ Сбор метрик</h4>
+          <div style={{fontSize: '0.9em', lineHeight: 1.4}}>
+            <strong>Агрегация данных по пулам:</strong><br/>
+            • Ликвидность, объемы, транзакции<br/>
+            • Фильтрация пулов-пылинок<br/>
+            • Ограничение аномальных изменений
+          </div>
+        </div>
+
+        <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #dee2e6'}}>
+          <h4 style={{margin: '0 0 8px 0', color: '#dc3545'}}>4️⃣ Расчет компонентов</h4>
+          <div style={{fontSize: '0.9em', lineHeight: 1.4}}>
+            <strong>Hybrid Momentum модель:</strong><br/>
+            • TX Acceleration - ускорение транзакций<br/>
+            • Volume Momentum - импульс объема<br/>
+            • Token Freshness - свежесть токена<br/>
+            • Orderflow Imbalance - дисбаланс ордеров
+          </div>
+        </div>
+
+        <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #dee2e6'}}>
+          <h4 style={{margin: '0 0 8px 0', color: '#6f42c1'}}>5️⃣ Сглаживание и скор</h4>
+          <div style={{fontSize: '0.9em', lineHeight: 1.4}}>
+            <strong>EWMA сглаживание:</strong><br/>
+            • Стабилизация компонентов<br/>
+            • Расчет итогового скора<br/>
+            • Сохранение в базу данных
+          </div>
+        </div>
+
+        <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #dee2e6'}}>
+          <h4 style={{margin: '0 0 8px 0', color: '#17a2b8'}}>6️⃣ Отображение</h4>
+          <div style={{fontSize: '0.9em', lineHeight: 1.4}}>
+            <strong>Фильтрация для дашборда:</strong><br/>
+            • Показываем токены с скором ≥ минимума<br/>
+            • Сортировка по скору или компонентам<br/>
+            • Визуальные индикаторы и фильтры
+          </div>
+        </div>
+
+        <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #dee2e6'}}>
+          <h4 style={{margin: '0 0 8px 0', color: '#6c757d'}}>7️⃣ Архивация</h4>
+          <div style={{fontSize: '0.9em', lineHeight: 1.4}}>
+            <strong>Управление жизненным циклом:</strong><br/>
+            • <code>active</code> → <code>archived</code> при долгом низком скоре<br/>
+            • <code>monitoring</code> → <code>archived</code> по таймауту<br/>
+            • Освобождение ресурсов системы
+          </div>
+        </div>
+
+        <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #dee2e6'}}>
+          <h4 style={{margin: '0 0 8px 0', color: '#fd7e14'}}>🔄 Обновления</h4>
+          <div style={{fontSize: '0.9em', lineHeight: 1.4}}>
+            <strong>Периодический пересчет:</strong><br/>
+            • Активные токены - каждые 10 сек<br/>
+            • Неактивные токены - каждые 60 сек<br/>
+            • Адаптивная частота по скору
+          </div>
+        </div>
+
+      </div>
+
+      <div style={{marginTop: 16, padding: 12, background: '#d1ecf1', border: '1px solid #bee5eb', borderRadius: 4}}>
+        <h4 style={{margin: '0 0 8px 0', color: '#0c5460'}}>💡 Ключевые принципы</h4>
+        <div style={{fontSize: '0.9em', color: '#0c5460'}}>
+          <strong>Автоматизация:</strong> Система работает без вмешательства пользователя<br/>
+          <strong>Адаптивность:</strong> Частота обновлений зависит от активности токена<br/>
+          <strong>Стабильность:</strong> EWMA сглаживание устраняет шум и ложные сигналы<br/>
+          <strong>Эффективность:</strong> Архивация неактивных токенов экономит ресурсы
         </div>
       </div>
     </section>

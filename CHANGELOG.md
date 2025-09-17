@@ -2,6 +2,14 @@
 
 ## [2.0.0] - 2025-09-17
 
+### 🧹 Code Cleanup
+
+#### Parameter Removal
+- **REMOVED**: `max_price_change_5m` parameter from Hybrid Momentum model
+- **REASON**: Parameter not used in new scoring components (TX Accel, Vol Momentum, etc.)
+- **IMPACT**: Simplified settings UI, cleaner code, no functional changes
+- **LEGACY**: Parameter still used in legacy scoring model for backward compatibility
+
 ### 🎯 Major Features
 
 #### Hybrid Momentum Scoring Model

@@ -97,14 +97,13 @@ class ScoringService:
         try:
             # Get enhanced metrics
             min_liquidity = float(self.settings.get("min_pool_liquidity_usd") or "500")
-            max_price_change = float(self.settings.get("max_price_change_5m") or "0.5")
+            # NOTE: max_price_change_5m removed - not used in Hybrid Momentum model
             
             metrics = aggregate_enhanced_metrics(
                 token.mint_address,
                 pairs,
                 token.created_at,
-                min_liquidity_usd=min_liquidity,
-                max_price_change=max_price_change
+                min_liquidity_usd=min_liquidity
             )
             
             # Calculate score using hybrid momentum model

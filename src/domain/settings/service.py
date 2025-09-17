@@ -77,7 +77,7 @@ class SettingsService:
             
             # Threshold parameters (must be positive floats)
             if key in ["freshness_threshold_hours", "min_score", "activation_min_liquidity_usd",
-                      "min_pool_liquidity_usd", "max_price_change_5m", "min_score_change",
+                      "min_pool_liquidity_usd", "min_score_change",
                       "max_liquidity_change_ratio"]:
                 threshold = float(value)
                 return threshold > 0.0
