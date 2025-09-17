@@ -1,11 +1,12 @@
 To The Moon — система скоринга токенов Solana
 =============================================
 
-Публичный сервис для автоматического отслеживания, анализа и скоринга токенов, мигрировавших с Pump.fun на DEX в сети Solana. Бэкенд на Python/FastAPI, фронтенд — React/Vite. Без Docker, деплой из Git.
+Публичный сервис для автоматического отслеживания, анализа и скоринга токенов, мигрировавших с Pump.fun на DEX в сети Solana. Использует продвинутую модель "Hybrid Momentum" для оценки арбитражного потенциала токенов. Бэкенд на Python/FastAPI, фронтенд — React/Vite. Без Docker, деплой из Git.
 
 Содержание
 ---------
 - Возможности
+- Модели скоринга
 - Архитектура
 - Требования
 - Быстрый старт (dev)
@@ -20,29 +21,64 @@ To The Moon — система скоринга токенов Solana
 
 Возможности
 -----------
-- Подписка на миграции токенов через WebSocket Pump.fun → создание записей (status: `monitoring`).
-- Валидация через DexScreener: проверка наличия WSOL/pumpfun-amm и внешнего пула → `active`.
-- Сбор метрик по WSOL/SOL и USDC‑парам: учитываются `pumpfun-amm`, `pumpswap` и внешние DEX; classic `pumpfun` исключён. Метрики: суммарная ликвидность (WSOL+USDC), дельты 5м/15м (по наиболее ликвидной паре), транзакции 5м (сумма).
-  - Примечание по Δ15м: если DexScreener не отдаёт `priceChange.m15`, используется приближённое значение `h1/4`.
-- Определение основного DEX (по наибольшей ликвидности среди учитываемых WSOL/SOL/USDC‑пар) и подсветка в UI.
-  - Учитываемые пулы: `pumpfun-amm`, `pumpswap` и внешние DEX; classic `pumpfun` исключён.
-- Расчёт скоринга по формулам ТЗ (временная заглушка holders: `HD_norm=1`).
-- Планировщик (APScheduler): отдельные частоты обновления для «горячих»/«остывших» токенов.
-- Архивация: `active` ниже порога долгое время и `monitoring` с таймаутом.
-- Публичное API: список, детали токена, пулы WSOL, пересчёт on‑demand.
-- Логи: in‑memory буфер + API для чтения и страницы просмотра с фильтрами.
-- Фронтенд (SPA): дашборд (автообновление каждые 5 сек), сортировка/пагинация, просмотр пулов, страница настроек, детальная карточка токена, вкладка логов.
+- **Подписка на миграции токенов** через WebSocket Pump.fun → создание записей (status: `monitoring`).
+- **Валидация через DexScreener**: проверка наличия WSOL/pumpfun-amm и внешнего пула → `active`.
+- **Расширенный сбор метрик** по WSOL/SOL и USDC‑парам: учитываются `pumpfun-amm`, `pumpswap` и внешние DEX; classic `pumpfun` исключён.
+- **Hybrid Momentum скоринг**: продвинутая модель оценки арбитражного потенциала на основе 4 компонентов:
+  - **Transaction Acceleration** — ускорение торговой активности
+  - **Volume Momentum** — импульс торгового объема
+  - **Token Freshness** — свежесть токена (недавно мигрировавшие получают бонус)
+  - **Orderflow Imbalance** — дисбаланс покупок/продаж
+- **EWMA сглаживание** всех компонентов для стабильности результатов.
+- **Множественные модели скоринга**: поддержка legacy и hybrid momentum моделей с переключением через API.
+- **Планировщик (APScheduler)**: отдельные частоты обновления для «горячих»/«остывших» токенов.
+- **Архивация**: `active` ниже порога долгое время и `monitoring` с таймаутом.
+- **Публичное API**: список, детали токена, компоненты скоринга, пулы WSOL, пересчёт on‑demand.
+- **Логи**: in‑memory буфер + API для чтения и страницы просмотра с фильтрами.
+- **Фронтенд (SPA)**: дашборд (автообновление каждые 5 сек), сортировка/пагинация, просмотр пулов, страница настроек, детальная карточка токена, вкладка логов.
+
+Модели скоринга
+---------------
+
+### Hybrid Momentum Model (по умолчанию)
+Продвинутая модель для оценки краткосрочного арбитражного потенциала:
+
+**Формула**: `Score = (W_tx × Tx_Accel) + (W_vol × Vol_Momentum) + (W_fresh × Token_Freshness) + (W_oi × Orderflow_Imbalance)`
+
+**Компоненты**:
+- **Tx_Accel** = `(tx_count_5m / 5) / (tx_count_1h / 60)` — ускорение транзакций
+- **Vol_Momentum** = `volume_5m / (volume_1h / 12)` — импульс объема
+- **Token_Freshness** = `max(0, (6 - hours_since_creation) / 6)` — свежесть токена
+- **Orderflow_Imbalance** = `(buys_volume_5m - sells_volume_5m) / (buys_volume_5m + sells_volume_5m)` — дисбаланс ордеров
+
+**Особенности**:
+- EWMA сглаживание всех компонентов (параметр `ewma_alpha`)
+- Конфигурируемые веса компонентов через API
+- Учет свежести токенов (недавно мигрировавшие получают бонус)
+
+### Legacy Model
+Простая модель на основе ликвидности, волатильности и активности:
+- Компоненты: `l` (ликвидность), `s` (волатильность), `m` (моментум), `t` (транзакции)
+- Поддерживается для обратной совместимости
 
 Архитектура
 -----------
-- Backend (FastAPI): `src/app`, маршруты `/health`, `/version`, `/settings`, `/tokens`, `/admin`, `/logs`, `/ui` (минимальный UI) и раздача SPA `/app`.
-- DB (PostgreSQL/SQLite dev): ORM SQLAlchemy 2.x, миграции Alembic. Таблицы: `tokens`, `token_scores`, `app_settings`.
-- Scheduler (APScheduler): фоновые задачи обновления «hot/cold», валидация `monitoring→active` и часовая архивация.
+- **Backend (FastAPI)**: `src/app`, маршруты `/health`, `/version`, `/settings`, `/tokens`, `/admin`, `/logs`, `/ui` (минимальный UI) и раздача SPA `/app`.
+- **DB (PostgreSQL/SQLite dev)**: ORM SQLAlchemy 2.x, миграции Alembic. Таблицы: `tokens`, `token_scores`, `app_settings`.
+  - Новые поля в `token_scores`: `raw_components`, `smoothed_components`, `scoring_model`
+- **Scoring Service**: Унифицированный интерфейс для множественных моделей скоринга
+  - `HybridMomentumModel` — новая продвинутая модель
+  - `ComponentCalculator` — расчет компонентов скоринга
+  - `EWMAService` — экспоненциальное сглаживание
+- **Scheduler (APScheduler)**: фоновые задачи обновления «hot/cold», валидация `monitoring→active` и часовая архивация.
+  - Автоматическое переключение между моделями скоринга
   - При активации пытаемся заполнить `name`/`symbol` из `baseToken` DexScreener, если они были пустыми.
-  - Правило активации/демоции по ликвидности внешних пулов: токен становится `active`, если есть хотя бы один внешний пул WSOL/SOL/USDC (DEX не в {pumpfun, pumpfun-amm, pumpswap}) с ликвидностью ≥ `activation_min_liquidity_usd`. Если для `active` токена больше нет таких пулов — статус возвращается в `monitoring`.
-- Worker Pump.fun (WebSocket): `src/workers/pumpfun_ws.py` — подписка `subscribeMigration` и запись `monitoring` токенов.
-- Внешние API: DexScreener (pairs), Pump.fun WS (migrations). Метрика holders временно исключена.
-  - Примечание: WSOL распознаётся как `WSOL` и `SOL` (а также варианты `W_SOL`, `W-SOL`); USDC распознаётся по символу `USDC`. Пулы Pump.fun определяются `dexId` ∈ {`pumpfun-amm`,`pumpfun`,`pumpswap`}; из расчёта исключён только `pumpfun` (classic), `pumpfun-amm` и `pumpswap` учитываются.
+  - Правило активации/демоции по ликвидности внешних пулов: токен становится `active`, если есть хотя бы один внешний пул WSOL/SOL/USDC (DEX не в {pumpfun, pumpfun-amm, pumpswap}) с ликвидностью ≥ `activation_min_liquidity_usd`.
+- **Worker Pump.fun (WebSocket)**: `src/workers/pumpfun_ws.py` — подписка `subscribeMigration` и запись `monitoring` токенов.
+- **Внешние API**: DexScreener (pairs), Pump.fun WS (migrations).
+  - Расширенный сбор метрик: транзакции 5м/1ч, объемы 5м/1ч, оценка объемов покупок/продаж
+  - WSOL распознаётся как `WSOL` и `SOL` (а также варианты `W_SOL`, `W-SOL`); USDC распознаётся по символу `USDC`
+  - Пулы Pump.fun определяются `dexId` ∈ {`pumpfun-amm`,`pumpfun`,`pumpswap`}; из расчёта исключён только `pumpfun` (classic)
 
 Требования
 ----------
@@ -91,18 +127,43 @@ PUMPFUN_RUN_SECONDS=120 PYTHONPATH=. python3 -m src.workers.pumpfun_ws
 Конфигурация
 ------------
 Все основные настройки читаются из `.env` (см. `.env.example`) и таблицы `app_settings`:
-- `.env`:
-  - `APP_ENV` (dev/stage/prod)
-  - `LOG_LEVEL` (INFO/DEBUG)
-  - `HOST`, `PORT` — для uvicorn (если не через systemd)
-  - `DATABASE_URL` — например: `postgresql+psycopg2://user:pass@localhost:5432/tothemoon`
-  - `FRONTEND_DIST_PATH=frontend/dist` — путь к собранной SPA
-  - `SCHEDULER_ENABLED=true` — включает APScheduler (обновления, валидация, архивация)
-- `app_settings` (через API `/settings`):
-  - Весовые коэффициенты: `weight_s`, `weight_l`, `weight_m`, `weight_t`
-  - Порог: `min_score`
-  - Тайминги: `hot_interval_sec`, `cold_interval_sec`, `archive_below_hours`, `monitoring_timeout_hours`
-  - Активация: `activation_min_liquidity_usd` — минимальная ликвидность внешнего пула (USD) для активации/демоции
+
+### Переменные окружения (.env):
+- `APP_ENV` (dev/stage/prod)
+- `LOG_LEVEL` (INFO/DEBUG)
+- `HOST`, `PORT` — для uvicorn (если не через systemd)
+- `DATABASE_URL` — например: `postgresql+psycopg2://user:pass@localhost:5432/tothemoon`
+- `FRONTEND_DIST_PATH=frontend/dist` — путь к собранной SPA
+- `SCHEDULER_ENABLED=true` — включает APScheduler (обновления, валидация, архивация)
+
+### Настройки скоринга (через API `/settings`):
+
+**Модель скоринга**:
+- `scoring_model_active` — активная модель: `"hybrid_momentum"` или `"legacy"`
+
+**Hybrid Momentum веса**:
+- `w_tx` (0.25) — вес ускорения транзакций
+- `w_vol` (0.25) — вес импульса объема
+- `w_fresh` (0.25) — вес свежести токена
+- `w_oi` (0.25) — вес дисбаланса ордеров
+
+**EWMA сглаживание**:
+- `ewma_alpha` (0.3) — параметр сглаживания (0.0-1.0)
+- `freshness_threshold_hours` (6.0) — порог свежести токена в часах
+
+**Legacy веса** (для обратной совместимости):
+- `weight_s`, `weight_l`, `weight_m`, `weight_t`
+
+**Общие настройки**:
+- `min_score` — минимальный порог скора
+- `hot_interval_sec`, `cold_interval_sec` — интервалы обновления
+- `archive_below_hours`, `monitoring_timeout_hours` — настройки архивации
+- `activation_min_liquidity_usd` — минимальная ликвидность для активации
+
+**Фильтрация данных**:
+- `min_pool_liquidity_usd` (500) — минимальная ликвидность пула для учета
+- `max_price_change_5m` (0.5) — максимальное изменение цены за 5м (50%)
+- `min_score_change` (0.05) — минимальное изменение скора для обновления
 
 Миграции
 --------
@@ -111,29 +172,65 @@ PUMPFUN_RUN_SECONDS=120 PYTHONPATH=. python3 -m src.workers.pumpfun_ws
 
 API
 ---
-- Health/version: `GET /health`, `GET /version`
-- Settings:
-  - `GET /settings/` — все ключи (с дефолтами)
-  - `GET /settings/{key}` — значение (или дефолт), `404` если ключ неизвестен
-  - `PUT /settings/{key}` — обновить (строковое значение)
-- Tokens:
-  - `GET /tokens?min_score=&limit=&offset=&sort=score_desc|score_asc&statuses=active,monitoring,archived`
-    - Параметры: `limit` (1–100, по умолчанию 50), `offset` (>=0), `statuses` (список через запятую: `active,monitoring,archived`).
-    - По умолчанию архив исключён; чтобы видеть архив — добавьте `statuses=archived` или комбинируйте со списком.
-    - Возвращает `{ total, items: [...], meta: {total,limit,offset,page,page_size,has_prev,has_next,sort,min_score} }`
-    - Поля `items[]`: `mint_address`, `name`, `symbol`, `status`, `score`, `liquidity_usd (L_tot)`, `delta_p_5m`, `delta_p_15m`, `n_5m`, `primary_dex`, `solscan_url`.
-  - `GET /tokens/{mint}` — детали токена: последний `score/metrics`, `score_history`, `pools` (только WSOL), `status`, ссылка Solscan
-  - `POST /tokens/{mint}/refresh` — on‑demand пересчёт (новый снапшот + score)
-  - `GET /tokens/{mint}/pools` — WSOL/SOL‑пулы (адрес, dex, ссылка Solscan), исключается только classic `pumpfun` (пулы `pumpfun-amm` и `pumpswap` возвращаются)
-- Admin:
-  - `POST /admin/recalculate` — запустить обновление «горячих» и «остывших» токенов
-- Logs:
-  - `GET /logs?limit=&levels=&loggers=&contains=&since=` — последние записи in‑memory буфера.
-    - `limit` (1–500), `levels` (CSV уровней: `DEBUG,INFO,WARNING,ERROR,CRITICAL`), `loggers` (CSV имён логгеров), `contains` (подстрока), `since` (ISO‑время).
-  - `GET /logs/meta` — метаданные (список доступных `logger`).
-- UI:
-  - `/app` — SPA (дашборд и настройки)
-  - `/ui` — минималистичный HTML/JS UI (параллельно SPA)
+
+### Health/Version
+- `GET /health` — статус системы
+- `GET /version` — версия приложения
+
+### Settings
+- `GET /settings/` — все настройки (с дефолтами)
+- `GET /settings/{key}` — значение настройки (или дефолт), `404` если ключ неизвестен
+- `PUT /settings/{key}` — обновить настройку (с валидацией)
+- `GET /settings/validation/errors` — список ошибок валидации настроек
+- `GET /settings/weights` — веса всех моделей скоринга
+- `POST /settings/model/switch` — переключить активную модель скоринга
+
+### Tokens
+- `GET /tokens?min_score=&limit=&offset=&sort=score_desc|score_asc&statuses=active,monitoring,archived`
+  - Параметры: `limit` (1–100, по умолчанию 50), `offset` (>=0), `statuses` (список через запятую)
+  - По умолчанию архив исключён; чтобы видеть архив — добавьте `statuses=archived`
+  - Возвращает `{ total, items: [...], meta: {...} }`
+  - Поля `items[]`: `mint_address`, `name`, `symbol`, `status`, `score`, `smoothed_score`, компоненты скоринга, метрики
+- `GET /tokens/{mint}` — детали токена: 
+  - Последний `score/metrics`, `score_history`, `pools` (только WSOL)
+  - **Новое**: разбивка компонентов скоринга (`raw_components`, `smoothed_components`)
+  - **Новое**: информация о модели скоринга (`scoring_model`)
+- `POST /tokens/{mint}/refresh` — on‑demand пересчёт (новый снапшот + score)
+- `GET /tokens/{mint}/pools` — WSOL/SOL‑пулы (адрес, dex, ссылка Solscan)
+
+### Admin
+- `POST /admin/recalculate` — запустить обновление «горячих» и «остывших» токенов
+
+### Logs
+- `GET /logs?limit=&levels=&loggers=&contains=&since=` — последние записи in‑memory буфера
+  - `limit` (1–500), `levels` (CSV уровней), `loggers` (CSV имён логгеров), `contains` (подстрока), `since` (ISO‑время)
+- `GET /logs/meta` — метаданные (список доступных `logger`)
+
+### UI
+- `/app` — SPA (дашборд и настройки)
+- `/ui` — минималистичный HTML/JS UI (параллельно SPA)
+
+### Примеры использования
+
+**Переключение модели скоринга:**
+```bash
+curl -X POST http://localhost:8000/settings/model/switch \
+  -H "Content-Type: application/json" \
+  -d '{"model": "hybrid_momentum"}'
+```
+
+**Настройка весов Hybrid Momentum:**
+```bash
+curl -X PUT http://localhost:8000/settings/w_tx \
+  -H "Content-Type: application/json" \
+  -d '{"value": "0.3"}'
+```
+
+**Получение детализации скоринга:**
+```bash
+curl http://localhost:8000/tokens/So11111111111111111111111111111111111111112
+# Ответ включает raw_components и smoothed_components
+```
 
 Логи — JSON, содержат поля `path`, `method`, `status`, `latency_ms`, а также ключевые события (подключение WS, вставка/дубликаты токенов, обновления метрик/скора, архивация и т.д.).
 
@@ -246,8 +343,43 @@ sudo bash -c "REPO_URL=https://github.com/super-sh1z01d/To_The_Moon.git bash -s"
 
 Тестирование
 ------------
-- Unit/Integration: `pytest -q` (по мере добавления тестов).
-- Smoke/utility‑скрипты: `scripts/smoke_db.py`, `scripts/validate_monitoring.py`, `scripts/update_metrics.py`, `scripts/compute_scores.py`, `scripts/archive_tokens.py`.
+
+### Unit тесты
+```bash
+# Запуск всех тестов
+PYTHONPATH=. python3 -m pytest -v
+
+# Тесты компонентов скоринга
+PYTHONPATH=. python3 -m pytest tests/test_component_calculator.py -v
+
+# Тесты EWMA сглаживания
+PYTHONPATH=. python3 -m pytest tests/test_ewma_service.py -v
+```
+
+### Покрытие тестами
+- ✅ `ComponentCalculator` — 12 тестов (все компоненты + граничные случаи)
+- ✅ `EWMAService` — 15 тестов (сглаживание + персистентность)
+- ✅ Валидация настроек и API endpoints
+- ✅ Обработка ошибок и граничных случаев
+
+### Utility скрипты
+- `scripts/smoke_db.py` — заполнение тестовыми данными
+- `scripts/validate_monitoring.py` — проверка валидатора токенов
+- `scripts/update_metrics.py` — обновление метрик
+- `scripts/compute_scores.py` — расчет скоров
+- `scripts/archive_tokens.py` — архивация токенов
+
+### Тестирование моделей скоринга
+```bash
+# Тестирование hybrid momentum модели
+PYTHONPATH=. python3 -c "
+from src.domain.scoring.component_calculator import ComponentCalculator
+print('Tx Accel:', ComponentCalculator.calculate_tx_accel(100, 1200))
+print('Vol Momentum:', ComponentCalculator.calculate_vol_momentum(1000, 12000))
+print('Token Freshness:', ComponentCalculator.calculate_token_freshness(2.0, 6.0))
+print('Orderflow Imbalance:', ComponentCalculator.calculate_orderflow_imbalance(600, 400))
+"
+```
 
 Безопасность и эксплуатация
 ---------------------------
@@ -259,10 +391,37 @@ sudo bash -c "REPO_URL=https://github.com/super-sh1z01d/To_The_Moon.git bash -s"
 
 Дорожная карта
 --------------
-- Метрика holders (Helius) и включение `HD_norm` вместо заглушки.
-- Расширенная сортировка/фильтры по ликвидности, транзакциям, движению цен.
-- Улучшенная пагинация (cursor‑based) и поиск по имени/символу.
-- Метрики Prometheus и дашборд Grafana.
+
+### Ближайшие планы
+- ✅ **Hybrid Momentum модель скоринга** — реализована
+- ✅ **EWMA сглаживание компонентов** — реализовано
+- ✅ **Множественные модели скоринга** — реализовано
+- ✅ **Расширенный API для компонентов** — реализован
+
+### Следующие этапы
+- **Метрика holders** (Helius API) для более точного расчета Holder_Growth
+- **Машинное обучение**: обучение весов модели на исторических данных
+- **Дополнительные модели скоринга**: 
+  - Momentum + Mean Reversion
+  - Technical Analysis based
+  - Social Sentiment integration
+- **Расширенная аналитика**:
+  - Корреляционный анализ компонентов
+  - Бэктестинг моделей скоринга
+  - A/B тестирование моделей
+
+### Улучшения UI/UX
+- **Интерактивные графики** компонентов скоринга
+- **Настройка весов** через веб-интерфейс
+- **Сравнение моделей** в реальном времени
+- **Алерты** на основе скоринга
+
+### Техническая оптимизация
+- **Cursor-based пагинация** для больших объемов данных
+- **Поиск по имени/символу** токенов
+- **Кэширование** расчетов скоринга
+- **Метрики Prometheus** и дашборд Grafana
+- **Горизонтальное масштабирование** scheduler'а
 
 Ansible деплой (опционально)
 ----------------------------

@@ -54,6 +54,12 @@ class TokenScore(Base):
     score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
     smoothed_score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
     metrics: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    
+    # New fields for hybrid momentum scoring
+    raw_components: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    smoothed_components: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    scoring_model: Mapped[str] = mapped_column(String(50), default="hybrid_momentum", nullable=False)
+    
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False)
 
     token: Mapped[Token] = relationship(back_populates="scores")

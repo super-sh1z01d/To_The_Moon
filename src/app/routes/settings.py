@@ -49,7 +49,71 @@ class SettingValue(BaseModel):
 @router.put("/{key}", response_model=SettingItem)
 async def put_setting(key: str, payload: SettingValue, db: Session = Depends(get_db)) -> SettingItem:
     svc = SettingsService(db)
-    svc.set(key, payload.value)
+    
+    try:
+        svc.set(key, payload.value)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    
     # После обновления возвращаем актуальное значение
     value = svc.get(key)
     return SettingItem(key=key, value=value)
+
+
+@router.get("/validation/errors", response_model=list[str])
+async def get_validation_errors(db: Session = Depends(get_db)) -> list[str]:
+    """Get list of current setting validation errors."""
+    svc = SettingsService(db)
+    return svc.validate_all_settings()
+
+
+class WeightsResponse(BaseModel):
+    hybrid_momentum: dict[str, float] = Field(description="Hybrid momentum model weights")
+    legacy: dict[str, float] = Field(description="Legacy model weights")
+    active_model: str = Field(description="Currently active scoring model")
+
+
+@router.get("/weights", response_model=WeightsResponse)
+async def get_weights(db: Session = Depends(get_db)) -> WeightsResponse:
+    """Get all scoring model weights."""
+    svc = SettingsService(db)
+    
+    return WeightsResponse(
+        hybrid_momentum=svc.get_hybrid_momentum_weights(),
+        legacy=svc.get_legacy_weights(),
+        active_model=svc.get("scoring_model_active") or "hybrid_momentum"
+    )
+
+
+class ModelSwitchRequest(BaseModel):
+    model: str = Field(description="Model to switch to: 'legacy' or 'hybrid_momentum'")
+
+
+@router.post("/model/switch")
+async def switch_scoring_model(
+    request: ModelSwitchRequest, 
+    db: Session = Depends(get_db)
+) -> dict[str, str]:
+    """Switch active scoring model."""
+    svc = SettingsService(db)
+    
+    if request.model not in ["legacy", "hybrid_momentum"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid model. Must be 'legacy' or 'hybrid_momentum'"
+        )
+    
+    try:
+        svc.set("scoring_model_active", request.model)
+        return {
+            "message": f"Switched to {request.model} scoring model",
+            "active_model": request.model
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )

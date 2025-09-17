@@ -12,6 +12,7 @@ from src.adapters.repositories.tokens_repo import TokensRepository
 from src.adapters.services.dexscreener_client import DexScreenerClient
 from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
 from src.domain.scoring.scorer import compute_score
+from src.domain.scoring.scoring_service import ScoringService
 from src.domain.settings.service import SettingsService
 
 
@@ -27,25 +28,20 @@ async def _process_group(group: str) -> None:
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
         settings = SettingsService(sess)
-        min_score = float(settings.get("min_score") or 0.1)
-        smoothing_alpha = float(settings.get("score_smoothing_alpha") or 0.3)
+        scoring_service = ScoringService(repo, settings)
         
-        # Настройки фильтрации данных
-        min_pool_liquidity = float(settings.get("min_pool_liquidity_usd") or 500)
-        max_price_change = float(settings.get("max_price_change_5m") or 0.5)
+        min_score = float(settings.get("min_score") or 0.1)
         min_score_change = float(settings.get("min_score_change") or 0.05)
         
-        weights = {
-            "weight_s": float(settings.get("weight_s") or 0.35),
-            "weight_l": float(settings.get("weight_l") or 0.25),
-            "weight_m": float(settings.get("weight_m") or 0.20),
-            "weight_t": float(settings.get("weight_t") or 0.20),
-        }
         tokens = repo.list_by_status("active", limit=500)
-
         client = DexScreenerClient(timeout=5.0)
+        
         processed = 0
         updated = 0
+        
+        active_model = scoring_service.get_active_model()
+        log.info("processing_group", extra={"extra": {"group": group, "active_model": active_model, "tokens_count": len(tokens)}})
+        
         for t in tokens:
             snap = repo.get_latest_snapshot(t.id)
             last_score = float(snap.score) if (snap and snap.score is not None) else None
@@ -61,61 +57,67 @@ async def _process_group(group: str) -> None:
                 log.warning("pairs_fetch_failed", extra={"extra": {"group": group, "mint": t.mint_address}})
                 continue
             
-            # Получаем предыдущий сглаженный скор для данного токена
-            previous_smoothed_score = repo.get_previous_smoothed_score(t.id)
-            
-            # Агрегируем метрики с фильтрацией данных
-            metrics = aggregate_wsol_metrics(
-                t.mint_address, 
-                pairs, 
-                min_liquidity_usd=min_pool_liquidity,
-                max_price_change=max_price_change
-            )
-            
-            # Проверяем качество данных
-            if metrics.get("data_quality_warning"):
-                log.warning("data_quality_issue", extra={"extra": {"group": group, "mint": t.mint_address}})
-                # Можно пропустить обновление при серьезных проблемах с данными
-                # continue
-            
-            score, comps = compute_score(metrics, weights)
-            
-            # Проверяем, стоит ли пропустить обновление из-за незначительных изменений
-            from src.domain.validation.data_filters import should_skip_score_update
-            if should_skip_score_update(score, last_score, min_score_change):
-                log.debug("score_update_skipped", extra={"extra": {"group": group, "mint": t.mint_address, "change": abs(score - (last_score or 0))}})
-                continue
-            
-            # Вычисляем сглаженный скор
-            from src.domain.scoring.scorer import compute_smoothed_score
-            smoothed_score = compute_smoothed_score(score, previous_smoothed_score, smoothing_alpha)
-            
-            snapshot_id = repo.insert_score_snapshot(
-                token_id=t.id, 
-                metrics=metrics, 
-                score=score, 
-                smoothed_score=smoothed_score
-            )
-            
-            updated += 1
-            log.info(
-                "token_updated",
-                extra={
-                    "extra": {
-                        "group": group,
-                        "mint": t.mint_address,
-                        "score": score,
-                        "smoothed_score": smoothed_score,
-                        "alpha": smoothing_alpha,
-                        "L_tot": metrics["L_tot"],
-                        "n_5m": metrics["n_5m"],
-                        "filtered_pools": metrics.get("pools_filtered_out", 0),
-                        "data_quality_ok": not metrics.get("data_quality_warning", False),
+            try:
+                # Calculate score using unified scoring service
+                score, smoothed_score, metrics, raw_components, smoothed_components = scoring_service.calculate_token_score(t, pairs)
+                
+                # Check if we should skip update due to minimal score change
+                from src.domain.validation.data_filters import should_skip_score_update
+                if should_skip_score_update(score, last_score, min_score_change):
+                    log.debug("score_update_skipped", extra={"extra": {"group": group, "mint": t.mint_address, "change": abs(score - (last_score or 0))}})
+                    continue
+                
+                # Save score result
+                snapshot_id = scoring_service.save_score_result(
+                    token=t,
+                    score=score,
+                    smoothed_score=smoothed_score,
+                    metrics=metrics,
+                    raw_components=raw_components,
+                    smoothed_components=smoothed_components
+                )
+                
+                updated += 1
+                
+                # Log with model-specific information
+                log_extra = {
+                    "group": group,
+                    "mint": t.mint_address,
+                    "score": score,
+                    "smoothed_score": smoothed_score,
+                    "model": active_model,
+                    "L_tot": metrics.get("L_tot"),
+                    "n_5m": metrics.get("n_5m"),
+                    "filtered_pools": metrics.get("pools_filtered_out", 0),
+                    "data_quality_ok": not metrics.get("data_quality_warning", False),
+                }
+                
+                # Add hybrid momentum specific metrics to log
+                if active_model == "hybrid_momentum" and raw_components:
+                    log_extra.update({
+                        "tx_accel": raw_components.get("tx_accel"),
+                        "vol_momentum": raw_components.get("vol_momentum"),
+                        "token_freshness": raw_components.get("token_freshness"),
+                        "orderflow_imbalance": raw_components.get("orderflow_imbalance"),
+                    })
+                
+                log.info("token_updated", extra={"extra": log_extra})
+                
+            except Exception as e:
+                log.error(
+                    "token_scoring_error",
+                    extra={
+                        "extra": {
+                            "group": group,
+                            "mint": t.mint_address,
+                            "error": str(e),
+                            "model": active_model
+                        }
                     }
-                },
-            )
+                )
+                continue
 
-        log.info("group_summary", extra={"extra": {"group": group, "processed": processed, "updated": updated}})
+        log.info("group_summary", extra={"extra": {"group": group, "processed": processed, "updated": updated, "model": active_model}})
 
 
 def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:

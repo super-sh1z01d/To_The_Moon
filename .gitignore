@@ -22,6 +22,24 @@ frontend/dist/
 # Mac
 .DS_Store
 
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.coverage
+htmlcov/
+.tox/
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
 # Project docs (excluded from VCS)
 doc/
-docs/
+
+# Keep docs/ folder for architecture documentation
+# docs/ - removed from gitignore to include documentation

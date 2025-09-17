@@ -74,7 +74,16 @@ class TokensRepository:
             self.db.add(token)
             self.db.commit()
 
-    def insert_score_snapshot(self, token_id: int, metrics: dict, score: Optional[float] = None, smoothed_score: Optional[float] = None) -> int:
+    def insert_score_snapshot(
+        self, 
+        token_id: int, 
+        metrics: dict, 
+        score: Optional[float] = None, 
+        smoothed_score: Optional[float] = None,
+        raw_components: Optional[dict] = None,
+        smoothed_components: Optional[dict] = None,
+        scoring_model: str = "hybrid_momentum"
+    ) -> int:
         from datetime import datetime, timezone
 
         # Add scored_at timestamp to metrics for UI display
@@ -90,7 +99,10 @@ class TokensRepository:
             token_id=token_id, 
             score=score, 
             smoothed_score=smoothed_score,
-            metrics=metrics, 
+            metrics=metrics,
+            raw_components=raw_components,
+            smoothed_components=smoothed_components,
+            scoring_model=scoring_model,
             created_at=datetime.now(tz=timezone.utc)
         )
         self.db.add(snap)
@@ -98,7 +110,7 @@ class TokensRepository:
         self.db.refresh(snap)
         logging.getLogger("tokens_repo").info(
             "score_snapshot_inserted", 
-            extra={"extra": {"token_id": token_id, "score": score, "smoothed_score": smoothed_score}}
+            extra={"extra": {"token_id": token_id, "score": score, "smoothed_score": smoothed_score, "scoring_model": scoring_model}}
         )
         return snap.id
 
@@ -264,3 +276,12 @@ class TokensRepository:
             .limit(limit)
         )
         return list(q.all())
+
+    def get_latest_score(self, token_id: int) -> Optional[TokenScore]:
+        """Get the most recent score record for a token (for EWMA service)."""
+        return (
+            self.db.query(TokenScore)
+            .filter(TokenScore.token_id == token_id)
+            .order_by(TokenScore.created_at.desc(), TokenScore.id.desc())
+            .first()
+        )
