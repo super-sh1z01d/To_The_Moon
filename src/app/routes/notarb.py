@@ -96,6 +96,7 @@ async def get_notarb_config(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 
 @router.get("/markets", response_model=Dict[str, Any])
+@router.get("/markets.json", response_model=Dict[str, Any])  # Alias with .json
 async def get_markets_json(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Get markets.json with full metadata from file
@@ -135,49 +136,7 @@ async def get_markets_json(db: Session = Depends(get_db)) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to read markets file: {str(e)}")
 
 
-@router.get("/markets/pools-only", response_model=List[List[str]])
-async def get_markets_pools_only(db: Session = Depends(get_db)) -> List[List[str]]:
-    """
-    Get markets in old format (just pools arrays)
-    
-    Returns array where each inner array contains all pools for one token.
-    """
-    try:
-        import json
-        from pathlib import Path
-        from src.core.config import get_config
-        
-        config = get_config()
-        file_path = Path(getattr(config, 'notarb_config_path', 'markets.json'))
-        
-        if not file_path.exists():
-            # Generate file if it doesn't exist
-            generator = NotArbPoolsGenerator(str(file_path))
-            generator.export_pools_config()
-        
-        # Read from file with retry on corruption
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                break
-            except (json.JSONDecodeError, IOError) as e:
-                if attempt == max_retries - 1:
-                    raise HTTPException(status_code=500, detail=f"File corrupted or locked: {str(e)}")
-                # Wait a bit and retry
-                import time
-                time.sleep(0.1)
-        
-        # Extract just pools
-        if isinstance(data, dict) and "tokens" in data:
-            return [token["pools"] for token in data["tokens"]]
-        else:
-            # Old format fallback
-            return data if isinstance(data, list) else []
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read markets file: {str(e)}")
+
 
 
 @router.post("/export")

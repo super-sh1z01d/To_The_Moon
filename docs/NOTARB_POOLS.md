@@ -44,11 +44,6 @@ curl http://localhost:8000/notarb/pools
 curl http://localhost:8000/notarb/markets
 
 # Response: complete data with token info and pools
-
-# Get just pools arrays (old format)
-curl http://localhost:8000/notarb/markets/pools-only
-
-# Response: [["pool1", "pool2"], ["pool3", "pool4"]]
 ```
 
 ### Get Full Configuration (Debug)
