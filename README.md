@@ -4,10 +4,16 @@
 
 Automated tracking, analysis, and scoring system for tokens migrated from Pump.fun to Solana DEXs. Features sophisticated hybrid momentum scoring, real-time monitoring, and comprehensive data quality validation.
 
-[![System Status](https://img.shields.io/badge/status-production-green)](https://github.com/super-sh1z01d/To_The_Moon)
+[![System Status](https://img.shields.io/badge/status-production-green)](https://tothemoon.sh1z01d.ru)
 [![Python](https://img.shields.io/badge/python-3.10+-blue)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-latest-green)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org)
+
+## 🌐 Live System
+
+- **Web Interface**: [https://tothemoon.sh1z01d.ru](https://tothemoon.sh1z01d.ru)
+- **API Documentation**: [https://tothemoon.sh1z01d.ru/docs](https://tothemoon.sh1z01d.ru/docs)
+- **NotArb Integration**: [https://tothemoon.sh1z01d.ru/notarb/pools](https://tothemoon.sh1z01d.ru/notarb/pools)
 
 ## 🎯 Quick Start
 

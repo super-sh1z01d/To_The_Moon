@@ -5,7 +5,8 @@ Complete API documentation for the To The Moon token scoring system.
 ## 🌐 Base URLs
 
 - **Development**: `http://localhost:8000`
-- **Production**: `https://your-domain.com`
+- **Production**: `https://tothemoon.sh1z01d.ru`
+- **Interactive Docs**: `https://tothemoon.sh1z01d.ru/docs`
 
 ## 🔐 Authentication
 
@@ -615,3 +616,128 @@ curl "http://localhost:8000/logs?level=ERROR&limit=20"
 - **[Scoring Model](SCORING_MODEL.md)** - Hybrid momentum scoring details
 - **[Development Guide](DEVELOPMENT.md)** - API development and testing
 - **[Deployment Guide](DEPLOYMENT.md)** - Production API configuration
+## 
+🤖 NotArb Integration Endpoints
+
+Specialized endpoints for NotArb onchain-bot integration providing pool addresses for top-scoring tokens.
+
+### GET /notarb/pools
+
+Get token pools in simple array format (for NotArb bot compatibility).
+
+**Response**: Array of pool address arrays
+```json
+[
+  ["pool1", "pool2"],
+  ["pool3", "pool4", "pool5"]
+]
+```
+
+**Example**:
+```bash
+curl "https://tothemoon.sh1z01d.ru/notarb/pools"
+```
+
+**Response Codes**:
+- `200`: Pools retrieved successfully
+- `500`: File read error or generation failed
+
+----
+
+### GET /notarb/markets
+
+Get complete token data with metadata (full format).
+
+**Response**: Object with metadata and token information
+```json
+{
+  "metadata": {
+    "generated_at": "2025-09-18T16:00:00+00:00",
+    "generator": "ToTheMoon Scoring System",
+    "min_score_threshold": 0.5,
+    "total_tokens": 3
+  },
+  "tokens": [
+    {
+      "mint_address": "F9Lc3HzBUhif6e3fEpB5c5QxArKnaZRbq94gqmnyH579",
+      "symbol": "TOKEN",
+      "name": "Token Name",
+      "score": 7.0688,
+      "pools": ["pool1", "pool2"]
+    }
+  ]
+}
+```
+
+**Example**:
+```bash
+curl "https://tothemoon.sh1z01d.ru/notarb/markets"
+```
+
+**Response Codes**:
+- `200`: Markets data retrieved successfully
+- `500`: File read error or generation failed
+
+----
+
+### GET /notarb/file-info
+
+Get information about the NotArb pools file.
+
+**Response**: File status and metadata
+```json
+{
+  "file_exists": true,
+  "file_path": "markets.json",
+  "file_size": 1078,
+  "last_modified": "2025-09-18T16:01:04+00:00",
+  "total_pool_groups": 3,
+  "total_pools": 6
+}
+```
+
+**Example**:
+```bash
+curl "https://tothemoon.sh1z01d.ru/notarb/file-info"
+```
+
+**Response Codes**:
+- `200`: File info retrieved successfully
+- `500`: File system error
+
+----
+
+### POST /notarb/export
+
+Force update of NotArb pools file.
+
+**Parameters**:
+- `output_path` (optional): Custom output file path (default: "markets.json")
+
+**Response**: Export status and metadata
+```json
+{
+  "success": true,
+  "output_path": "markets.json",
+  "metadata": {
+    "min_score_threshold": 0.5,
+    "total_tokens": 3,
+    "total_pool_groups": 3
+  }
+}
+```
+
+**Example**:
+```bash
+curl -X POST "https://tothemoon.sh1z01d.ru/notarb/export"
+```
+
+**Response Codes**:
+- `200`: Export completed successfully
+- `500`: Export failed
+
+**Notes**:
+- File is automatically updated every 5 seconds by scheduler
+- Uses atomic writing to prevent corruption
+- Creates backup files automatically
+- Supports retry mechanism for corrupted reads

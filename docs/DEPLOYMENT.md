@@ -164,32 +164,41 @@ sudo systemctl status tothemoon-worker
 ## 🌐 Nginx Configuration
 
 ### Basic Configuration
-Create `/etc/nginx/sites-available/tothemoon`:
+Create `/etc/nginx/sites-available/tothemoon.sh1z01d.ru`:
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;
-
+    server_name tothemoon.sh1z01d.ru;
+    
+    # Redirect root to /app/
+    location = / {
+        return 301 https://$server_name/app/;
+    }
+    
+    # Proxy all other requests to FastAPI
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Static files (optional optimization)
-    location /static/ {
-        alias /srv/tothemoon/frontend/dist/;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
+        
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
     }
 }
 ```
 
 ### Enable Site
 ```bash
-sudo ln -s /etc/nginx/sites-available/tothemoon /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/tothemoon.sh1z01d.ru /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -197,8 +206,15 @@ sudo systemctl reload nginx
 ### SSL with Let's Encrypt
 ```bash
 sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d tothemoon.sh1z01d.ru --non-interactive --agree-tos --email admin@sh1z01d.ru
 ```
+
+**Features:**
+- ✅ **Automatic HTTPS redirect** - All HTTP requests redirect to HTTPS
+- ✅ **Root redirect** - `https://tothemoon.sh1z01d.ru/` → `https://tothemoon.sh1z01d.ru/app/`
+- ✅ **WebSocket support** - For real-time updates
+- ✅ **Auto-renewal** - SSL certificates renew automatically via systemd timer
+- ✅ **Proper headers** - X-Forwarded-Proto, X-Real-IP for FastAPI
 
 ## 🔄 Updates and Maintenance
 

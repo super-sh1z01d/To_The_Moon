@@ -18,12 +18,12 @@ Configure the minimum score threshold via API:
 
 ```bash
 # Set minimum score for NotArb export (default: 0.5)
-curl -X PUT http://localhost:8000/settings/notarb_min_score \
+curl -X PUT https://tothemoon.sh1z01d.ru/settings/notarb_min_score \
   -H "Content-Type: application/json" \
   -d '{"value": "0.6"}'
 
 # Get current setting
-curl http://localhost:8000/settings/notarb_min_score
+curl https://tothemoon.sh1z01d.ru/settings/notarb_min_score
 ```
 
 ## 🔌 API Endpoints
@@ -31,17 +31,17 @@ curl http://localhost:8000/settings/notarb_min_score
 ### Get Token Pool Groups
 
 ```bash
-# Get list of token pool groups (same as /notarb/markets)
-curl http://localhost:8000/notarb/pools
+# Get list of token pool groups (backward compatibility)
+curl https://tothemoon.sh1z01d.ru/notarb/pools
 
 # Response: [["token1_pool1", "token1_pool2"], ["token2_pool1", "token2_pool2", "token2_pool3"]]
 ```
 
-### Get Markets JSON (NotArb Compatible)
+### Get Markets JSON (Full Format)
 
 ```bash
 # Get full markets.json with metadata
-curl http://localhost:8000/notarb/markets
+curl https://tothemoon.sh1z01d.ru/notarb/markets
 
 # Response: complete data with token info and pools
 ```
@@ -49,8 +49,8 @@ curl http://localhost:8000/notarb/markets
 ### Get Full Configuration (Debug)
 
 ```bash
-# Get complete config with metadata (for debugging)
-curl http://localhost:8000/notarb/config
+# Get file status and metadata
+curl https://tothemoon.sh1z01d.ru/notarb/file-info
 
 # Response includes tokens, pools, and metadata
 ```
@@ -58,8 +58,8 @@ curl http://localhost:8000/notarb/config
 ### Get File Information
 
 ```bash
-# Get file status and metadata
-curl http://localhost:8000/notarb/file-info
+# Force immediate file update
+curl -X POST https://tothemoon.sh1z01d.ru/notarb/export
 
 # Response includes file size, last modified, pool counts
 ```
@@ -67,8 +67,8 @@ curl http://localhost:8000/notarb/file-info
 ### Force File Update
 
 ```bash
-# Force immediate file update
-curl -X POST http://localhost:8000/notarb/export
+# Export to custom file path
+curl -X POST "https://tothemoon.sh1z01d.ru/notarb/export?output_path=pools.json"
 
 # Response includes success status and metadata
 ```
@@ -76,8 +76,8 @@ curl -X POST http://localhost:8000/notarb/export
 ### Export to File
 
 ```bash
-# Export to JSON file
-curl -X POST "http://localhost:8000/notarb/export?output_path=pools.json"
+# Get pool addresses and save to file for NotArb bot
+curl https://tothemoon.sh1z01d.ru/notarb/pools > markets.json
 ```
 
 ## 🖥️ CLI Usage
@@ -145,11 +145,8 @@ The generated JSON includes token metadata and pool information:
 ### Example NotArb Integration
 
 ```bash
-# Get pool addresses and save to file for NotArb bot
-curl http://localhost:8000/notarb/pools > markets.json
-
 # Or use the export endpoint
-curl -X POST "http://localhost:8000/notarb/export?output_path=markets.json"
+curl -X POST "https://tothemoon.sh1z01d.ru/notarb/export?output_path=markets.json"
 ```
 
 ## 🎛️ Advanced Usage

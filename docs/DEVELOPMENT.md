@@ -43,6 +43,12 @@ make run
 - **Health Check**: http://localhost:8000/health
 - **Scheduler Health**: http://localhost:8000/health/scheduler
 
+### Production URLs
+- **Dashboard**: https://tothemoon.sh1z01d.ru
+- **API Docs**: https://tothemoon.sh1z01d.ru/docs
+- **Health Check**: https://tothemoon.sh1z01d.ru/health
+- **NotArb API**: https://tothemoon.sh1z01d.ru/notarb/pools
+
 ## 🏗️ Project Structure
 
 ### Backend Architecture
