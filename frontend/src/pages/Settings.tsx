@@ -8,7 +8,8 @@ const legacyKeys = [
   'min_pool_liquidity_usd',
   'hot_interval_sec','cold_interval_sec',
   'archive_below_hours','monitoring_timeout_hours',
-  'activation_min_liquidity_usd'
+  'activation_min_liquidity_usd',
+  'notarb_min_score'
 ]
 
 const hybridKeys = [
@@ -18,7 +19,8 @@ const hybridKeys = [
   'min_pool_liquidity_usd',
   'hot_interval_sec','cold_interval_sec',
   'archive_below_hours','monitoring_timeout_hours',
-  'activation_min_liquidity_usd'
+  'activation_min_liquidity_usd',
+  'notarb_min_score'
 ]
 
 function getSettingsKeys(model: string): string[] {
@@ -170,6 +172,17 @@ export default function Settings(){
               hint="Что это: Минимальная ликвидность внешнего пула для перехода токена из статуса 'мониторинг' в 'активный' (этап 2 алгоритма). Токен активируется только при наличии серьезного внешнего пула (не Pump.fun), что гарантирует реальную торговую активность." 
               k="activation_min_liquidity_usd" 
               v={vals['activation_min_liquidity_usd']} 
+              set={update} 
+            />
+          </section>
+          <section>
+            <h3>🤖 NotArb Bot Integration</h3>
+            <Field 
+              label="Минимальный скор для NotArb бота" 
+              type="number" 
+              hint="Что это: Минимальный скор токена для включения в конфигурацию NotArb бота. Только токены с скором выше этого значения будут экспортированы в markets.json для арбитражного бота. Рекомендуется значение 0.5-1.0 для фильтрации только перспективных токенов." 
+              k="notarb_min_score" 
+              v={vals['notarb_min_score']} 
               set={update} 
             />
           </section>
