@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from src.adapters.db.deps import get_db
-from src.adapters.db.models import Token, Pool
+from src.adapters.db.models import Token
 from src.domain.settings.service import SettingsService
 
 logger = logging.getLogger(__name__)
@@ -65,12 +65,40 @@ class NotArbPoolsGenerator:
             
             result = []
             for token in tokens:
-                # Get pools for this token
-                pools = (
-                    self.db.query(Pool)
-                    .filter(Pool.token_id == token.id)
-                    .all()
-                )
+                # Get pools for this token from latest snapshot
+                from src.adapters.repositories.tokens_repo import TokensRepository
+                from src.adapters.services.dexscreener_client import DexScreenerClient
+                
+                repo = TokensRepository(self.db)
+                snap = repo.get_latest_snapshot(token.id)
+                pools = []
+                
+                if snap and snap.metrics and isinstance(snap.metrics, dict) and "pools" in snap.metrics:
+                    exclude = {"pumpfun"}
+                    pools = [
+                        p for p in (snap.metrics.get("pools") or [])
+                        if isinstance(p, dict) and str(p.get("dex") or "") not in exclude and (p.get("is_wsol") or p.get("is_usdc"))
+                    ]
+                else:
+                    # Fallback: get current pairs directly
+                    pairs = DexScreenerClient(timeout=5.0).get_pairs(token.mint_address)
+                    if pairs:
+                        _WSOL = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
+                        _USDC = {"USDC", "usdc"}
+                        exclude = {"pumpfun"}
+                        for p in pairs:
+                            try:
+                                base = (p.get("baseToken") or {})
+                                quote = (p.get("quoteToken") or {})
+                                dex_id = str(p.get("dexId") or "")
+                                if str(base.get("address")) == token.mint_address and str(quote.get("symbol", "")).upper() in (_WSOL | _USDC) and dex_id not in exclude:
+                                    pools.append({
+                                        "address": p.get("pairAddress") or p.get("address"),
+                                        "dex": dex_id,
+                                        "quote": quote.get("symbol"),
+                                    })
+                            except Exception:
+                                continue
                 
                 if pools:
                     token_data = {
@@ -84,9 +112,9 @@ class NotArbPoolsGenerator:
                     
                     for pool in pools:
                         token_data["pools"].append({
-                            "address": pool.address,
-                            "dex": pool.dex,
-                            "quote": pool.quote
+                            "address": pool.get("address"),
+                            "dex": pool.get("dex"),
+                            "quote": pool.get("quote")
                         })
                     
                     result.append(token_data)
