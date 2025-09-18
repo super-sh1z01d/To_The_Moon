@@ -87,10 +87,9 @@ def enforce_activation_once(limit_monitoring: int = 200, limit_active: int = 200
                 pairs = client.get_pairs(t.mint_address)
                 if not pairs:
                     continue
-                # Проверяем условия активации + минимальную ликвидность
+                # Проверяем условия активации с учетом минимальной ликвидности
                 from src.domain.validation.dex_rules import check_activation_conditions
-                if (check_activation_conditions(t.mint_address, pairs) and 
-                    _external_liq_ge(t.mint_address, pairs, threshold)):
+                if check_activation_conditions(t.mint_address, pairs, threshold):
                     # best effort: fill name/symbol if empty
                     name = None
                     symbol = None
@@ -118,10 +117,9 @@ def enforce_activation_once(limit_monitoring: int = 200, limit_active: int = 200
                 pairs = client.get_pairs(t.mint_address)
                 if pairs is None:
                     continue
-                # Проверяем условия активации + минимальную ликвидность
+                # Проверяем условия активации с учетом минимальной ликвидности
                 from src.domain.validation.dex_rules import check_activation_conditions
-                if not (check_activation_conditions(t.mint_address, pairs) and 
-                        _external_liq_ge(t.mint_address, pairs, threshold)):
+                if not check_activation_conditions(t.mint_address, pairs, threshold):
                     repo.set_monitoring(t)
                     demoted += 1
                     logv.info("demoted_by_liquidity", extra={"extra": {"mint": t.mint_address, "threshold": threshold}})

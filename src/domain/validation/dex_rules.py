@@ -6,18 +6,19 @@ _WSOL_SYMBOLS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
 _PUMPFUN_DEX_IDS = {"pumpfun-amm", "pumpfun", "pumpswap"}
 
 
-def check_activation_conditions(mint: str, pairs: list[dict[str, Any]]) -> bool:
+def check_activation_conditions(mint: str, pairs: list[dict[str, Any]], min_liquidity_usd: float = 500.0) -> bool:
     """
     Условия активации (ИЛИ):
-    Условие 1: Пул на Pump.fun + хотя бы один внешний пул
+    Условие 1: Пул на Pump.fun + хотя бы один внешний пул с достаточной ликвидностью
     ИЛИ
-    Условие 2: Более двух внешних пулов (без требования Pump.fun)
+    Условие 2: Более двух внешних пулов с достаточной ликвидностью (без требования Pump.fun)
     """
     has_pumpfun_wsol = False
-    external_pools_count = 0
+    external_pools_with_liquidity = 0
     
     # Исключаем bonding curve платформы
     excluded_dexes = {"pumpfun", "launchlab"}
+    usdc_symbols = {"USDC", "usdc"}
 
     for p in pairs:
         try:
@@ -34,20 +35,29 @@ def check_activation_conditions(mint: str, pairs: list[dict[str, Any]]) -> bool:
                 dex_id in _PUMPFUN_DEX_IDS):
                 has_pumpfun_wsol = True
                 
-            # Считаем внешние пулы (не bonding curve платформы)
+            # Считаем внешние пулы с достаточной ликвидностью
             if (dex_id and 
                 dex_id not in _PUMPFUN_DEX_IDS and 
                 dex_id not in excluded_dexes):
-                external_pools_count += 1
+                
+                # Проверяем ликвидность только для WSOL/SOL и USDC пулов
+                quote_symbol = str(quote.get("symbol", "")).upper()
+                if quote_symbol in _WSOL_SYMBOLS or quote_symbol in usdc_symbols:
+                    liquidity_usd = (p.get("liquidity") or {}).get("usd", 0)
+                    try:
+                        if float(liquidity_usd) >= min_liquidity_usd:
+                            external_pools_with_liquidity += 1
+                    except (ValueError, TypeError):
+                        continue
                 
         except Exception:
             # Пропускаем плохо сформированные пары
             continue
 
-    # Условие 1: Pump.fun + хотя бы один внешний пул
-    condition_1 = has_pumpfun_wsol and external_pools_count >= 1
+    # Условие 1: Pump.fun + хотя бы один внешний пул с ликвидностью
+    condition_1 = has_pumpfun_wsol and external_pools_with_liquidity >= 1
     
-    # Условие 2: Более двух внешних пулов
-    condition_2 = external_pools_count > 2
+    # Условие 2: Более двух внешних пулов с ликвидностью
+    condition_2 = external_pools_with_liquidity > 2
     
     return condition_1 or condition_2
