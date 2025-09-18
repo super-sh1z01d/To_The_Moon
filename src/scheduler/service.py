@@ -151,7 +151,7 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     from apscheduler.triggers.interval import IntervalTrigger
     from src.scheduler.tasks import archive_once, enforce_activation_once
 
-    scheduler.add_job(enforce_activation_once, IntervalTrigger(minutes=1), id="activation_enforcer", max_instances=1)
+    scheduler.add_job(enforce_activation_once, IntervalTrigger(minutes=3), id="activation_enforcer", max_instances=1)
     # Архивация раз в час
     scheduler.add_job(archive_once, IntervalTrigger(hours=1), id="archiver_hourly", max_instances=1)
     scheduler.start()
