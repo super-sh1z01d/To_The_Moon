@@ -58,6 +58,25 @@ export async function getSettings(): Promise<SettingsMap>{
   return r.json()
 }
 
+export async function getSettingsIndividually(keys: string[]): Promise<SettingsMap>{
+  const settings: SettingsMap = {}
+  
+  // Load settings individually to avoid /settings/ endpoint timeout
+  await Promise.all(keys.map(async (key) => {
+    try {
+      const r = await fetch(`/settings/${encodeURIComponent(key)}`)
+      if (r.ok) {
+        const data = await r.json()
+        settings[key] = data.value
+      }
+    } catch (e) {
+      console.warn(`Failed to load setting ${key}:`, e)
+    }
+  }))
+  
+  return settings
+}
+
 export async function putSetting(key: string, value: string): Promise<void>{
   const r = await fetch(`/settings/${encodeURIComponent(key)}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({value})})
   if(!r.ok) throw new Error('settings update failed')

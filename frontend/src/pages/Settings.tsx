@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getDefaultSettings, getSettings, putSetting, recalc, SettingsMap, getActiveModel, switchModel } from '../lib/api'
+import { getDefaultSettings, getSettings, getSettingsIndividually, putSetting, recalc, SettingsMap, getActiveModel, switchModel } from '../lib/api'
 
 const legacyKeys = [
   'weight_s','weight_l','weight_m','weight_t',
@@ -37,9 +37,13 @@ export default function Settings(){
   useEffect(()=>{ (async()=>{
     setLoading(true)
     try{ 
-      const [settings, model] = await Promise.all([getSettings(), getActiveModel()])
-      setVals(settings)
+      const model = await getActiveModel()
       setActiveModel(model)
+      
+      // Load settings individually to avoid /settings/ timeout
+      const keys = getSettingsKeys(model)
+      const settings = await getSettingsIndividually(keys)
+      setVals(settings)
     } finally{ setLoading(false) }
   })() }, [])
 
@@ -64,7 +68,8 @@ export default function Settings(){
       await switchModel(newModel)
       setActiveModel(newModel)
       // Reload settings for new model
-      const settings = await getSettings()
+      const keys = getSettingsKeys(newModel)
+      const settings = await getSettingsIndividually(keys)
       setVals(settings)
       setMessage(`Переключено на модель: ${newModel === 'hybrid_momentum' ? 'Hybrid Momentum' : 'Legacy'}`)
     } catch(e) {
