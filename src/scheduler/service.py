@@ -44,7 +44,12 @@ async def _process_group(group: str) -> None:
         
         for t in tokens:
             snap = repo.get_latest_snapshot(t.id)
-            last_score = float(snap.score) if (snap and snap.score is not None) else None
+            # Используем сглаженный скор для группировки (как в API)
+            last_score = float(snap.smoothed_score) if (snap and snap.smoothed_score is not None) else None
+            # Фолбэк на сырой скор если сглаженного нет
+            if last_score is None:
+                last_score = float(snap.score) if (snap and snap.score is not None) else None
+            
             is_hot = last_score is not None and last_score >= min_score
             if group == "hot" and not is_hot:
                 continue
@@ -118,6 +123,10 @@ async def _process_group(group: str) -> None:
                 continue
 
         log.info("group_summary", extra={"extra": {"group": group, "processed": processed, "updated": updated, "model": active_model}})
+        
+        # Записываем выполнение для мониторинга
+        from src.scheduler.monitoring import health_monitor
+        health_monitor.record_group_execution(group, processed, updated)
 
 
 def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:

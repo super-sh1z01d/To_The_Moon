@@ -147,10 +147,15 @@ def aggregate_wsol_metrics(
         "pools_filtered_out": len(pairs) - len(filtered_pairs),
     }
     
-    # 6. Валидация консистентности финальных метрик
-    if not validate_metrics_consistency(metrics):
-        log.warning(f"Metrics consistency check failed for {mint}")
-        # Добавляем флаг о потенциальных проблемах с данными
+    # 6. Валидация консистентности финальных метрик с градацией серьезности
+    is_valid, issues = validate_metrics_consistency(metrics, strict_mode=False)
+    
+    if not is_valid:
+        log.warning(f"Metrics consistency check failed for {mint}: {'; '.join(issues)}")
         metrics["data_quality_warning"] = True
+        metrics["data_quality_issues"] = issues
+    elif issues:  # Есть предупреждения, но не критичные
+        log.info(f"Metrics quality warnings for {mint}: {'; '.join(issues)}")
+        metrics["data_quality_issues"] = issues
     
     return metrics

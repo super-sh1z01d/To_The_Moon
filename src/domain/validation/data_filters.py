@@ -92,36 +92,59 @@ def sanitize_price_changes(delta_p_5m: float, delta_p_15m: float, max_change: fl
     return delta_p_5m, delta_p_15m
 
 
-def validate_metrics_consistency(metrics: Dict[str, Any]) -> bool:
+def validate_metrics_consistency(metrics: Dict[str, Any], strict_mode: bool = False) -> tuple[bool, list[str]]:
     """
-    Проверяет консистентность метрик между собой.
+    Проверяет консистентность метрик между собой с градацией серьезности.
     
     Args:
         metrics: Словарь метрик
+        strict_mode: Если True, все предупреждения блокируют обновление
         
     Returns:
-        True если метрики консистентны
+        Tuple (is_valid, warnings_list)
     """
+    warnings = []
+    critical_issues = []
+    
     try:
         L_tot = float(metrics.get("L_tot", 0))
         n_5m = float(metrics.get("n_5m", 0))
         delta_p_5m = abs(float(metrics.get("delta_p_5m", 0)))
         
-        # Высокая ликвидность но нет транзакций - подозрительно
+        # Критические проблемы (всегда блокируют)
+        if L_tot < 0:
+            critical_issues.append(f"Negative liquidity: ${L_tot}")
+        if n_5m < 0:
+            critical_issues.append(f"Negative transactions: {n_5m}")
+            
+        # Предупреждения (блокируют только в strict_mode)
         if L_tot > 10000 and n_5m == 0:
-            log.warning(f"Suspicious: High liquidity (${L_tot:.0f}) but no transactions")
-            return False
+            warnings.append(f"High liquidity (${L_tot:.0f}) but no transactions")
             
-        # Много транзакций но нет движения цены - странно для высокой активности
         if n_5m > 200 and delta_p_5m < 0.001:
-            log.warning(f"Suspicious: Many transactions ({n_5m}) but no price movement")
-            return False
+            warnings.append(f"Many transactions ({n_5m}) but no price movement")
             
-        return True
+        # Логируем все проблемы
+        for issue in critical_issues:
+            log.error(f"Critical data issue: {issue}")
+        for warning in warnings:
+            log.warning(f"Data quality warning: {warning}")
+            
+        # Определяем валидность
+        has_critical = len(critical_issues) > 0
+        has_warnings = len(warnings) > 0
         
-    except (ValueError, TypeError):
-        log.warning("Invalid metric types for consistency check")
-        return False
+        if has_critical:
+            return False, critical_issues + warnings
+        elif has_warnings and strict_mode:
+            return False, warnings
+        else:
+            return True, warnings
+        
+    except (ValueError, TypeError) as e:
+        critical_issues.append(f"Invalid metric types: {str(e)}")
+        log.error(f"Metrics validation error: {e}")
+        return False, critical_issues
 
 
 def should_skip_score_update(
