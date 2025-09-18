@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "generated_at": "2025-09-18T10:00:00+00:00",
+    "generator": "ToTheMoon Scoring System",
+    "min_score_threshold": 0.5,
+    "total_tokens": 2
+  },
+  "tokens": [
+    {
+      "mint_address": "ABC123def456ghi789jkl012mno345pqr678stu901vwx234yz",
+      "symbol": "EXAMPLE1",
+      "name": "Example Token 1",
+      "score": 1.25,
+      "pools": [
+        "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2",
+        "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX"
+      ]
+    },
+    {
+      "mint_address": "DEF456ghi789jkl012mno345pqr678stu901vwx234yzABC123",
+      "symbol": "EXAMPLE2",
+      "name": "Example Token 2",
+      "score": 0.95,
+      "pools": [
+        "9W959DqEETiGZocYWCQPaJ6sBmUzgZqjLMXwjNvjb6ea",
+        "EGZ7tiLeH62TPV1gL8WwbXGzEPa9zmcpVnnkPKKnrE2U",
+        "5cLrMai1DsLRYc1Nio9qMTicsWtvzjzZfJPXyAoF4t1Z"
+      ]
+    }
+  ]
+}

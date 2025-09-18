@@ -16,6 +16,7 @@ from .routes.tokens import router as tokens_router
 from .routes.ui import router as ui_router
 from .routes.admin import router as admin_router
 from .routes.logs import router as logs_router
+from .routes.notarb import router as notarb_router
 from .logs_buffer import attach_buffer_handler
 
 
@@ -116,6 +117,7 @@ def create_app() -> FastAPI:
     app.include_router(ui_router)
     app.include_router(admin_router)
     app.include_router(logs_router)
+    app.include_router(notarb_router)
 
     # Static SPA (if built)
     mount_spa(app)

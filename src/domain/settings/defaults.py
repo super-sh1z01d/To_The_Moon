@@ -40,4 +40,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
     # NOTE: max_price_change_5m removed - not used in Hybrid Momentum model
     "min_score_change": "0.05",             # Minimum score change for update (5%)
     "max_liquidity_change_ratio": "3.0",    # Maximum liquidity change ratio
+    
+    # NotArb bot integration
+    "notarb_min_score": "0.5",              # Minimum score threshold for NotArb bot export
 }

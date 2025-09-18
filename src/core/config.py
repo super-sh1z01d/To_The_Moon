@@ -25,6 +25,9 @@ class AppConfig(BaseSettings):
 
     # Scheduler
     scheduler_enabled: bool = Field(default=True)
+    
+    # NotArb integration
+    notarb_config_path: str = Field(default="markets.json")
 
 
 @lru_cache(maxsize=1)

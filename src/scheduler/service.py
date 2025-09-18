@@ -163,6 +163,18 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     scheduler.add_job(enforce_activation_once, IntervalTrigger(minutes=3), id="activation_enforcer", max_instances=1)
     # Архивация раз в час
     scheduler.add_job(archive_once, IntervalTrigger(hours=1), id="archiver_hourly", max_instances=1)
+    
+    # NotArb pools file updates - simple 15 second interval
+    from src.scheduler.notarb_tasks import update_notarb_pools_file
+    
+    scheduler.add_job(
+        update_notarb_pools_file, 
+        IntervalTrigger(seconds=5), 
+        id="notarb_pools_updater", 
+        max_instances=1,  # Prevent concurrent execution
+        coalesce=True     # Skip if previous execution is still running
+    )
+    
     scheduler.start()
     app.state.scheduler = scheduler
     log.info(
