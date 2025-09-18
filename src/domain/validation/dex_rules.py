@@ -8,29 +8,46 @@ _PUMPFUN_DEX_IDS = {"pumpfun-amm", "pumpfun", "pumpswap"}
 
 def check_activation_conditions(mint: str, pairs: list[dict[str, Any]]) -> bool:
     """
-    Условия активации из ТЗ:
-    - Должна быть хотя бы одна пара: baseToken.address == mint, quoteToken.symbol == 'WSOL', dexId == 'pumpfun-amm'
-    - Должна быть хотя бы одна пара с dexId != 'pumpfun-amm' (внешний пул)
+    Условия активации (ИЛИ):
+    Условие 1: Пул на Pump.fun + хотя бы один внешний пул
+    ИЛИ
+    Условие 2: Более двух внешних пулов (без требования Pump.fun)
     """
     has_pumpfun_wsol = False
-    has_external_pool = False
+    external_pools_count = 0
+    
+    # Исключаем bonding curve платформы
+    excluded_dexes = {"pumpfun", "launchlab"}
 
     for p in pairs:
         try:
             base = p.get("baseToken", {})
             quote = p.get("quoteToken", {})
             dex_id = str(p.get("dexId") or "")
-            if (
-                str(base.get("address")) == mint
-                and str(quote.get("symbol", "")).upper() in _WSOL_SYMBOLS
-                and dex_id in _PUMPFUN_DEX_IDS
-            ):
+            
+            # Проверяем, что это пул нашего токена
+            if str(base.get("address")) != mint:
+                continue
+                
+            # Проверяем пул на Pump.fun
+            if (str(quote.get("symbol", "")).upper() in _WSOL_SYMBOLS and 
+                dex_id in _PUMPFUN_DEX_IDS):
                 has_pumpfun_wsol = True
-            # внешний пул по тому же mint на любом DEX, кроме pumpfun-семейства
-            if str(base.get("address")) == mint and dex_id and dex_id not in _PUMPFUN_DEX_IDS:
-                has_external_pool = True
+                
+            # Считаем внешние пулы (не bonding curve платформы)
+            if (dex_id and 
+                dex_id not in _PUMPFUN_DEX_IDS and 
+                dex_id not in excluded_dexes):
+                external_pools_count += 1
+                
         except Exception:
             # Пропускаем плохо сформированные пары
             continue
 
-    return has_pumpfun_wsol and has_external_pool
+    # Условие 1: Pump.fun + хотя бы один внешний пул
+    condition_1 = has_pumpfun_wsol and external_pools_count >= 1
+    
+    # Условие 2: Более двух внешних пулов
+    condition_2 = external_pools_count > 2
+    
+    return condition_1 or condition_2
