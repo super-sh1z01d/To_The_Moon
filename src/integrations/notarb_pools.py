@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from src.adapters.db.deps import get_db
-from src.adapters.db.models import Token
+from src.adapters.db.models import Token, TokenScore
 from src.domain.settings.service import SettingsService
 
 logger = logging.getLogger(__name__)
@@ -50,21 +50,35 @@ class NotArbPoolsGenerator:
         try:
             min_score = self.get_notarb_min_score()
             
-            # Get top tokens above threshold
+            # Get top tokens above threshold with latest scores
+            from sqlalchemy.orm import aliased
+            
+            # Subquery for latest score per token
+            latest_score = (
+                self.db.query(
+                    TokenScore.token_id,
+                    TokenScore.score.label('latest_score'),
+                    TokenScore.smoothed_score.label('smoothed_score')
+                )
+                .distinct(TokenScore.token_id)
+                .order_by(TokenScore.token_id, TokenScore.created_at.desc())
+                .subquery()
+            )
+            
             tokens = (
-                self.db.query(Token)
+                self.db.query(Token, latest_score.c.latest_score, latest_score.c.smoothed_score)
+                .join(latest_score, Token.id == latest_score.c.token_id)
                 .filter(
                     Token.status == "active",
-                    Token.score >= min_score,
-                    Token.liquidity_usd >= 1000  # Minimum liquidity
+                    latest_score.c.smoothed_score >= min_score  # Use smoothed score
                 )
-                .order_by(desc(Token.score))
+                .order_by(desc(latest_score.c.smoothed_score))
                 .limit(limit)
                 .all()
             )
             
             result = []
-            for token in tokens:
+            for token, latest_score, smoothed_score in tokens:
                 # Get pools for this token from latest snapshot
                 from src.adapters.repositories.tokens_repo import TokensRepository
                 from src.adapters.services.dexscreener_client import DexScreenerClient
@@ -105,8 +119,8 @@ class NotArbPoolsGenerator:
                         "mint_address": token.mint_address,
                         "symbol": token.symbol or "UNKNOWN",
                         "name": token.name or "Unknown Token",
-                        "score": float(token.score or 0),
-                        "liquidity_usd": float(token.liquidity_usd or 0),
+                        "score": float(smoothed_score or latest_score or 0),
+                        "liquidity_usd": 0,  # Will be calculated from pools
                         "pools": []
                     }
                     
