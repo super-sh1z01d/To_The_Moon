@@ -13,8 +13,8 @@ from ..validation.data_filters import (
 
 _WSOL_SYMBOLS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
 _USDC_SYMBOLS = {"USDC", "usdc"}
-# Exclude only classic pumpfun; include pumpfun-amm and pumpswap for metrics
-_EXCLUDE_DEX_IDS = {"pumpfun"}
+# Exclude bonding curve platforms; include pumpfun-amm and pumpswap for metrics
+_EXCLUDE_DEX_IDS = {"pumpfun", "launchlab"}
 
 
 def _to_float(x: Any) -> Optional[float]:

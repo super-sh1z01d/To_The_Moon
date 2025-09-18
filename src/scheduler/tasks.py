@@ -45,7 +45,7 @@ def validate_monitoring_once(limit: int = 100) -> None:
 def _external_liq_ge(mint: str, pairs: list[dict], threshold: float) -> bool:
     WS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
     USD = {"USDC", "usdc"}
-    EXCL = {"pumpfun", "pumpfun-amm", "pumpswap"}
+    EXCL = {"pumpfun", "pumpfun-amm", "pumpswap", "launchlab"}
     for p in pairs:
         try:
             base = p.get("baseToken") or {}
