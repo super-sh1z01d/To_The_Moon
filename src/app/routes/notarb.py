@@ -156,7 +156,7 @@ async def export_pools_config(output_path: str = "markets.json", db: Session = D
         
         if success:
             tokens_data = generator.get_top_tokens_with_pools(limit=3)
-            token_pools = generator.generate_token_pools(tokens_data)
+            result_data = generator.generate_token_pools_with_metadata(tokens_data)
             
             return {
                 "success": True,
@@ -164,7 +164,7 @@ async def export_pools_config(output_path: str = "markets.json", db: Session = D
                 "metadata": {
                     "min_score_threshold": generator.get_notarb_min_score(),
                     "total_tokens": len(tokens_data),
-                    "total_pool_groups": len(token_pools)
+                    "total_pool_groups": len(result_data.get("tokens", []))
                 }
             }
         else:
