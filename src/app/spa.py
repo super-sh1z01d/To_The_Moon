@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from src.core.config import get_config
 
@@ -11,12 +12,9 @@ def mount_spa(app: FastAPI) -> None:
     cfg = get_config()
     dist = cfg.frontend_dist_path
     if dist and os.path.isdir(dist):
-        # Mount SPA with fallback to index.html for client-side routing
-        from fastapi.responses import FileResponse
-        from fastapi import Request
-        
         # Mount static files first
-        app.mount("/app/assets", StaticFiles(directory=f"{dist}/assets"), name="spa-assets")
+        if os.path.isdir(f"{dist}/assets"):
+            app.mount("/app/assets", StaticFiles(directory=f"{dist}/assets"), name="spa-assets")
         
         # Add catch-all route for SPA
         @app.get("/app/{path:path}")
