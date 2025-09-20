@@ -54,14 +54,27 @@ class NotArbPoolsGenerator:
             from sqlalchemy.orm import aliased
             
             # Subquery for latest score per token
+            from sqlalchemy import func
+            latest_score_subq = (
+                self.db.query(
+                    TokenScore.token_id,
+                    func.max(TokenScore.created_at).label('max_created_at')
+                )
+                .group_by(TokenScore.token_id)
+                .subquery()
+            )
+            
             latest_score = (
                 self.db.query(
                     TokenScore.token_id,
                     TokenScore.score.label('latest_score'),
                     TokenScore.smoothed_score.label('smoothed_score')
                 )
-                .distinct(TokenScore.token_id)
-                .order_by(TokenScore.token_id, TokenScore.created_at.desc())
+                .join(
+                    latest_score_subq,
+                    (TokenScore.token_id == latest_score_subq.c.token_id) &
+                    (TokenScore.created_at == latest_score_subq.c.max_created_at)
+                )
                 .subquery()
             )
             
