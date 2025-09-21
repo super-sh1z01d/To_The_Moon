@@ -137,12 +137,21 @@ class NotArbPoolsGenerator:
                         "pools": []
                     }
                     
+                    # Import pool type classification
+                    from src.domain.pools.pool_types import get_pool_type, get_pool_type_stats
+                    
                     for pool in pools:
+                        pool_type = get_pool_type(pool.get("dex", ""))
                         token_data["pools"].append({
                             "address": pool.get("address"),
                             "dex": pool.get("dex"),
-                            "quote": pool.get("quote")
+                            "quote": pool.get("quote"),
+                            "type": pool_type.value
                         })
+                    
+                    # Add pool type statistics to token data
+                    pool_stats = get_pool_type_stats(pools)
+                    token_data["pool_types"] = pool_stats
                     
                     result.append(token_data)
             
