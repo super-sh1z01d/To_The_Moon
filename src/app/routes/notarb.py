@@ -176,63 +176,6 @@ async def export_pools_config(output_path: str = "markets.json", db: Session = D
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
-@router.get("/pool-types")
-async def get_pool_types_info(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """
-    Get information about pool types in current top tokens
-    
-    Returns:
-        Pool type classification and statistics
-    """
-    try:
-        from src.domain.pools.pool_types import (
-            PoolType, get_pool_type, get_pool_type_description, 
-            classify_pools_by_type, DEX_POOL_TYPE_MAPPING
-        )
-        
-        generator = NotArbPoolsGenerator()
-        tokens_data = generator.get_top_tokens_with_pools(limit=10)  # Get more for analysis
-        
-        all_pools = []
-        for token in tokens_data:
-            all_pools.extend(token.get("pools", []))
-        
-        # Classify pools by type
-        classified = classify_pools_by_type(all_pools)
-        
-        # Build response
-        pool_type_info = {}
-        total_pools = 0
-        
-        for pool_type, pools in classified.items():
-            if pools:  # Only include non-empty categories
-                pool_type_info[pool_type.value] = {
-                    "count": len(pools),
-                    "description": get_pool_type_description(pool_type),
-                    "dexes": list(set(pool.get("dex", "") for pool in pools)),
-                    "examples": [
-                        {
-                            "address": pool.get("address"),
-                            "dex": pool.get("dex"),
-                            "quote": pool.get("quote")
-                        }
-                        for pool in pools[:3]  # Show up to 3 examples
-                    ]
-                }
-                total_pools += len(pools)
-        
-        return {
-            "total_pools": total_pools,
-            "total_tokens": len(tokens_data),
-            "pool_types": pool_type_info,
-            "supported_dexes": list(DEX_POOL_TYPE_MAPPING.keys()),
-            "type_mapping": {dex: pool_type.value for dex, pool_type in DEX_POOL_TYPE_MAPPING.items()}
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to analyze pool types: {str(e)}")
-
-
 @router.get("/file-info")
 async def get_file_info(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
