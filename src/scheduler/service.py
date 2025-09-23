@@ -42,6 +42,7 @@ async def _process_group(group: str) -> None:
     group in {"hot","cold"}
     hot: score >= min_score; cold: иначе (или нет снапшота)
     """
+    global structured_logger
     start_time = datetime.now(timezone.utc)
     
     with SessionLocal() as sess:
