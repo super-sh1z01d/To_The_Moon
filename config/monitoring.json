@@ -1,0 +1,51 @@
+{
+  "monitoring": {
+    "health_check_interval": 30,
+    "performance_window_minutes": 10,
+    "alert_cooldown_minutes": 5,
+    "degradation_detection": {
+      "enabled": true,
+      "trend_window_minutes": 30,
+      "min_data_points": 10
+    },
+    "intelligent_alerting": {
+      "enabled": true,
+      "threshold_rules": {
+        "cpu_warning": 80.0,
+        "cpu_critical": 95.0,
+        "memory_warning": 85.0,
+        "memory_critical": 95.0,
+        "response_time_warning": 5.0,
+        "error_rate_warning": 0.05
+      },
+      "escalation_rules": {
+        "scheduler_failures": 3,
+        "api_failures": 5
+      }
+    },
+    "priority_processing": {
+      "enabled": true,
+      "high_priority_threshold": 0.8,
+      "low_priority_threshold": 0.3,
+      "defer_threshold": 0.1,
+      "load_thresholds": {
+        "high_load": 80.0,
+        "critical_load": 95.0
+      }
+    },
+    "hot_reload": {
+      "enabled": true,
+      "check_interval_seconds": 5,
+      "reload_timeout_seconds": 30,
+      "cooldown_minutes": 1
+    }
+  },
+  "production": {
+    "log_level": "INFO",
+    "structured_logging": true,
+    "correlation_ids": true,
+    "performance_tracking": true,
+    "alert_channels": ["log", "console"],
+    "cleanup_interval_hours": 24
+  }
+}

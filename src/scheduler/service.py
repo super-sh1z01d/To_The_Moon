@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -25,6 +26,8 @@ async def _process_group(group: str) -> None:
     group in {"hot","cold"}
     hot: score >= min_score; cold: иначе (или нет снапшота)
     """
+    start_time = datetime.now(timezone.utc)
+    
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
         settings = SettingsService(sess)
@@ -33,8 +36,33 @@ async def _process_group(group: str) -> None:
         min_score = float(settings.get("min_score") or 0.1)
         min_score_change = float(settings.get("min_score_change") or 0.05)
         
-        tokens = repo.list_by_status("active", limit=500)
-        client = DexScreenerClient(timeout=5.0)
+        # Get load-based processing adjustments
+        from src.monitoring.metrics import get_load_processor
+        load_processor = get_load_processor()
+        
+        # Adjust batch size based on system load
+        base_limit = 500
+        adjusted_limit = load_processor.get_adjusted_batch_size(base_limit)
+        
+        # Get priority-based token processing
+        from src.scheduler.priority_processor import get_priority_processor
+        priority_processor = get_priority_processor()
+        
+        # Get tokens with priority ordering
+        tokens = priority_processor.get_prioritized_tokens(
+            repo, group, adjusted_limit, load_processor.get_current_load()
+        )
+        # Use resilient client with circuit breaker in production
+        from src.core.config import get_config
+        config = get_config()
+        
+        if config.app_env == "prod":
+            from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
+            client = ResilientDexScreenerClient(timeout=5.0)
+            structured_logger.info("Using resilient DexScreener client with circuit breaker")
+        else:
+            client = DexScreenerClient(timeout=5.0)
+            structured_logger.info("Using standard DexScreener client")
         
         processed = 0
         updated = 0
@@ -84,29 +112,38 @@ async def _process_group(group: str) -> None:
                 
                 updated += 1
                 
-                # Log with model-specific information
-                log_extra = {
-                    "group": group,
-                    "mint": t.mint_address,
-                    "score": score,
-                    "smoothed_score": smoothed_score,
-                    "model": active_model,
-                    "L_tot": metrics.get("L_tot"),
-                    "n_5m": metrics.get("n_5m"),
-                    "filtered_pools": metrics.get("pools_filtered_out", 0),
-                    "data_quality_ok": not metrics.get("data_quality_warning", False),
-                }
-                
-                # Add hybrid momentum specific metrics to log
-                if active_model == "hybrid_momentum" and raw_components:
-                    log_extra.update({
-                        "tx_accel": raw_components.get("tx_accel"),
-                        "vol_momentum": raw_components.get("vol_momentum"),
-                        "token_freshness": raw_components.get("token_freshness"),
-                        "orderflow_imbalance": raw_components.get("orderflow_imbalance"),
-                    })
-                
-                log.info("token_updated", extra={"extra": log_extra})
+                # Log with model-specific information (if detailed logging is enabled)
+                if load_processor.is_feature_enabled("detailed_logging"):
+                    log_extra = {
+                        "group": group,
+                        "mint": t.mint_address,
+                        "score": score,
+                        "smoothed_score": smoothed_score,
+                        "model": active_model,
+                        "L_tot": metrics.get("L_tot"),
+                        "n_5m": metrics.get("n_5m"),
+                        "filtered_pools": metrics.get("pools_filtered_out", 0),
+                        "data_quality_ok": not metrics.get("data_quality_warning", False),
+                    }
+                    
+                    # Add hybrid momentum specific metrics to log
+                    if active_model == "hybrid_momentum" and raw_components:
+                        log_extra.update({
+                            "tx_accel": raw_components.get("tx_accel"),
+                            "vol_momentum": raw_components.get("vol_momentum"),
+                            "token_freshness": raw_components.get("token_freshness"),
+                            "orderflow_imbalance": raw_components.get("orderflow_imbalance"),
+                        })
+                    
+                    log.info("token_updated", extra={"extra": log_extra})
+                else:
+                    # Minimal logging under high load
+                    log.info("token_updated", extra={"extra": {
+                        "group": group,
+                        "mint": t.mint_address,
+                        "score": score,
+                        "model": active_model
+                    }})
                 
             except Exception as e:
                 log.error(
@@ -127,6 +164,90 @@ async def _process_group(group: str) -> None:
         # Записываем выполнение для мониторинга
         from src.scheduler.monitoring import health_monitor
         health_monitor.record_group_execution(group, processed, updated)
+        
+        # Record performance metrics
+        from src.monitoring.metrics import get_performance_tracker, get_structured_logger, get_performance_optimizer
+        performance_tracker = get_performance_tracker()
+        processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+        performance_tracker.record_scheduler_execution(group, processing_time, processed, updated)
+        
+        # Structured logging
+        structured_logger = get_structured_logger("scheduler")
+        structured_logger.log_scheduler_execution(
+            group=group,
+            tokens_processed=processed,
+            tokens_updated=updated,
+            processing_time=processing_time,
+            error_count=0,
+            batch_size=limit
+        )
+        
+        # Performance optimization
+        performance_optimizer = get_performance_optimizer()
+        optimization_result = performance_optimizer.optimize_service("scheduler")
+        
+        if optimization_result.get("optimized") and optimization_result.get("changes"):
+            structured_logger.info(
+                f"Scheduler performance optimized",
+                group=group,
+                optimization_changes=optimization_result["changes"]
+            )
+        
+        # Performance degradation detection
+        from src.monitoring.metrics import get_performance_degradation_detector
+        degradation_detector = get_performance_degradation_detector()
+        
+        # Record performance metrics for degradation analysis
+        performance_metrics = {
+            "response_time": processing_time,
+            "throughput": processed / (processing_time / 60) if processing_time > 0 else 0,  # tokens per minute
+            "error_rate": 0,  # Could be calculated from failed token updates
+            "cpu_usage": system_metrics.get("cpu_percent", 0) if 'system_metrics' in locals() else 0,
+            "memory_usage": system_metrics.get("memory_percent", 0) if 'system_metrics' in locals() else 0
+        }
+        
+        degradation_detector.record_performance_metric("scheduler", performance_metrics)
+        
+        # Check for predictive alerts
+        predictive_alerts = degradation_detector.get_predictive_alerts("scheduler", forecast_minutes=15)
+        for alert in predictive_alerts:
+            structured_logger.warning(
+                f"Predictive performance alert: {alert['message']}",
+                group=group,
+                alert_type=alert["type"],
+                confidence=alert["confidence"],
+                projected_value=alert["projected_value"]
+            )
+        
+        # Check if we need to perform health check and recovery
+        if hasattr(app.state, 'self_healing_wrapper'):
+            try:
+                app.state.self_healing_wrapper.check_health_and_recover()
+            except Exception as e:
+                log.error(f"Self-healing check failed: {e}")
+        
+        # Process load-based adjustments
+        try:
+            from src.monitoring.metrics import get_load_processor
+            load_processor = get_load_processor()
+            load_adjustments = load_processor.process_load_adjustment()
+            
+            # Log significant load changes
+            if not load_adjustments.get("no_change", False):
+                log.info(
+                    "load_adjustment_processed",
+                    extra={
+                        "extra": {
+                            "group": group,
+                            "load_level": load_adjustments.get("new_level"),
+                            "processing_factor": load_adjustments.get("new_factor"),
+                            "cpu_percent": load_adjustments.get("load_metrics", {}).get("cpu_percent"),
+                            "memory_percent": load_adjustments.get("load_metrics", {}).get("memory_percent")
+                        }
+                    }
+                )
+        except Exception as e:
+            log.error(f"Load adjustment processing failed: {e}")
 
 
 def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
@@ -146,10 +267,17 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     with SessionLocal() as sess:
         settings = SettingsService(sess)
         try:
-            hot_interval = int(settings.get("hot_interval_sec") or 10)
-            cold_interval = int(settings.get("cold_interval_sec") or 45)
+            base_hot_interval = int(settings.get("hot_interval_sec") or 10)
+            base_cold_interval = int(settings.get("cold_interval_sec") or 45)
         except Exception:
-            hot_interval, cold_interval = 10, 45
+            base_hot_interval, base_cold_interval = 10, 45
+    
+    # Apply load-based adjustments to intervals
+    from src.monitoring.metrics import get_load_processor
+    load_processor = get_load_processor()
+    
+    hot_interval = load_processor.get_adjusted_interval(base_hot_interval)
+    cold_interval = load_processor.get_adjusted_interval(base_cold_interval)
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(_process_group, "interval", seconds=hot_interval, args=["hot"], id="hot_updater", max_instances=1)
@@ -176,9 +304,20 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     )
     
     scheduler.start()
+    
+    # Create self-healing wrapper
+    from src.scheduler.monitoring import SelfHealingSchedulerWrapper
+    self_healing_wrapper = SelfHealingSchedulerWrapper(scheduler, app)
+    
     app.state.scheduler = scheduler
+    app.state.self_healing_wrapper = self_healing_wrapper
+    
     log.info(
         "scheduler_started",
-        extra={"extra": {"hot_interval": hot_interval, "cold_interval": cold_interval}},
+        extra={"extra": {
+            "hot_interval": hot_interval, 
+            "cold_interval": cold_interval,
+            "self_healing_enabled": True
+        }},
     )
     return scheduler

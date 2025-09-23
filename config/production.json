@@ -1,0 +1,30 @@
+{
+  "circuit_breaker": {
+    "failure_threshold": 5,
+    "recovery_timeout": 60,
+    "expected_exception_types": ["requests.exceptions.RequestException", "httpx.RequestError"],
+    "name": "dexscreener_api"
+  },
+  "retry_manager": {
+    "max_attempts": 3,
+    "base_delay": 1.0,
+    "max_delay": 10.0,
+    "exponential_base": 2.0,
+    "jitter": true
+  },
+  "self_healing": {
+    "health_check_interval": 30,
+    "restart_threshold": 3,
+    "emergency_restart_threshold": 5,
+    "job_timeout": 300,
+    "stuck_job_threshold": 600
+  },
+  "graceful_degradation": {
+    "cpu_threshold_high": 80.0,
+    "cpu_threshold_critical": 95.0,
+    "memory_threshold_high": 85.0,
+    "memory_threshold_critical": 95.0,
+    "response_time_threshold": 5.0,
+    "error_rate_threshold": 0.1
+  }
+}

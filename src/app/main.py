@@ -17,6 +17,7 @@ from .routes.ui import router as ui_router
 from .routes.admin import router as admin_router
 from .routes.logs import router as logs_router
 from .routes.notarb import router as notarb_router
+from .routes.health import router as health_router
 from .logs_buffer import attach_buffer_handler
 
 
@@ -71,6 +72,77 @@ def create_app() -> FastAPI:
             "startup",
             extra={"extra": {"service": cfg.app_name, "env": cfg.app_env, "version": cfg.app_version}},
         )
+        
+        # Initialize monitoring systems
+        try:
+            # Initialize structured logging
+            from src.monitoring.metrics import get_structured_logger
+            structured_logger = get_structured_logger("startup")
+            structured_logger.set_context(
+                service=cfg.app_name,
+                version=cfg.app_version,
+                environment=cfg.app_env
+            )
+            
+            # Initialize health monitor
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            structured_logger.info("Health monitor initialized")
+            
+            # Initialize performance tracker
+            from src.monitoring.metrics import get_performance_tracker
+            performance_tracker = get_performance_tracker()
+            structured_logger.info("Performance tracker initialized")
+            
+            # Initialize performance degradation detector
+            from src.monitoring.metrics import get_performance_degradation_detector
+            degradation_detector = get_performance_degradation_detector()
+            structured_logger.info("Performance degradation detector initialized")
+            
+            # Initialize intelligent alerting engine
+            from src.monitoring.alert_manager import get_intelligent_alerting_engine
+            intelligent_alerting = get_intelligent_alerting_engine()
+            structured_logger.info("Intelligent alerting engine initialized")
+            
+            # Initialize priority processor
+            from src.scheduler.monitoring import get_priority_processor
+            priority_processor = get_priority_processor()
+            structured_logger.info("Priority processor initialized")
+            
+            # Initialize configuration hot reloader
+            from src.scheduler.monitoring import get_config_hot_reloader
+            config_reloader = get_config_hot_reloader()
+            config_reloader.start_monitoring()
+            structured_logger.info("Configuration hot reloader started")
+            
+            # Initialize self-healing scheduler wrapper (production only)
+            if cfg.app_env == "prod":
+                try:
+                    from src.scheduler.monitoring import get_self_healing_wrapper
+                    self_healing_wrapper = get_self_healing_wrapper()
+                    app.state.self_healing_wrapper = self_healing_wrapper
+                    structured_logger.info("Self-healing scheduler wrapper initialized")
+                except Exception as e:
+                    structured_logger.error("Failed to initialize self-healing wrapper", error=e)
+            
+            # Store monitoring components in app state
+            app.state.health_monitor = health_monitor
+            app.state.performance_tracker = performance_tracker
+            app.state.degradation_detector = degradation_detector
+            app.state.intelligent_alerting = intelligent_alerting
+            app.state.priority_processor = priority_processor
+            app.state.config_reloader = config_reloader
+            app.state.structured_logger = structured_logger
+            
+            structured_logger.info("All monitoring systems initialized successfully")
+            
+        except Exception as e:
+            logging.getLogger("lifecycle").error(
+                "Failed to initialize monitoring systems",
+                extra={"extra": {"error": str(e)}}
+            )
+            # Don't fail startup if monitoring fails
+        
         # Запуск планировщика
         init_scheduler(app)
 
@@ -79,6 +151,35 @@ def create_app() -> FastAPI:
         logging.getLogger("lifecycle").info(
             "shutdown", extra={"extra": {"service": cfg.app_name, "env": cfg.app_env, "version": cfg.app_version}}
         )
+        
+        # Shutdown monitoring systems
+        try:
+            structured_logger = getattr(app.state, "structured_logger", None)
+            if structured_logger:
+                structured_logger.info("Shutting down monitoring systems")
+            
+            # Stop configuration hot reloader
+            config_reloader = getattr(app.state, "config_reloader", None)
+            if config_reloader:
+                config_reloader.stop_monitoring()
+                if structured_logger:
+                    structured_logger.info("Configuration hot reloader stopped")
+            
+            # Cleanup alert manager
+            from src.monitoring.alert_manager import get_alert_manager
+            alert_manager = get_alert_manager()
+            alert_manager.cleanup_old_history(days_to_keep=1)  # Cleanup on shutdown
+            
+            if structured_logger:
+                structured_logger.info("Monitoring systems shutdown completed")
+                
+        except Exception as e:
+            logging.getLogger("lifecycle").error(
+                "Error during monitoring systems shutdown",
+                extra={"extra": {"error": str(e)}}
+            )
+        
+        # Shutdown scheduler
         sched = getattr(app.state, "scheduler", None)
         if sched:
             try:
@@ -118,6 +219,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_router)
     app.include_router(logs_router)
     app.include_router(notarb_router)
+    app.include_router(health_router)
 
     # Static SPA (if built)
     mount_spa(app)

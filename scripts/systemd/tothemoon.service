@@ -1,6 +1,7 @@
 [Unit]
-Description=To The Moon API (FastAPI + Uvicorn)
+Description=To The Moon API with System Stability Monitoring (FastAPI + Uvicorn)
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
@@ -10,7 +11,23 @@ WorkingDirectory=/srv/tothemoon
 EnvironmentFile=/etc/tothemoon.env
 ExecStart=/srv/tothemoon/venv/bin/python -m uvicorn src.app.main:app --host 127.0.0.1 --port 8000 --workers 2
 Restart=always
-RestartSec=3
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tothemoon
+
+# Watchdog configuration for self-healing
+WatchdogSec=30
+NotifyAccess=main
+
+# Resource limits for stability
+LimitNOFILE=65536
+MemoryMax=4G
+CPUQuota=300%
+
+# Environment for monitoring
+Environment=PYTHONPATH=/srv/tothemoon
+Environment=MONITORING_ENABLED=true
 
 [Install]
 WantedBy=multi-user.target

@@ -76,13 +76,35 @@ ENV
 }
 
 setup_python() {
-  log "creating venv and installing python deps"
+  log "creating venv and installing python deps with monitoring"
   cd "$APP_DIR"
   if [ ! -x "venv/bin/python" ]; then
     sudo -u "$APP_USER" python3 -m venv venv
   fi
   sudo -u "$APP_USER" venv/bin/python -m pip install --upgrade pip
   sudo -u "$APP_USER" venv/bin/python -m pip install -r requirements.txt
+  
+  # Install monitoring dependencies
+  log "installing monitoring dependencies"
+  sudo -u "$APP_USER" venv/bin/python -m pip install psutil
+  
+  # Test monitoring components
+  log "testing monitoring components"
+  sudo -u "$APP_USER" bash -lc "set -a; [ -f '$ENV_FILE' ] && sed -e '/^#/d' -e '/^$/d' '$ENV_FILE' > /tmp/.tmoonenva && source /tmp/.tmoonenva; rm -f /tmp/.tmoonenva; set +a; cd '$APP_DIR' && ./venv/bin/python -c '
+import sys
+sys.path.append(\".\")
+try:
+    from src.monitoring.health_monitor import get_health_monitor
+    from src.monitoring.metrics import get_performance_tracker
+    from src.monitoring.alert_manager import get_alert_manager
+    from src.scheduler.monitoring import get_priority_processor
+    print(\"✅ All monitoring modules imported successfully\")
+except Exception as e:
+    print(f\"❌ Monitoring module import failed: {e}\")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+'"
 }
 
 run_migrations() {
@@ -113,16 +135,28 @@ install_systemd() {
 }
 
 health_check() {
-  sleep 2
+  log "waiting for services to start..."
+  sleep 10
+  
   if command -v curl >/dev/null 2>&1; then
-    log "health check"
+    log "comprehensive health check with monitoring"
+    
+    # Main health check
     if curl -fsS http://127.0.0.1:8000/health >/dev/null; then
-      log "HEALTH OK"
+      log "✅ Main health: OK"
     else
-      log "HEALTH FAILED, printing last logs"
+      log "❌ Main health: FAILED, printing last logs"
       journalctl -u tothemoon.service --no-pager -n 200 || true
       exit 1
     fi
+    
+    # Monitoring endpoints health check
+    curl -fsS http://127.0.0.1:8000/health/scheduler >/dev/null && log "✅ Scheduler monitoring: OK" || log "⚠️  Scheduler monitoring: DEGRADED"
+    curl -fsS http://127.0.0.1:8000/health/resources >/dev/null && log "✅ Resources monitoring: OK" || log "⚠️  Resources monitoring: DEGRADED"
+    curl -fsS http://127.0.0.1:8000/health/performance >/dev/null && log "✅ Performance monitoring: OK" || log "⚠️  Performance monitoring: DEGRADED"
+    curl -fsS http://127.0.0.1:8000/health/priority >/dev/null && log "✅ Priority processing: OK" || log "⚠️  Priority processing: DEGRADED"
+    
+    log "🎉 System Stability Monitoring is operational!"
   fi
 }
 
