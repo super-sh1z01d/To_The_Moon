@@ -2060,3 +2060,35 @@ performance_degradation_detector = PerformanceDegradationDetector()
 def get_performance_degradation_detector() -> PerformanceDegradationDetector:
     """Get the global performance degradation detector instance."""
     return performance_degradation_detector
+
+
+# Simple structured logger implementation
+import logging
+
+class SimpleStructuredLogger:
+    """Simple structured logger for compatibility."""
+    
+    def __init__(self, name: str):
+        self.logger = logging.getLogger(name)
+        self.context = {}
+    
+    def set_context(self, **kwargs):
+        """Set logging context."""
+        self.context.update(kwargs)
+    
+    def log_scheduler_execution(self, **kwargs):
+        """Log scheduler execution."""
+        self.logger.info(f"Scheduler execution: {kwargs}")
+    
+    def info(self, message: str, **kwargs):
+        """Log info message."""
+        self.logger.info(message, extra=kwargs)
+    
+    def error(self, message: str, **kwargs):
+        """Log error message."""
+        self.logger.error(message, extra=kwargs)
+
+
+def get_structured_logger(name: str) -> SimpleStructuredLogger:
+    """Get a simple structured logger instance."""
+    return SimpleStructuredLogger(name)
