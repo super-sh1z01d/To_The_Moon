@@ -1216,11 +1216,12 @@ class PriorityProcessor:
                 activity_score * self.activity_weight
             )
             
+            token_id = getattr(token, 'address', None) or getattr(token, 'mint', None) or 'unknown'
             self.logger.debug(
-                f"Token priority calculated: {token.address[:8]}",
+                f"Token priority calculated: {token_id[:8] if token_id != 'unknown' else token_id}",
                 extra={
                     "extra": {
-                        "token_address": token.address,
+                        "token_address": token_id,
                         "priority_score": priority_score,
                         "liquidity_score": liquidity_score,
                         "volume_score": volume_score,
@@ -1233,8 +1234,9 @@ class PriorityProcessor:
             return priority_score
             
         except Exception as e:
+            token_id = getattr(token, 'address', None) or getattr(token, 'mint', None) or 'unknown'
             self.logger.error(
-                f"Failed to calculate token priority: {token.address if hasattr(token, 'address') else 'unknown'}",
+                f"Failed to calculate token priority: {token_id}",
                 extra={
                     "extra": {
                         "error": str(e)
