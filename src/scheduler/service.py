@@ -15,11 +15,25 @@ from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
 from src.domain.scoring.scorer import compute_score
 from src.domain.scoring.scoring_service import ScoringService
 from src.domain.settings.service import SettingsService
-from src.monitoring.metrics import get_structured_logger
 
 
 log = logging.getLogger("scheduler")
-structured_logger = get_structured_logger("scheduler")
+
+# Create structured logger
+import json
+from datetime import datetime
+
+class StructuredLogger:
+    def __init__(self, name: str):
+        self.logger = logging.getLogger(name)
+    
+    def info(self, message: str, **kwargs):
+        self.logger.info(message, extra=kwargs)
+    
+    def error(self, message: str, **kwargs):
+        self.logger.error(message, extra=kwargs)
+
+structured_logger = StructuredLogger("scheduler")
 
 
 async def _process_group(group: str) -> None:
