@@ -19,21 +19,8 @@ from src.domain.settings.service import SettingsService
 
 log = logging.getLogger("scheduler")
 
-# Create structured logger
-import json
-from datetime import datetime
-
-class StructuredLogger:
-    def __init__(self, name: str):
-        self.logger = logging.getLogger(name)
-    
-    def info(self, message: str, **kwargs):
-        self.logger.info(message, extra=kwargs)
-    
-    def error(self, message: str, **kwargs):
-        self.logger.error(message, extra=kwargs)
-
-structured_logger = StructuredLogger("scheduler")
+# Use standard logger for now
+# structured_logger = StructuredLogger("scheduler")
 
 
 async def _process_group(group: str) -> None:
@@ -42,7 +29,6 @@ async def _process_group(group: str) -> None:
     group in {"hot","cold"}
     hot: score >= min_score; cold: иначе (или нет снапшота)
     """
-    global structured_logger
     start_time = datetime.now(timezone.utc)
     
     with SessionLocal() as sess:
@@ -76,10 +62,10 @@ async def _process_group(group: str) -> None:
         if config.app_env == "prod":
             from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
             client = ResilientDexScreenerClient(timeout=5.0)
-            structured_logger.info("Using resilient DexScreener client with circuit breaker")
+            log.info("Using resilient DexScreener client with circuit breaker")
         else:
             client = DexScreenerClient(timeout=5.0)
-            structured_logger.info("Using standard DexScreener client")
+            log.info("Using standard DexScreener client")
         
         processed = 0
         updated = 0
