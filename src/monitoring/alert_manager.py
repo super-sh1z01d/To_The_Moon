@@ -556,6 +556,7 @@ class TrendRule:
     correlation_threshold: float = 0.6  # Minimum correlation for trend validity
     forecast_minutes: int = 15
     evaluation_window_minutes: int = 10
+    min_data_points: int = 3  # Minimum data points needed for trend analysis
     enabled: bool = True
 
 

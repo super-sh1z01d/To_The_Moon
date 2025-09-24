@@ -1825,11 +1825,13 @@ class PerformanceDegradationDetector:
                 intelligent_engine.record_metric(service, metric_name, current_value, current_time)
                 
         except Exception as e:
-            self.logger.error(
-                f"Failed to record metrics for intelligent alerting: {service}",
-                service=service,
-                error=e
-            )
+            # Initialize logger if not already done
+            self._initialize_logger()
+            if self.logger:
+                self.logger.error(
+                    f"Failed to record metrics for intelligent alerting: {service}",
+                    extra={"service": service, "error": str(e)}
+                )
     
     def _send_degradation_alert(self, service: str, degradation: Dict, current_time: float):
         """Send alert for detected performance degradation."""
