@@ -36,9 +36,12 @@ class ComponentCalculator:
             if tx_count_5m < 0 or tx_count_1h < 0:
                 return 0.0
             
-            # Minimum threshold to avoid noise from very low activity
-            min_tx_threshold = 2
-            if tx_count_1h < min_tx_threshold:
+            # High activity threshold: minimum 20 transactions per minute
+            # 20 tx/min * 60 min = 1200 tx/hour
+            min_tx_threshold_1h = 1200
+            min_tx_threshold_5m = 100  # 20 tx/min * 5 min = 100 tx/5min
+            
+            if tx_count_1h < min_tx_threshold_1h or tx_count_5m < min_tx_threshold_5m:
                 return 0.0
                 
             # Calculate rates per minute
@@ -92,9 +95,11 @@ class ComponentCalculator:
             if volume_5m < 0 or volume_1h < 0:
                 return 0.0
             
-            # Minimum volume threshold to avoid noise
-            min_volume_threshold = 50.0  # $50 minimum
-            if volume_1h < min_volume_threshold:
+            # High activity volume threshold: proportional to 20 tx/min activity
+            min_volume_threshold_1h = 2000.0  # $2000 minimum per hour
+            min_volume_threshold_5m = 500.0   # $500 minimum per 5 minutes
+            
+            if volume_1h < min_volume_threshold_1h or volume_5m < min_volume_threshold_5m:
                 return 0.0
                 
             # Average 5-minute volume over the last hour
@@ -109,8 +114,8 @@ class ComponentCalculator:
             # Liquidity factor: normalize liquidity impact
             # Tokens with higher liquidity get better scores for same momentum
             if liquidity_usd > 0:
-                # Sigmoid-like function: significant boost up to $50k liquidity
-                liquidity_factor = min(1.0, liquidity_usd / 50000.0)
+                # Sigmoid-like function: significant boost up to $100k liquidity for high-activity tokens
+                liquidity_factor = min(1.0, liquidity_usd / 100000.0)
                 # Apply square root to reduce extreme differences
                 liquidity_factor = math.sqrt(liquidity_factor)
             else:
@@ -200,8 +205,8 @@ class ComponentCalculator:
                 
             total_volume = buys_volume_5m + sells_volume_5m
             
-            # Minimum volume threshold to avoid noise from tiny trades
-            min_volume_threshold = 25.0  # $25 minimum total volume
+            # High activity volume threshold for orderflow significance
+            min_volume_threshold = 500.0  # $500 minimum total volume for 5 minutes
             if total_volume < min_volume_threshold:
                 return 0.0
             
@@ -222,7 +227,7 @@ class ComponentCalculator:
                 if total_txs > 0:
                     size_ratio = max(avg_buy_size, avg_sell_size) / (total_volume / total_txs) if total_txs > 0 else 1
                     # Reduce weight if dominated by very few large trades (potential manipulation)
-                    if size_ratio > 5.0:  # One trade is 5x average
+                    if size_ratio > 3.0:  # One trade is 3x average (stricter detection)
                         volume_significance *= 0.5
             
             result = volume_imbalance * volume_significance
