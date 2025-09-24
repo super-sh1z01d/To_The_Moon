@@ -17,12 +17,13 @@ class ComponentCalculator:
     @staticmethod
     def calculate_tx_accel(tx_count_5m: float, tx_count_1h: float) -> float:
         """
-        Calculate transaction acceleration component.
+        Calculate transaction acceleration component with improved stability.
         
-        Formula: (tx_count_5m / 5) / (tx_count_1h / 60)
+        Enhanced Formula: log(1 + rate_5m) / log(1 + rate_1h) with minimum thresholds
         
         This measures if the trading pace is accelerating in the last 5 minutes
-        compared to the average pace over the last hour.
+        compared to the average pace over the last hour, with logarithmic smoothing
+        to prevent extreme values from small denominators.
         
         Args:
             tx_count_5m: Number of transactions in last 5 minutes
@@ -32,23 +33,34 @@ class ComponentCalculator:
             Transaction acceleration ratio (0.0 if invalid inputs)
         """
         try:
-            if tx_count_1h <= 0 or tx_count_5m < 0:
+            if tx_count_5m < 0 or tx_count_1h < 0:
+                return 0.0
+            
+            # Minimum threshold to avoid noise from very low activity
+            min_tx_threshold = 2
+            if tx_count_1h < min_tx_threshold:
                 return 0.0
                 
             # Calculate rates per minute
             rate_5m = tx_count_5m / 5.0
             rate_1h = tx_count_1h / 60.0
             
-            if rate_1h <= 0:
+            # Use logarithmic smoothing to prevent extreme values
+            # log(1 + x) grows slower than x, providing stability
+            numerator = math.log(1 + rate_5m)
+            denominator = math.log(1 + rate_1h)
+            
+            if denominator <= 0:
                 return 0.0
                 
-            result = rate_5m / rate_1h
+            result = numerator / denominator
             
-            # Sanity check for extreme values
+            # Sanity check for extreme values and cap at reasonable maximum
             if math.isnan(result) or math.isinf(result) or result < 0:
                 return 0.0
                 
-            return result
+            # Cap at 10x to prevent extreme scores
+            return min(result, 10.0)
             
         except (ZeroDivisionError, TypeError, ValueError):
             logging.getLogger("component_calculator").warning(
@@ -58,24 +70,31 @@ class ComponentCalculator:
             return 0.0
     
     @staticmethod
-    def calculate_vol_momentum(volume_5m: float, volume_1h: float) -> float:
+    def calculate_vol_momentum(volume_5m: float, volume_1h: float, liquidity_usd: float = 0.0) -> float:
         """
-        Calculate volume momentum component.
+        Calculate volume momentum component with liquidity weighting.
         
-        Formula: volume_5m / (volume_1h / 12)
+        Enhanced Formula: (volume_5m / avg_5m_volume) * liquidity_factor
         
         This compares the trading volume in the last 5 minutes to the average
-        5-minute volume over the last hour.
+        5-minute volume over the last hour, weighted by liquidity depth to
+        favor tokens with sufficient liquidity for arbitrage.
         
         Args:
             volume_5m: Trading volume in last 5 minutes (USD)
             volume_1h: Trading volume in last 1 hour (USD)
+            liquidity_usd: Total liquidity in USD (optional, default: 0.0)
             
         Returns:
-            Volume momentum ratio (0.0 if invalid inputs)
+            Volume momentum ratio weighted by liquidity (0.0 if invalid inputs)
         """
         try:
-            if volume_1h <= 0 or volume_5m < 0:
+            if volume_5m < 0 or volume_1h < 0:
+                return 0.0
+            
+            # Minimum volume threshold to avoid noise
+            min_volume_threshold = 50.0  # $50 minimum
+            if volume_1h < min_volume_threshold:
                 return 0.0
                 
             # Average 5-minute volume over the last hour
@@ -84,18 +103,32 @@ class ComponentCalculator:
             if avg_5m_volume <= 0:
                 return 0.0
                 
-            result = volume_5m / avg_5m_volume
+            # Base momentum calculation
+            base_momentum = volume_5m / avg_5m_volume
             
-            # Sanity check for extreme values
+            # Liquidity factor: normalize liquidity impact
+            # Tokens with higher liquidity get better scores for same momentum
+            if liquidity_usd > 0:
+                # Sigmoid-like function: significant boost up to $50k liquidity
+                liquidity_factor = min(1.0, liquidity_usd / 50000.0)
+                # Apply square root to reduce extreme differences
+                liquidity_factor = math.sqrt(liquidity_factor)
+            else:
+                liquidity_factor = 0.5  # Default factor if liquidity unknown
+            
+            result = base_momentum * liquidity_factor
+            
+            # Sanity check for extreme values and cap at reasonable maximum
             if math.isnan(result) or math.isinf(result) or result < 0:
                 return 0.0
                 
-            return result
+            # Cap at 15x to prevent extreme scores
+            return min(result, 15.0)
             
         except (ZeroDivisionError, TypeError, ValueError):
             logging.getLogger("component_calculator").warning(
                 "vol_momentum_calculation_error",
-                extra={"volume_5m": volume_5m, "volume_1h": volume_1h}
+                extra={"volume_5m": volume_5m, "volume_1h": volume_1h, "liquidity_usd": liquidity_usd}
             )
             return 0.0
     
@@ -141,21 +174,25 @@ class ComponentCalculator:
             return 0.0
     
     @staticmethod
-    def calculate_orderflow_imbalance(buys_volume_5m: float, sells_volume_5m: float) -> float:
+    def calculate_orderflow_imbalance(buys_volume_5m: float, sells_volume_5m: float, 
+                                    total_buys_5m: int = 0, total_sells_5m: int = 0) -> float:
         """
-        Calculate orderflow imbalance component.
+        Calculate orderflow imbalance component with volume weighting and significance threshold.
         
-        Formula: (buys_volume_5m - sells_volume_5m) / (buys_volume_5m + sells_volume_5m)
+        Enhanced Formula: Volume-weighted imbalance with minimum volume threshold
         
-        This measures the predominant pressure (buyers vs sellers) in the last 5 minutes.
-        Positive values indicate buying pressure, negative values indicate selling pressure.
+        This measures the predominant pressure (buyers vs sellers) in the last 5 minutes,
+        weighted by actual volume rather than just transaction count. Only significant
+        volume imbalances are considered to avoid noise from small trades.
         
         Args:
             buys_volume_5m: Buy volume in last 5 minutes (USD)
             sells_volume_5m: Sell volume in last 5 minutes (USD)
+            total_buys_5m: Number of buy transactions (optional)
+            total_sells_5m: Number of sell transactions (optional)
             
         Returns:
-            Orderflow imbalance between -1.0 and 1.0 (0.0 if invalid inputs)
+            Volume-weighted orderflow imbalance between -1.0 and 1.0 (0.0 if invalid inputs)
         """
         try:
             if buys_volume_5m < 0 or sells_volume_5m < 0:
@@ -163,10 +200,32 @@ class ComponentCalculator:
                 
             total_volume = buys_volume_5m + sells_volume_5m
             
-            if total_volume <= 0:
+            # Minimum volume threshold to avoid noise from tiny trades
+            min_volume_threshold = 25.0  # $25 minimum total volume
+            if total_volume < min_volume_threshold:
                 return 0.0
+            
+            # Calculate volume-weighted imbalance
+            volume_imbalance = (buys_volume_5m - sells_volume_5m) / total_volume
+            
+            # Apply significance weighting based on total volume
+            # Higher volume imbalances are more meaningful
+            volume_significance = min(1.0, total_volume / 500.0)  # Full weight at $500+
+            
+            # If we have transaction counts, check for manipulation patterns
+            if total_buys_5m > 0 and total_sells_5m > 0:
+                total_txs = total_buys_5m + total_sells_5m
+                avg_buy_size = buys_volume_5m / total_buys_5m if total_buys_5m > 0 else 0
+                avg_sell_size = sells_volume_5m / total_sells_5m if total_sells_5m > 0 else 0
                 
-            result = (buys_volume_5m - sells_volume_5m) / total_volume
+                # Detect potential manipulation: very few large trades vs many small ones
+                if total_txs > 0:
+                    size_ratio = max(avg_buy_size, avg_sell_size) / (total_volume / total_txs) if total_txs > 0 else 1
+                    # Reduce weight if dominated by very few large trades (potential manipulation)
+                    if size_ratio > 5.0:  # One trade is 5x average
+                        volume_significance *= 0.5
+            
+            result = volume_imbalance * volume_significance
             
             # Sanity check
             if math.isnan(result) or math.isinf(result):
@@ -178,7 +237,12 @@ class ComponentCalculator:
         except (ZeroDivisionError, TypeError, ValueError):
             logging.getLogger("component_calculator").warning(
                 "orderflow_imbalance_calculation_error",
-                extra={"buys_volume_5m": buys_volume_5m, "sells_volume_5m": sells_volume_5m}
+                extra={
+                    "buys_volume_5m": buys_volume_5m, 
+                    "sells_volume_5m": sells_volume_5m,
+                    "total_buys_5m": total_buys_5m,
+                    "total_sells_5m": total_sells_5m
+                }
             )
             return 0.0
     
@@ -211,4 +275,7 @@ class ComponentCalculator:
             "buys_volume_5m": safe_float(metrics.get("buys_volume_5m"), 0.0),
             "sells_volume_5m": safe_float(metrics.get("sells_volume_5m"), 0.0),
             "hours_since_creation": safe_float(metrics.get("hours_since_creation"), 0.0),
+            "liquidity_usd": safe_float(metrics.get("L_tot"), 0.0),
+            "total_buys_5m": int(safe_float(metrics.get("total_buys_5m"), 0.0)),
+            "total_sells_5m": int(safe_float(metrics.get("total_sells_5m"), 0.0)),
         }

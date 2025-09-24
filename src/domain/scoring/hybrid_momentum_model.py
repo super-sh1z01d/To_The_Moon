@@ -209,7 +209,8 @@ class HybridMomentumModel:
             
             vol_momentum = ComponentCalculator.calculate_vol_momentum(
                 validated_inputs["volume_5m"],
-                validated_inputs["volume_1h"]
+                validated_inputs["volume_1h"],
+                validated_inputs["liquidity_usd"]
             )
             
             token_freshness = ComponentCalculator.calculate_token_freshness(
@@ -219,7 +220,9 @@ class HybridMomentumModel:
             
             orderflow_imbalance = ComponentCalculator.calculate_orderflow_imbalance(
                 validated_inputs["buys_volume_5m"],
-                validated_inputs["sells_volume_5m"]
+                validated_inputs["sells_volume_5m"],
+                validated_inputs["total_buys_5m"],
+                validated_inputs["total_sells_5m"]
             )
             
             components = {
