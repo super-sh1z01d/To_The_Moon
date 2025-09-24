@@ -182,7 +182,7 @@ async def _process_group(group: str) -> None:
             tokens_updated=updated,
             processing_time=processing_time,
             error_count=0,
-            batch_size=limit
+            batch_size=adjusted_limit
         )
         
         # Performance optimization
