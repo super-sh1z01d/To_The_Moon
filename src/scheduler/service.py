@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -337,6 +337,18 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     )
     
     scheduler.start()
+    
+    # Принудительно запускаем обработку холодных токенов через 5 секунд после старта
+    # Это временное решение проблемы с планировщиком
+    scheduler.add_job(
+        _process_group, 
+        "date", 
+        run_date=datetime.now(timezone.utc) + timedelta(seconds=5),
+        args=["cold"], 
+        id="cold_kickstart",
+        max_instances=1
+    )
+    log.info("cold_kickstart_scheduled", extra={"extra": {"delay_seconds": 5}})
     
     # Create self-healing wrapper
     from src.scheduler.monitoring import SelfHealingSchedulerWrapper
