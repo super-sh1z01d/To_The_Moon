@@ -373,10 +373,17 @@ export default function Settings(){
 
 function Field({label, hint, k, v, set, type}:{label:string, hint?:string, k:string,v?:string,set:(k:string,v:string)=>void, type?: 'number'|'text'}){
   return (
-    <label className="field" title={hint}>
-      <span style={{maxWidth: '280px', wordWrap: 'break-word'}}>{label}</span>
-      <input value={v??''} onChange={e=>set(k, e.target.value)} title={hint} type={type||'text'} step={type==='number'? '0.01' : undefined} />
-    </label>
+    <div style={{display: 'flex', flexDirection: 'column', gap: '4px', margin: '8px 0'}}>
+      <label style={{fontSize: '14px', fontWeight: '500'}}>{label}</label>
+      <input 
+        value={v??''} 
+        onChange={e=>set(k, e.target.value)} 
+        title={hint} 
+        type={type||'text'} 
+        step={type==='number'? '0.01' : undefined}
+        style={{padding: '6px 8px', border: '1px solid #ccc', borderRadius: '4px'}}
+      />
+    </div>
   )
 }
 
