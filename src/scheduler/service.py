@@ -225,11 +225,13 @@ async def _process_group(group: str) -> None:
             )
         
         # Check if we need to perform health check and recovery
-        if hasattr(app.state, 'self_healing_wrapper'):
-            try:
+        try:
+            from src.app.main import app
+            if hasattr(app.state, 'self_healing_wrapper'):
                 app.state.self_healing_wrapper.check_health_and_recover()
-            except Exception as e:
-                log.error(f"Self-healing check failed: {e}")
+        except Exception as e:
+            # Self-healing is optional, don't fail if not available
+            log.debug(f"Self-healing check skipped: {e}")
         
         # Process load-based adjustments
         try:
