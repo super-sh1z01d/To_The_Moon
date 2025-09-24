@@ -372,6 +372,11 @@ export default function Settings(){
 }
 
 function Field({label, hint, k, v, set, type}:{label:string, hint?:string, k:string,v?:string,set:(k:string,v:string)=>void, type?: 'number'|'text'}){
+  // Debug logging for problematic field
+  if (k === 'min_orderflow_volume_5m') {
+    console.log('Field debug:', { label, k, v, type });
+  }
+  
   return (
     <label className="field" title={hint}>
       <span>{label}</span>
