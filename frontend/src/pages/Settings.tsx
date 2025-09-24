@@ -738,6 +738,7 @@ function PresetMode({title, description, settings, onApply, disabled}:{
         <div><strong>EWMA α:</strong> {settings.ewma_alpha}, <strong>Свежесть:</strong> {settings.freshness_threshold_hours}ч</div>
         <div><strong>Пороги TX:</strong> {settings.min_tx_threshold_5m}/5мин, {settings.min_tx_threshold_1h}/час</div>
         <div><strong>Пороги Vol:</strong> ${settings.min_volume_threshold_5m}/5мин, ${settings.min_volume_threshold_1h}/час</div>
+        <div><strong>Порог OI:</strong> ${settings.min_orderflow_volume_5m}/5мин</div>
         <div><strong>Мин. скор:</strong> {settings.min_score}</div>
       </div>
       <button 
