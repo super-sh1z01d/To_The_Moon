@@ -204,11 +204,11 @@ export default function Settings(){
                 <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #ffc107'}}>
                   <h5 style={{margin: '0 0 8px 0', color: '#dc3545'}}>⚖️ Orderflow Imbalance</h5>
                   <Field 
-                    label="⚖️ Мин. объем для анализа давления ($)" 
+                    label="TEST FIELD - Min orderflow volume" 
                     type="number" 
-                    hint="ПОРОГ ЗНАЧИМОСТИ для компонента Orderflow Imbalance. Токены с меньшим общим объемом (покупки + продажи) за 5 минут получают Orderflow = 0.0 (исключаются). ПРИМЕРЫ: $500 = стандарт, $750 = строже (анализ только крупных потоков), $250 = мягче. ЦЕЛЬ: исключить шум от мелких сделок, анализировать только значимые потоки капитала." 
+                    hint="Test field to debug rendering issue" 
                     k="min_orderflow_volume_5m" 
-                    v={vals['min_orderflow_volume_5m']} 
+                    v={vals['min_orderflow_volume_5m'] || '500'} 
                     set={update} 
                   />
                   <div style={{padding: '8px 0', fontSize: '0.9em', color: '#666'}}>
@@ -375,12 +375,20 @@ function Field({label, hint, k, v, set, type}:{label:string, hint?:string, k:str
   // Debug logging for problematic field
   if (k === 'min_orderflow_volume_5m') {
     console.log('Field debug:', { label, k, v, type });
+    console.log('Rendering field with label:', label);
   }
   
   return (
-    <label className="field" title={hint}>
-      <span>{label}</span>
-      <input value={v??''} onChange={e=>set(k, e.target.value)} title={hint} type={type||'text'} step={type==='number'? '0.01' : undefined} />
+    <label className="field" title={hint} style={k === 'min_orderflow_volume_5m' ? {border: '2px solid red', padding: '4px'} : undefined}>
+      <span style={k === 'min_orderflow_volume_5m' ? {backgroundColor: 'yellow', padding: '2px'} : undefined}>{label}</span>
+      <input 
+        value={v??''} 
+        onChange={e=>set(k, e.target.value)} 
+        title={hint} 
+        type={type||'text'} 
+        step={type==='number'? '0.01' : undefined}
+        style={k === 'min_orderflow_volume_5m' ? {backgroundColor: 'lightblue'} : undefined}
+      />
     </label>
   )
 }
