@@ -175,6 +175,11 @@ class HealthMonitor:
         
         # Check for scheduler health issues
         if hot_last_run:
+            # Ensure both datetimes have the same timezone info
+            if hot_last_run.tzinfo is None:
+                hot_last_run = hot_last_run.replace(tzinfo=timezone.utc)
+            if now.tzinfo is None:
+                now = now.replace(tzinfo=timezone.utc)
             hot_delay = (now - hot_last_run).total_seconds()
             expected_delay = self.config.health_check_interval * 2
             
@@ -196,6 +201,11 @@ class HealthMonitor:
             ))
         
         if cold_last_run:
+            # Ensure both datetimes have the same timezone info
+            if cold_last_run.tzinfo is None:
+                cold_last_run = cold_last_run.replace(tzinfo=timezone.utc)
+            if now.tzinfo is None:
+                now = now.replace(tzinfo=timezone.utc)
             cold_delay = (now - cold_last_run).total_seconds()
             expected_delay = self.config.resource_check_interval * 2
             
@@ -392,6 +402,17 @@ class HealthMonitor:
         else:
             status = HealthStatus.HEALTHY
         
+        # Get client stats for cache hit rate
+        cache_hit_rate = 0.0
+        try:
+            if service == "dexscreener":
+                from src.adapters.services.resilient_dexscreener_client import get_resilient_dexscreener_client
+                client = get_resilient_dexscreener_client()
+                client_stats = client.get_stats()
+                cache_hit_rate = client_stats.get('cache_hit_rate', 0.0)
+        except Exception as e:
+            log.warning(f"Failed to get client stats for {service}: {e}")
+        
         # Send alerts through alert manager
         if alerts:
             alert_manager = get_alert_manager()
@@ -415,7 +436,7 @@ class HealthMonitor:
             p95_response_time=p95_response_time,
             error_rate=error_rate,
             circuit_breaker_state=circuit_state,
-            cache_hit_rate=0.0,  # TODO: Implement cache hit rate tracking
+            cache_hit_rate=cache_hit_rate,
             requests_per_minute=requests_per_minute,
             last_successful_call=last_successful_call,
             consecutive_failures=consecutive_failures,

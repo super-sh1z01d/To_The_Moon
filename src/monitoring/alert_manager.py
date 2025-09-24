@@ -182,7 +182,11 @@ class AlertManager:
         
         if "*" in pattern:
             # Simple wildcard matching
-            if pattern.startswith("*"):
+            if pattern.startswith("*") and pattern.endswith("*"):
+                # Pattern like *api*
+                middle = pattern[1:-1]
+                return middle in component
+            elif pattern.startswith("*"):
                 return component.endswith(pattern[1:])
             elif pattern.endswith("*"):
                 return component.startswith(pattern[:-1])
@@ -206,8 +210,14 @@ class AlertManager:
         if not matching_rules:
             return None
         
-        # Return the most specific rule (least wildcards)
-        return min(matching_rules, key=lambda r: r.component_pattern.count("*"))
+        # Return the most specific rule (least wildcards, then by lowest min_level)
+        level_priority = {
+            AlertLevel.INFO: 1,
+            AlertLevel.WARNING: 2,
+            AlertLevel.ERROR: 3,
+            AlertLevel.CRITICAL: 4
+        }
+        return min(matching_rules, key=lambda r: (r.component_pattern.count("*"), level_priority[r.min_level]))
     
     def _should_suppress_alert(self, alert: HealthAlert, rule: AlertRule) -> bool:
         """Check if alert should be suppressed due to cooldown or frequency limits."""
@@ -839,6 +849,7 @@ class IntelligentAlertingEngine:
             level=rule.alert_level,
             component=component,
             message=f"Threshold breached: {rule.metric_name} = {value:.2f} (threshold: {rule.upper_threshold})",
+            timestamp=datetime.now(timezone.utc),
             context={
                 "metric_name": rule.metric_name,
                 "current_value": value,
@@ -857,6 +868,7 @@ class IntelligentAlertingEngine:
             level=AlertLevel.INFO,
             component=component,
             message=f"Threshold recovered: {rule.metric_name} = {value:.2f} (below {rule.lower_threshold})",
+            timestamp=datetime.now(timezone.utc),
             context={
                 "metric_name": rule.metric_name,
                 "current_value": value,
@@ -877,6 +889,7 @@ class IntelligentAlertingEngine:
                 f"{trend_analysis['slope']:.2f}/min, projected to reach "
                 f"{trend_analysis['projected_value']:.2f} in {rule.forecast_minutes} minutes"
             ),
+            timestamp=datetime.now(timezone.utc),
             context={
                 "metric_name": rule.metric_name,
                 "current_value": trend_analysis["current_value"],
@@ -935,6 +948,7 @@ class IntelligentAlertingEngine:
                             level=rule.escalated_level,
                             component=alert.component,
                             message=f"ESCALATED: {alert.message} (repeated {counter['count']} times)",
+                            timestamp=datetime.now(timezone.utc),
                             context={
                                 **alert.context,
                                 "escalation_reason": "repeated_failures",

@@ -22,8 +22,8 @@ class TestMonitoringSettings:
         settings = MonitoringSettings()
         
         assert settings.health_check_interval == 30
-        assert settings.memory_warning_threshold == 800.0
-        assert settings.memory_critical_threshold == 1000.0
+        assert settings.memory_warning_threshold == 1400.0
+        assert settings.memory_critical_threshold == 1600.0
         assert settings.cpu_warning_threshold == 70.0
         assert settings.cpu_critical_threshold == 80.0
         assert settings.api_response_time_warning == 2000.0

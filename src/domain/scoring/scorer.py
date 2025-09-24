@@ -66,7 +66,7 @@ def compute_components(metrics: dict) -> dict:
         "m": m,
         "TF": TF,
         "t": t,
-        "HD_norm": 1.0,  # временно
+        "HD_norm": max(0.1, min(1.0, _get_float(metrics, "HD", 0.0) / 100.0)) if _get_float(metrics, "HD", 0.0) > 0 else 0.1  # Normalize HD to [0.1, 1.0]
     }
 
 

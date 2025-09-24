@@ -103,7 +103,7 @@ async def comprehensive_health() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
 
 
-@router.get("/health/scheduler", tags=["meta"])
+@router.get("/meta/scheduler", tags=["meta"])
 async def scheduler_health() -> dict:
     """
     Detailed scheduler health check.
@@ -192,7 +192,7 @@ async def resources_health() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Resource health check failed: {str(e)}")
 
 
-@router.get("/health/apis", tags=["meta"])
+@router.get("/meta/apis", tags=["meta"])
 async def apis_health() -> Dict[str, Any]:
     """
     External API health check.
@@ -242,7 +242,7 @@ async def apis_health() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"API health check failed: {str(e)}")
 
 
-@router.get("/health/circuit-breakers", tags=["meta"])
+@router.get("/meta/circuit-breakers", tags=["meta"])
 async def circuit_breakers_health() -> Dict[str, Any]:
     """
     Circuit breaker status and statistics.
@@ -275,7 +275,7 @@ async def circuit_breakers_health() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Circuit breaker health check failed: {str(e)}")
 
 
-@router.get("/health/retry-managers", tags=["meta"])
+@router.get("/meta/retry-managers", tags=["meta"])
 async def retry_managers_health() -> Dict[str, Any]:
     """
     Retry manager statistics and performance.

@@ -228,7 +228,7 @@ class TestMetricsCollector:
         """Test resource alert generation."""
         # Mock high resource usage
         mock_memory = MagicMock()
-        mock_memory.used = 900 * 1024 * 1024  # 900 MB (above warning threshold)
+        mock_memory.used = 1500 * 1024 * 1024  # 1500 MB (above warning threshold)
         mock_memory.percent = 90.0
         mock_psutil.virtual_memory.return_value = mock_memory
         

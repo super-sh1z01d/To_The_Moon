@@ -187,7 +187,7 @@ class TestAlertManager:
         assert mock_print.called
         
         # Check that the alert information was printed
-        printed_text = ''.join(call.args[0] for call in mock_print.call_args_list)
+        printed_text = ''.join(call.args[0] if call.args else '' for call in mock_print.call_args_list)
         assert "ERROR" in printed_text
         assert "Test console alert" in printed_text
         assert "test.component" in printed_text

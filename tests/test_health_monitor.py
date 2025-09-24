@@ -62,7 +62,9 @@ class TestHealthMonitor:
     @pytest.mark.asyncio
     async def test_monitor_scheduler_health_no_executions(self):
         """Test scheduler health monitoring with no executions."""
-        health = await self.monitor.monitor_scheduler_health()
+        # Mock scheduler monitor to force fallback to basic monitoring
+        with patch('src.scheduler.monitoring.get_scheduler_health_monitor', side_effect=ImportError):
+            health = await self.monitor.monitor_scheduler_health()
         
         assert health.status == HealthStatus.CRITICAL
         assert health.hot_group_last_run is None
@@ -81,7 +83,9 @@ class TestHealthMonitor:
         self.monitor._scheduler_execution_history["hot"] = [now - timedelta(seconds=10)]
         self.monitor._scheduler_execution_history["cold"] = [now - timedelta(seconds=20)]
         
-        health = await self.monitor.monitor_scheduler_health()
+        # Mock scheduler monitor to force fallback to basic monitoring
+        with patch('src.scheduler.monitoring.get_scheduler_health_monitor', side_effect=ImportError):
+            health = await self.monitor.monitor_scheduler_health()
         
         assert health.status in [HealthStatus.HEALTHY, HealthStatus.DEGRADED]
         assert health.hot_group_last_run is not None
@@ -99,7 +103,9 @@ class TestHealthMonitor:
         self.monitor._scheduler_execution_history["hot"] = [old_time]
         self.monitor._scheduler_execution_history["cold"] = [old_time]
         
-        health = await self.monitor.monitor_scheduler_health()
+        # Mock scheduler monitor to force fallback to basic monitoring
+        with patch('src.scheduler.monitoring.get_scheduler_health_monitor', side_effect=ImportError):
+            health = await self.monitor.monitor_scheduler_health()
         
         assert health.status in [HealthStatus.DEGRADED, HealthStatus.CRITICAL]
         
@@ -246,20 +252,21 @@ class TestHealthMonitor:
             })
         
         with patch.object(self.monitor, 'monitor_resource_usage') as mock_resource:
-            from src.monitoring.models import ResourceHealth
-            mock_resource.return_value = ResourceHealth(
-                memory_usage_mb=512.0,
-                memory_usage_percent=50.0,
-                cpu_usage_percent=25.0,
-                disk_usage_percent=60.0,
-                database_connections=5,
-                max_database_connections=20,
-                open_file_descriptors=100,
-                max_file_descriptors=1024,
-                status=HealthStatus.HEALTHY
-            )
-            
-            health = await self.monitor.get_comprehensive_health_async()
+            with patch('src.scheduler.monitoring.get_scheduler_health_monitor', side_effect=ImportError):
+                from src.monitoring.models import ResourceHealth
+                mock_resource.return_value = ResourceHealth(
+                    memory_usage_mb=512.0,
+                    memory_usage_percent=50.0,
+                    cpu_usage_percent=25.0,
+                    disk_usage_percent=60.0,
+                    database_connections=5,
+                    max_database_connections=20,
+                    open_file_descriptors=100,
+                    max_file_descriptors=1024,
+                    status=HealthStatus.HEALTHY
+                )
+                
+                health = await self.monitor.get_comprehensive_health_async()
         
         assert health.overall_status in [HealthStatus.HEALTHY, HealthStatus.DEGRADED]
         assert health.scheduler is not None

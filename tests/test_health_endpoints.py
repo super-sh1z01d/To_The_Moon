@@ -142,8 +142,8 @@ class TestHealthEndpoints:
         assert apis["dexscreener"]["status"] == "healthy"
         assert apis["dexscreener"]["average_response_time"] == 150.0
     
-    @patch('src.app.routes.health.health_monitor')
-    def test_scheduler_health_endpoint(self, mock_health_monitor):
+    @patch('src.monitoring.health_monitor.HealthMonitor.monitor_scheduler_health')
+    def test_scheduler_health_endpoint(self, mock_monitor_scheduler_health):
         """Test scheduler health endpoint."""
         # Mock scheduler health
         scheduler_health = SchedulerHealth(
@@ -158,7 +158,7 @@ class TestHealthEndpoints:
             failed_jobs_last_hour=1
         )
         
-        mock_health_monitor.monitor_scheduler_health = AsyncMock(return_value=scheduler_health)
+        mock_monitor_scheduler_health.return_value = scheduler_health
         
         response = self.client.get("/health/scheduler")
         
@@ -172,8 +172,8 @@ class TestHealthEndpoints:
         assert data["performance"]["tokens_processed_per_minute"] == 5.0
         assert data["performance"]["error_rate"] == 2.0
     
-    @patch('src.app.routes.health.health_monitor')
-    def test_resource_health_endpoint(self, mock_health_monitor):
+    @patch('src.monitoring.health_monitor.HealthMonitor.monitor_resource_usage')
+    def test_resource_health_endpoint(self, mock_monitor_resource_usage):
         """Test resource health endpoint."""
         # Mock resource health
         resource_health = ResourceHealth(
@@ -188,7 +188,7 @@ class TestHealthEndpoints:
             status=HealthStatus.HEALTHY
         )
         
-        mock_health_monitor.monitor_resource_usage = AsyncMock(return_value=resource_health)
+        mock_monitor_resource_usage.return_value = resource_health
         
         response = self.client.get("/health/resources")
         
@@ -200,9 +200,9 @@ class TestHealthEndpoints:
         assert data["cpu"]["usage_percent"] == 25.0
         assert data["database"]["connections"] == 5
     
-    @patch('src.app.routes.health.health_monitor')
+    @patch('src.monitoring.health_monitor.HealthMonitor.monitor_api_health')
     @patch('src.app.routes.health.get_resilient_dexscreener_client')
-    def test_apis_health_endpoint(self, mock_get_client, mock_health_monitor):
+    def test_apis_health_endpoint(self, mock_get_client, mock_monitor_api_health):
         """Test APIs health endpoint."""
         # Mock API health
         api_health = APIHealth(
@@ -223,7 +223,7 @@ class TestHealthEndpoints:
         mock_client.get_stats.return_value = {"total_requests": 100, "success_rate": 99.0}
         mock_get_client.return_value = mock_client
         
-        mock_health_monitor.monitor_api_health = AsyncMock(return_value=api_health)
+        mock_monitor_api_health.return_value = api_health
         
         response = self.client.get("/health/apis")
         
@@ -474,26 +474,26 @@ class TestHealthEndpoints:
         assert data["healthy_components"] == 3  # scheduler + resources + 1 API
         assert data["total_components"] == 3
     
-    @patch('src.app.routes.health.health_monitor')
-    def test_health_endpoint_error_handling(self, mock_health_monitor):
+    @patch('src.monitoring.health_monitor.HealthMonitor.get_comprehensive_health_async')
+    def test_health_endpoint_error_handling(self, mock_get_comprehensive_health):
         """Test health endpoint error handling."""
         # Mock exception
-        mock_health_monitor.get_comprehensive_health_async = AsyncMock(side_effect=Exception("Test error"))
+        mock_get_comprehensive_health.side_effect = Exception("Test error")
         
         response = self.client.get("/health/")
         
         assert response.status_code == 500
         data = response.json()
-        assert "Health check failed" in data["detail"]
+        assert "Health check failed" in data["error"]["message"]
     
-    @patch('src.app.routes.health.health_monitor')
-    def test_detailed_health_endpoint_error_handling(self, mock_health_monitor):
+    @patch('src.monitoring.health_monitor.HealthMonitor.get_comprehensive_health_async')
+    def test_detailed_health_endpoint_error_handling(self, mock_get_comprehensive_health):
         """Test detailed health endpoint error handling."""
         # Mock exception
-        mock_health_monitor.get_comprehensive_health_async = AsyncMock(side_effect=Exception("Test error"))
+        mock_get_comprehensive_health.side_effect = Exception("Test error")
         
         response = self.client.get("/health/detailed")
         
         assert response.status_code == 500
         data = response.json()
-        assert "Detailed health check failed" in data["detail"]
+        assert "Detailed health check failed" in data["error"]["message"]
