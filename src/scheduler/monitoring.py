@@ -1257,8 +1257,10 @@ class PriorityProcessor:
     def get_prioritized_tokens(self, repo, group: str, limit: int, system_load: Dict[str, float]):
         """Get tokens ordered by priority with load-based adjustments."""
         try:
-            # Get base tokens from repository
-            base_tokens = repo.list_by_status("active", limit=limit * 2)  # Get more to allow for prioritization
+            # Get ALL tokens (both active and monitoring) for proper hot/cold filtering by score
+            active_tokens = repo.list_by_status("active", limit=limit)
+            monitoring_tokens = repo.list_by_status("monitoring", limit=limit)
+            base_tokens = active_tokens + monitoring_tokens
             
             if not base_tokens:
                 return []

@@ -67,6 +67,7 @@ class PoolItem(BaseModel):
     solscan_url: Optional[str] = Field(default=None)
 
 
+@router.get("", response_model=TokensResponse)
 @router.get("/", response_model=TokensResponse)
 async def list_tokens(
     db: Session = Depends(get_db),
