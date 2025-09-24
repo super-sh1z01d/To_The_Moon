@@ -351,6 +351,18 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     
     scheduler.start()
     
+    # Запускаем независимый процессор холодных токенов
+    # Это обходит проблемы с APScheduler
+    import asyncio
+    from src.scheduler.cold_processor import start_cold_processor
+    
+    async def init_cold_processor():
+        await start_cold_processor(cold_interval)
+    
+    # Запускаем в фоне
+    asyncio.create_task(init_cold_processor())
+    log.info("independent_cold_processor_started", extra={"extra": {"interval": cold_interval}})
+    
     # Create self-healing wrapper
     from src.scheduler.monitoring import SelfHealingSchedulerWrapper
     self_healing_wrapper = SelfHealingSchedulerWrapper(scheduler, app)
