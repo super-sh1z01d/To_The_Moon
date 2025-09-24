@@ -304,10 +304,19 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     cold_interval = load_processor.get_adjusted_interval(base_cold_interval)
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(_process_group, "interval", seconds=hot_interval, args=["hot"], id="hot_updater", max_instances=1)
-    scheduler.add_job(
-        _process_group, "interval", seconds=cold_interval, args=["cold"], id="cold_updater", max_instances=1
-    )
+    
+    # Добавляем задачи с проверкой ошибок
+    try:
+        scheduler.add_job(_process_group, "interval", seconds=hot_interval, args=["hot"], id="hot_updater", max_instances=1)
+        log.info("hot_updater_added", extra={"extra": {"interval": hot_interval}})
+    except Exception as e:
+        log.error(f"Failed to add hot_updater job: {e}")
+        
+    try:
+        scheduler.add_job(_process_group, "interval", seconds=cold_interval, args=["cold"], id="cold_updater", max_instances=1)
+        log.info("cold_updater_added", extra={"extra": {"interval": cold_interval}})
+    except Exception as e:
+        log.error(f"Failed to add cold_updater job: {e}")
     # Валидация monitoring → active каждую минуту
     from apscheduler.triggers.interval import IntervalTrigger
     from src.scheduler.tasks import archive_once, enforce_activation_once
