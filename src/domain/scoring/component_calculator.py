@@ -272,8 +272,12 @@ class ComponentCalculator:
             except (TypeError, ValueError):
                 return default
         
+        # Map actual field names from DEX aggregator to expected field names
+        # DEX aggregator uses 'n_5m' but scoring expects 'tx_count_5m'
+        tx_count_5m = safe_float(metrics.get("tx_count_5m") or metrics.get("n_5m"), 0.0)
+        
         return {
-            "tx_count_5m": safe_float(metrics.get("tx_count_5m"), 0.0),
+            "tx_count_5m": tx_count_5m,
             "tx_count_1h": safe_float(metrics.get("tx_count_1h"), 0.0),
             "volume_5m": safe_float(metrics.get("volume_5m"), 0.0),
             "volume_1h": safe_float(metrics.get("volume_1h"), 0.0),

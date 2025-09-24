@@ -15,37 +15,84 @@ The Hybrid Momentum Model is an advanced scoring system that evaluates token arb
 
 ## 🧮 Scoring Components
 
-### 1. Transaction Acceleration (TX_Accel)
+### 1. Transaction Acceleration (TX_Accel) 🔥
 
 **Purpose**: Measures if trading activity is accelerating in recent minutes compared to the hourly average.
 
-**Formula**:
+**⚠️ HARD FILTERING (NEW)**:
 ```
-TX_Accel = (tx_count_5m / 5) / (tx_count_1h / 60)
+IF tx_count_5m < 100 OR tx_count_1h < 1200:
+    TX_Accel = 0.0
+```
+**Minimum requirement**: 20 transactions per minute sustained activity
+
+**Enhanced Formula** (for tokens passing filter):
+```
+rate_5m = tx_count_5m / 5.0
+rate_1h = tx_count_1h / 60.0
+TX_Accel = log(1 + rate_5m) / log(1 + rate_1h)
 ```
 
 **Interpretation**:
+- `= 0.0`: Below activity threshold (filtered out)
 - `> 1.0`: Trading pace is accelerating
 - `= 1.0`: Consistent trading pace
 - `< 1.0`: Trading pace is slowing down
 
 **Example**:
 ```
-tx_count_5m = 50 transactions
-tx_count_1h = 300 transactions
+❌ Low Activity Token:
+tx_count_5m = 15, tx_count_1h = 50
+→ TX_Accel = 0.0 (filtered out)
 
-rate_5m = 50/5 = 10 tx/min
-rate_1h = 300/60 = 5 tx/min
-TX_Accel = 10/5 = 2.0 (2x acceleration)
+✅ High Activity Token:
+tx_count_5m = 150, tx_count_1h = 1800
+rate_5m = 30 tx/min, rate_1h = 30 tx/min
+→ TX_Accel = log(31)/log(31) = 1.0 (stable)
+
+✅ Accelerating Token:
+tx_count_5m = 200, tx_count_1h = 1500
+rate_5m = 40 tx/min, rate_1h = 25 tx/min
+→ TX_Accel = log(41)/log(26) ≈ 1.13 (accelerating)
 ```
 
-### 2. Volume Momentum (Vol_Momentum)
+### 2. Volume Momentum (Vol_Momentum) 📈
 
-**Purpose**: Compares recent 5-minute volume to the average 5-minute volume over the past hour.
+**Purpose**: Compares recent 5-minute volume to the average 5-minute volume over the past hour, weighted by liquidity depth.
 
-**Formula**:
+**⚠️ HARD FILTERING (NEW)**:
 ```
-Vol_Momentum = volume_5m / (volume_1h / 12)
+IF volume_5m < $500 OR volume_1h < $2000:
+    Vol_Momentum = 0.0
+```
+**Minimum requirement**: Significant trading volume proportional to high activity
+
+**Enhanced Formula** (for tokens passing filter):
+```
+avg_5m_volume = volume_1h / 12.0
+base_momentum = volume_5m / avg_5m_volume
+liquidity_factor = sqrt(min(1.0, liquidity_usd / $100,000))
+Vol_Momentum = base_momentum × liquidity_factor
+```
+
+**Interpretation**:
+- `= 0.0`: Below volume threshold (filtered out)
+- `> 1.0`: Volume is increasing
+- `= 1.0`: Consistent volume
+- `< 1.0`: Volume is decreasing
+
+**Example**:
+```
+❌ Low Volume Token:
+volume_5m = $300, volume_1h = $1500
+→ Vol_Momentum = 0.0 (filtered out)
+
+✅ High Volume Token:
+volume_5m = $2000, volume_1h = $12000, liquidity = $50k
+avg_5m_volume = $1000
+base_momentum = 2000/1000 = 2.0
+liquidity_factor = sqrt(50000/100000) = 0.71
+→ Vol_Momentum = 2.0 × 0.71 = 1.42
 ```
 
 **Interpretation**:
@@ -62,9 +109,11 @@ avg_5m_volume = 60,000/12 = $5,000
 Vol_Momentum = 10,000/5,000 = 2.0 (2x above average)
 ```
 
-### 3. Token Freshness (Token_Freshness)
+### 3. Token Freshness (Token_Freshness) 🆕
 
 **Purpose**: Provides a bonus for recently migrated tokens, as they often have higher arbitrage potential.
+
+**✅ NO HARD FILTERING**: This component works for all tokens, giving new tokens a chance even if they don't meet activity thresholds yet.
 
 **Formula**:
 ```
@@ -72,40 +121,59 @@ Token_Freshness = max(0, (threshold_hours - hours_since_creation) / threshold_ho
 ```
 
 **Default Parameters**:
-- `threshold_hours = 6.0` (configurable)
+- `threshold_hours = 6.0` (configurable via settings)
 
 **Interpretation**:
-- `1.0`: Just migrated (0 hours old)
+- `1.0`: Just migrated (0 hours old) - maximum bonus
 - `0.5`: 3 hours old (50% bonus)
 - `0.0`: 6+ hours old (no bonus)
 
 **Example**:
 ```
-Token created 2 hours ago:
+✅ Fresh Token (2 hours old):
 Token_Freshness = max(0, (6-2)/6) = 4/6 = 0.67
+
+✅ Older Token (8 hours old):
+Token_Freshness = max(0, (6-8)/6) = 0.0 (no bonus)
 ```
 
-### 4. Orderflow Imbalance (Orderflow_Imbalance)
+### 4. Orderflow Imbalance (Orderflow_Imbalance) ⚖️
 
-**Purpose**: Measures buy/sell pressure by analyzing the imbalance in trading volumes.
+**Purpose**: Measures buy/sell pressure by analyzing the imbalance in trading volumes, with manipulation detection.
 
-**Formula**:
+**⚠️ HARD FILTERING (NEW)**:
 ```
-Orderflow_Imbalance = (buys_volume_5m - sells_volume_5m) / (buys_volume_5m + sells_volume_5m)
+IF total_volume_5m < $500:
+    Orderflow_Imbalance = 0.0
+```
+**Minimum requirement**: Sufficient volume for meaningful orderflow analysis
+
+**Enhanced Formula** (for tokens passing filter):
+```
+total_volume = buys_volume_5m + sells_volume_5m
+volume_imbalance = (buys_volume_5m - sells_volume_5m) / total_volume
+volume_significance = min(1.0, total_volume / $500)
+Orderflow_Imbalance = volume_imbalance × volume_significance
 ```
 
 **Interpretation**:
+- `= 0.0`: Below volume threshold (filtered out)
 - `+1.0`: All buying pressure (100% buys)
 - `0.0`: Balanced buying and selling
 - `-1.0`: All selling pressure (100% sells)
 
 **Example**:
 ```
-buys_volume_5m = $7,000
-sells_volume_5m = $3,000
+❌ Low Volume Token:
+total_volume = $300
+→ Orderflow_Imbalance = 0.0 (filtered out)
 
-Orderflow_Imbalance = (7000-3000)/(7000+3000) = 4000/10000 = 0.4
-(40% buy pressure)
+✅ High Volume Token:
+buys_volume_5m = $700, sells_volume_5m = $300
+total_volume = $1000
+volume_imbalance = (700-300)/1000 = 0.4
+volume_significance = min(1.0, 1000/500) = 1.0
+→ Orderflow_Imbalance = 0.4 × 1.0 = 0.4 (40% buy pressure)
 ```
 
 ## 🔢 Final Score Calculation

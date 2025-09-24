@@ -1,0 +1,101 @@
+{
+  "description": "Optimal settings for Hybrid Momentum Scoring Model with Hard Activity Filtering",
+  "version": "2.0",
+  "updated": "2025-09-24",
+  
+  "scoring": {
+    "model": "hybrid_momentum",
+    "weights": {
+      "w_tx": 0.35,
+      "w_vol": 0.35,
+      "w_fresh": 0.15,
+      "w_oi": 0.15
+    },
+    "ewma": {
+      "alpha": 0.4,
+      "freshness_threshold_hours": 6.0
+    },
+    "thresholds": {
+      "min_score": 0.3,
+      "score_threshold_active": 0.3,
+      "score_threshold_hot": 0.8
+    }
+  },
+  
+  "hard_filtering": {
+    "description": "Built-in hard filtering thresholds (cannot be changed via settings)",
+    "transaction_acceleration": {
+      "min_tx_5m": 100,
+      "min_tx_1h": 1200,
+      "description": "Minimum 20 tx/min sustained activity"
+    },
+    "volume_momentum": {
+      "min_volume_5m": 500,
+      "min_volume_1h": 2000,
+      "description": "Minimum volume thresholds in USD"
+    },
+    "orderflow_imbalance": {
+      "min_total_volume_5m": 500,
+      "description": "Minimum total volume for orderflow analysis"
+    },
+    "token_freshness": {
+      "no_filtering": true,
+      "description": "No hard filtering - gives chance to new tokens"
+    }
+  },
+  
+  "scheduler": {
+    "intervals": {
+      "hot_interval_sec": 10,
+      "cold_interval_sec": 60,
+      "monitoring_interval_sec": 300
+    },
+    "archival": {
+      "archive_below_hours": 24,
+      "monitoring_timeout_hours": 48
+    }
+  },
+  
+  "data_quality": {
+    "validation": {
+      "strict_mode": false,
+      "min_pool_liquidity_usd": 1000,
+      "activation_min_liquidity_usd": 5000,
+      "max_price_change_5m": 0.5,
+      "max_price_change_15m": 0.8
+    },
+    "filtering": {
+      "exclude_low_volume": true,
+      "exclude_stale_data": true,
+      "min_relevant_pairs": 1
+    }
+  },
+  
+  "integration": {
+    "notarb": {
+      "min_score": 0.3,
+      "description": "Lower threshold due to hard filtering already excluding inactive tokens"
+    }
+  },
+  
+  "presets": {
+    "conservative": {
+      "w_tx": 0.30, "w_vol": 0.30, "w_fresh": 0.20, "w_oi": 0.20,
+      "ewma_alpha": 0.2,
+      "freshness_threshold_hours": 4.0,
+      "min_score": 0.5
+    },
+    "balanced": {
+      "w_tx": 0.35, "w_vol": 0.35, "w_fresh": 0.15, "w_oi": 0.15,
+      "ewma_alpha": 0.4,
+      "freshness_threshold_hours": 6.0,
+      "min_score": 0.3
+    },
+    "aggressive": {
+      "w_tx": 0.40, "w_vol": 0.40, "w_fresh": 0.10, "w_oi": 0.10,
+      "ewma_alpha": 0.5,
+      "freshness_threshold_hours": 8.0,
+      "min_score": 0.2
+    }
+  }
+}
