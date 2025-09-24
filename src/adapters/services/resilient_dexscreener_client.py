@@ -385,7 +385,7 @@ def get_resilient_dexscreener_client() -> ResilientDexScreenerClient:
     """Get global resilient DexScreener client instance."""
     global _resilient_client
     if _resilient_client is None:
-        _resilient_client = ResilientDexScreenerClient()
+        _resilient_client = ResilientDexScreenerClient(cache_ttl=30)
     return _resilient_client
 
 

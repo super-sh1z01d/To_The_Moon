@@ -124,6 +124,12 @@ def validate_metrics_consistency(metrics: Dict[str, Any], strict_mode: bool = Fa
         if n_5m > 200 and delta_p_5m < 0.001:
             warnings.append(f"Many transactions ({n_5m}) but no price movement")
             
+        # Check for potentially stale transaction data
+        # If we have transactions but no volume, data might be stale
+        volume_5m = float(metrics.get("volume_5m", 0))
+        if n_5m > 0 and volume_5m == 0:
+            warnings.append(f"Transactions reported ({n_5m}) but zero volume - possibly stale data")
+            
         # Логируем все проблемы
         for issue in critical_issues:
             log.error(f"Critical data issue: {issue}")

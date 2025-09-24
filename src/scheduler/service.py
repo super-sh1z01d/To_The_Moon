@@ -61,8 +61,10 @@ async def _process_group(group: str) -> None:
         
         if config.app_env == "prod":
             from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
-            client = ResilientDexScreenerClient(timeout=5.0)
-            log.info("Using resilient DexScreener client with circuit breaker")
+            # Use shorter cache for hot tokens (more frequent updates)
+            cache_ttl = 15 if group == "hot" else 30
+            client = ResilientDexScreenerClient(timeout=5.0, cache_ttl=cache_ttl)
+            log.info(f"Using resilient DexScreener client with circuit breaker and {cache_ttl}s cache for {group} tokens")
         else:
             client = DexScreenerClient(timeout=5.0)
             log.info("Using standard DexScreener client")
