@@ -75,6 +75,23 @@ async def _process_group(group: str) -> None:
         active_model = scoring_service.get_active_model()
         log.info("processing_group", extra={"extra": {"group": group, "active_model": active_model, "tokens_count": len(tokens)}})
         
+        # Добавляем отладочную информацию для диагностики
+        hot_count = 0
+        cold_count = 0
+        for t in tokens:
+            snap = repo.get_latest_snapshot(t.id)
+            last_score = float(snap.smoothed_score) if (snap and snap.smoothed_score is not None) else None
+            if last_score is None:
+                last_score = float(snap.score) if (snap and snap.score is not None) else None
+            
+            is_hot = last_score is not None and last_score >= min_score
+            if is_hot:
+                hot_count += 1
+            else:
+                cold_count += 1
+        
+        log.info("group_distribution", extra={"extra": {"group": group, "hot_tokens": hot_count, "cold_tokens": cold_count, "min_score": min_score}})
+        
         for t in tokens:
             snap = repo.get_latest_snapshot(t.id)
             # Используем сглаженный скор для группировки (как в API)
