@@ -312,11 +312,24 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     except Exception as e:
         log.error(f"Failed to add hot_updater job: {e}")
         
+    # Заменяем проблемную задачу cold_updater на множественные задачи
+    # Это обходит проблему с APScheduler, когда одна задача не запускается
     try:
-        scheduler.add_job(_process_group, "interval", seconds=cold_interval, args=["cold"], id="cold_updater", max_instances=1)
-        log.info("cold_updater_added", extra={"extra": {"interval": cold_interval}})
+        # Создаем несколько задач для холодных токенов с разными ID
+        for i in range(3):  # 3 задачи с интервалом 30 секунд = эффективно каждые 10 секунд
+            delay = i * (cold_interval // 3)  # Распределяем по времени
+            scheduler.add_job(
+                _process_group, 
+                "interval", 
+                seconds=cold_interval, 
+                args=["cold"], 
+                id=f"cold_updater_{i}",
+                max_instances=1,
+                next_run_time=datetime.now(timezone.utc) + timedelta(seconds=delay + 10)  # Первый запуск через 10+ секунд
+            )
+        log.info("cold_updaters_added", extra={"extra": {"interval": cold_interval, "count": 3}})
     except Exception as e:
-        log.error(f"Failed to add cold_updater job: {e}")
+        log.error(f"Failed to add cold_updater jobs: {e}")
     # Валидация monitoring → active каждую минуту
     from apscheduler.triggers.interval import IntervalTrigger
     from src.scheduler.tasks import archive_once, enforce_activation_once
@@ -337,18 +350,6 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     )
     
     scheduler.start()
-    
-    # Принудительно запускаем обработку холодных токенов через 5 секунд после старта
-    # Это временное решение проблемы с планировщиком
-    scheduler.add_job(
-        _process_group, 
-        "date", 
-        run_date=datetime.now(timezone.utc) + timedelta(seconds=5),
-        args=["cold"], 
-        id="cold_kickstart",
-        max_instances=1
-    )
-    log.info("cold_kickstart_scheduled", extra={"extra": {"delay_seconds": 5}})
     
     # Create self-healing wrapper
     from src.scheduler.monitoring import SelfHealingSchedulerWrapper
