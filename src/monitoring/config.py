@@ -43,8 +43,8 @@ class MonitoringSettings(BaseSettings):
     alert_cooldown: int = Field(default=300, description="Alert cooldown period in seconds")
     
     # Resource thresholds
-    memory_warning_threshold: float = Field(default=800.0, description="Memory warning threshold in MB")
-    memory_critical_threshold: float = Field(default=1000.0, description="Memory critical threshold in MB")
+    memory_warning_threshold: float = Field(default=1400.0, description="Memory warning threshold in MB")
+    memory_critical_threshold: float = Field(default=1600.0, description="Memory critical threshold in MB")
     cpu_warning_threshold: float = Field(default=70.0, description="CPU warning threshold in percentage")
     cpu_critical_threshold: float = Field(default=80.0, description="CPU critical threshold in percentage")
     disk_warning_threshold: float = Field(default=80.0, description="Disk warning threshold in percentage")

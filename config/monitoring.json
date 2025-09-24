@@ -13,8 +13,10 @@
       "threshold_rules": {
         "cpu_warning": 80.0,
         "cpu_critical": 95.0,
-        "memory_warning": 85.0,
-        "memory_critical": 95.0,
+        "memory_warning_mb": 1400.0,
+        "memory_critical_mb": 1600.0,
+        "memory_warning": 70.0,
+        "memory_critical": 80.0,
         "response_time_warning": 5.0,
         "error_rate_warning": 0.05
       },

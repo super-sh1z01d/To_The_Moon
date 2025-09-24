@@ -186,8 +186,8 @@ class MonitoringConfig:
     alert_cooldown: int = 300  # seconds
     
     # Resource thresholds
-    memory_warning_threshold: float = 800.0  # MB
-    memory_critical_threshold: float = 1000.0  # MB
+    memory_warning_threshold: float = 1400.0  # MB
+    memory_critical_threshold: float = 1600.0  # MB
     cpu_warning_threshold: float = 70.0  # percentage
     cpu_critical_threshold: float = 80.0  # percentage
     disk_warning_threshold: float = 80.0  # percentage
