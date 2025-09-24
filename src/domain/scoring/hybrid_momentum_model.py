@@ -201,16 +201,21 @@ class HybridMomentumModel:
             # Validate and sanitize inputs
             validated_inputs = ComponentCalculator.validate_component_inputs(metrics)
             
-            # Calculate each component
+            # Get filtering thresholds from settings
+            filtering_settings = self._get_filtering_settings()
+            
+            # Calculate each component with filtering settings
             tx_accel = ComponentCalculator.calculate_tx_accel(
                 validated_inputs["tx_count_5m"],
-                validated_inputs["tx_count_1h"]
+                validated_inputs["tx_count_1h"],
+                filtering_settings
             )
             
             vol_momentum = ComponentCalculator.calculate_vol_momentum(
                 validated_inputs["volume_5m"],
                 validated_inputs["volume_1h"],
-                validated_inputs["liquidity_usd"]
+                validated_inputs["liquidity_usd"],
+                filtering_settings
             )
             
             token_freshness = ComponentCalculator.calculate_token_freshness(
@@ -222,7 +227,8 @@ class HybridMomentumModel:
                 validated_inputs["buys_volume_5m"],
                 validated_inputs["sells_volume_5m"],
                 validated_inputs["total_buys_5m"],
-                validated_inputs["total_sells_5m"]
+                validated_inputs["total_sells_5m"],
+                filtering_settings
             )
             
             components = {
@@ -291,6 +297,35 @@ class HybridMomentumModel:
             )
             # Return default configuration
             return WeightConfig()
+    
+    def _get_filtering_settings(self) -> Dict[str, Any]:
+        """
+        Get filtering threshold settings from settings service.
+        
+        Returns:
+            Dictionary with filtering thresholds
+        """
+        try:
+            return {
+                "min_tx_threshold_5m": float(self.settings.get("min_tx_threshold_5m") or "100"),
+                "min_tx_threshold_1h": float(self.settings.get("min_tx_threshold_1h") or "1200"),
+                "min_volume_threshold_5m": float(self.settings.get("min_volume_threshold_5m") or "500.0"),
+                "min_volume_threshold_1h": float(self.settings.get("min_volume_threshold_1h") or "2000.0"),
+                "min_orderflow_volume_5m": float(self.settings.get("min_orderflow_volume_5m") or "500.0"),
+            }
+        except Exception as e:
+            self.logger.warning(
+                "filtering_settings_error_using_defaults",
+                extra={"error": str(e)}
+            )
+            # Return default thresholds
+            return {
+                "min_tx_threshold_5m": 100.0,
+                "min_tx_threshold_1h": 1200.0,
+                "min_volume_threshold_5m": 500.0,
+                "min_volume_threshold_1h": 2000.0,
+                "min_orderflow_volume_5m": 500.0,
+            }
     
     def _calculate_weighted_score(
         self, 

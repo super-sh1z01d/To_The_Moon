@@ -15,6 +15,9 @@ const legacyKeys = [
 const hybridKeys = [
   'w_tx','w_vol','w_fresh','w_oi',
   'ewma_alpha','freshness_threshold_hours',
+  'min_tx_threshold_5m','min_tx_threshold_1h',
+  'min_volume_threshold_5m','min_volume_threshold_1h',
+  'min_orderflow_volume_5m',
   'min_score',
   'min_pool_liquidity_usd',
   'hot_interval_sec','cold_interval_sec',
@@ -153,50 +156,71 @@ export default function Settings(){
             </section>
           )}
           <section>
-            <h3>🚫 Жесткая фильтрация активности (встроенная)</h3>
+            <h3>🚫 Пороги жесткой фильтрации активности</h3>
             <div style={{background: '#fff3cd', border: '2px solid #ffc107', padding: 16, borderRadius: 8, marginBottom: 16}}>
-              <h4 style={{margin: '0 0 12px 0', color: '#856404'}}>⚡ Автоматические пороги активности</h4>
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12}}>
+              <h4 style={{margin: '0 0 12px 0', color: '#856404'}}>⚡ Настраиваемые пороги активности</h4>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16}}>
+                
                 <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #ffc107'}}>
-                  <strong>🔥 TX Acceleration:</strong><br/>
-                  <span style={{fontSize: '0.9em', color: '#666'}}>
-                    • Минимум: <strong>100 tx за 5 мин</strong><br/>
-                    • Минимум: <strong>1200 tx за час</strong><br/>
-                    • = <strong>20 транзакций в минуту</strong> постоянно<br/>
-                    • Ниже порога → TX_Accel = 0.0
-                  </span>
+                  <h5 style={{margin: '0 0 8px 0', color: '#dc3545'}}>🔥 TX Acceleration</h5>
+                  <Field 
+                    label="Мин. транзакций за 5 мин" 
+                    type="number" 
+                    hint="Минимальное количество транзакций за 5 минут для расчета TX Acceleration. Рекомендуется: 100 (= 20 tx/мин). Ниже этого порога компонент получает 0.0." 
+                    k="min_tx_threshold_5m" 
+                    v={vals['min_tx_threshold_5m']} 
+                    set={update} 
+                  />
+                  <Field 
+                    label="Мин. транзакций за час" 
+                    type="number" 
+                    hint="Минимальное количество транзакций за час для расчета TX Acceleration. Рекомендуется: 1200 (= 20 tx/мин постоянно). Обеспечивает стабильную активность." 
+                    k="min_tx_threshold_1h" 
+                    v={vals['min_tx_threshold_1h']} 
+                    set={update} 
+                  />
                 </div>
+
                 <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #ffc107'}}>
-                  <strong>📈 Volume Momentum:</strong><br/>
-                  <span style={{fontSize: '0.9em', color: '#666'}}>
-                    • Минимум: <strong>$500 за 5 мин</strong><br/>
-                    • Минимум: <strong>$2000 за час</strong><br/>
-                    • Пропорционально активности<br/>
-                    • Ниже порога → Vol_Momentum = 0.0
-                  </span>
+                  <h5 style={{margin: '0 0 8px 0', color: '#dc3545'}}>📈 Volume Momentum</h5>
+                  <Field 
+                    label="Мин. объем за 5 мин ($)" 
+                    type="number" 
+                    hint="Минимальный торговый объем в USD за 5 минут для расчета Volume Momentum. Рекомендуется: $500. Исключает токены с мизерными объемами." 
+                    k="min_volume_threshold_5m" 
+                    v={vals['min_volume_threshold_5m']} 
+                    set={update} 
+                  />
+                  <Field 
+                    label="Мин. объем за час ($)" 
+                    type="number" 
+                    hint="Минимальный торговый объем в USD за час для расчета Volume Momentum. Рекомендуется: $2000. Пропорционально активности транзакций." 
+                    k="min_volume_threshold_1h" 
+                    v={vals['min_volume_threshold_1h']} 
+                    set={update} 
+                  />
                 </div>
+
                 <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #ffc107'}}>
-                  <strong>⚖️ Orderflow Imbalance:</strong><br/>
-                  <span style={{fontSize: '0.9em', color: '#666'}}>
-                    • Минимум: <strong>$500 общего объема</strong><br/>
-                    • За 5 минут для анализа<br/>
-                    • Защита от манипуляций<br/>
-                    • Ниже порога → Orderflow = 0.0
-                  </span>
+                  <h5 style={{margin: '0 0 8px 0', color: '#dc3545'}}>⚖️ Orderflow Imbalance</h5>
+                  <Field 
+                    label="Мин. общий объем за 5 мин ($)" 
+                    type="number" 
+                    hint="Минимальный общий объем (покупки + продажи) в USD за 5 минут для анализа дисбаланса ордерфлоу. Рекомендуется: $500. Защищает от манипуляций мелкими сделками." 
+                    k="min_orderflow_volume_5m" 
+                    v={vals['min_orderflow_volume_5m']} 
+                    set={update} 
+                  />
+                  <div style={{padding: '8px 0', fontSize: '0.9em', color: '#666'}}>
+                    <strong>🆕 Token Freshness:</strong> Без фильтрации<br/>
+                    <em>Дает шанс новым токенам</em>
+                  </div>
                 </div>
-                <div style={{background: 'white', padding: 12, borderRadius: 6, border: '1px solid #28a745'}}>
-                  <strong>🆕 Token Freshness:</strong><br/>
-                  <span style={{fontSize: '0.9em', color: '#666'}}>
-                    • <strong>Без жесткой фильтрации</strong><br/>
-                    • Работает для всех токенов<br/>
-                    • Настраивается через порог выше<br/>
-                    • Дает шанс новым токенам
-                  </span>
-                </div>
+
               </div>
               <div style={{marginTop: 12, padding: 8, background: '#d4edda', border: '1px solid #c3e6cb', borderRadius: 4}}>
-                <strong>💡 Результат:</strong> Система автоматически фокусируется только на токенах с <strong>реальной высокой активностью</strong>, 
-                игнорируя "мертвые" токены. Это повышает точность скоринга и снижает ложные сигналы на 60-80%.
+                <strong>💡 Принцип работы:</strong> Токены, не достигающие этих порогов, автоматически получают 0.0 по соответствующим компонентам. 
+                Это исключает "мертвые" токены и фокусирует систему на реальной активности. Настройте пороги под текущие рыночные условия.
               </div>
             </div>
           </section>
@@ -282,6 +306,9 @@ export default function Settings(){
                 settings={{
                   w_tx: '0.30', w_vol: '0.30', w_fresh: '0.20', w_oi: '0.20',
                   ewma_alpha: '0.2', freshness_threshold_hours: '4.0',
+                  min_tx_threshold_5m: '150', min_tx_threshold_1h: '1800',
+                  min_volume_threshold_5m: '750', min_volume_threshold_1h: '3000',
+                  min_orderflow_volume_5m: '750',
                   min_score: '0.5'
                 }}
                 onApply={(settings) => setVals(prev => ({...prev, ...settings}))}
@@ -293,6 +320,9 @@ export default function Settings(){
                 settings={{
                   w_tx: '0.35', w_vol: '0.35', w_fresh: '0.15', w_oi: '0.15',
                   ewma_alpha: '0.4', freshness_threshold_hours: '6.0',
+                  min_tx_threshold_5m: '100', min_tx_threshold_1h: '1200',
+                  min_volume_threshold_5m: '500', min_volume_threshold_1h: '2000',
+                  min_orderflow_volume_5m: '500',
                   min_score: '0.3'
                 }}
                 onApply={(settings) => setVals(prev => ({...prev, ...settings}))}
@@ -304,6 +334,9 @@ export default function Settings(){
                 settings={{
                   w_tx: '0.40', w_vol: '0.40', w_fresh: '0.10', w_oi: '0.10',
                   ewma_alpha: '0.5', freshness_threshold_hours: '8.0',
+                  min_tx_threshold_5m: '50', min_tx_threshold_1h: '600',
+                  min_volume_threshold_5m: '250', min_volume_threshold_1h: '1000',
+                  min_orderflow_volume_5m: '250',
                   min_score: '0.2'
                 }}
                 onApply={(settings) => setVals(prev => ({...prev, ...settings}))}
@@ -690,6 +723,8 @@ function PresetMode({title, description, settings, onApply, disabled}:{
       <div style={{fontSize: '0.85em', color: '#666', marginBottom: 12}}>
         <div><strong>Веса:</strong> TX={settings.w_tx}, Vol={settings.w_vol}, Fresh={settings.w_fresh}, OI={settings.w_oi}</div>
         <div><strong>EWMA α:</strong> {settings.ewma_alpha}, <strong>Свежесть:</strong> {settings.freshness_threshold_hours}ч</div>
+        <div><strong>Пороги TX:</strong> {settings.min_tx_threshold_5m}/5мин, {settings.min_tx_threshold_1h}/час</div>
+        <div><strong>Пороги Vol:</strong> ${settings.min_volume_threshold_5m}/5мин, ${settings.min_volume_threshold_1h}/час</div>
         <div><strong>Мин. скор:</strong> {settings.min_score}</div>
       </div>
       <button 

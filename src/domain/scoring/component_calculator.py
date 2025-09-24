@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 class ComponentCalculator:
     """Calculator for hybrid momentum scoring components."""
     
     @staticmethod
-    def calculate_tx_accel(tx_count_5m: float, tx_count_1h: float) -> float:
+    def calculate_tx_accel(tx_count_5m: float, tx_count_1h: float, settings: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculate transaction acceleration component with improved stability.
         
@@ -36,10 +36,9 @@ class ComponentCalculator:
             if tx_count_5m < 0 or tx_count_1h < 0:
                 return 0.0
             
-            # High activity threshold: minimum 20 transactions per minute
-            # 20 tx/min * 60 min = 1200 tx/hour
-            min_tx_threshold_1h = 1200
-            min_tx_threshold_5m = 100  # 20 tx/min * 5 min = 100 tx/5min
+            # Get thresholds from settings or use defaults
+            min_tx_threshold_1h = float(settings.get("min_tx_threshold_1h", 1200) if settings else 1200)
+            min_tx_threshold_5m = float(settings.get("min_tx_threshold_5m", 100) if settings else 100)
             
             if tx_count_1h < min_tx_threshold_1h or tx_count_5m < min_tx_threshold_5m:
                 return 0.0
@@ -73,7 +72,7 @@ class ComponentCalculator:
             return 0.0
     
     @staticmethod
-    def calculate_vol_momentum(volume_5m: float, volume_1h: float, liquidity_usd: float = 0.0) -> float:
+    def calculate_vol_momentum(volume_5m: float, volume_1h: float, liquidity_usd: float = 0.0, settings: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculate volume momentum component with liquidity weighting.
         
@@ -95,9 +94,9 @@ class ComponentCalculator:
             if volume_5m < 0 or volume_1h < 0:
                 return 0.0
             
-            # High activity volume threshold: proportional to 20 tx/min activity
-            min_volume_threshold_1h = 2000.0  # $2000 minimum per hour
-            min_volume_threshold_5m = 500.0   # $500 minimum per 5 minutes
+            # Get volume thresholds from settings or use defaults
+            min_volume_threshold_1h = float(settings.get("min_volume_threshold_1h", 2000.0) if settings else 2000.0)
+            min_volume_threshold_5m = float(settings.get("min_volume_threshold_5m", 500.0) if settings else 500.0)
             
             if volume_1h < min_volume_threshold_1h or volume_5m < min_volume_threshold_5m:
                 return 0.0
@@ -180,7 +179,7 @@ class ComponentCalculator:
     
     @staticmethod
     def calculate_orderflow_imbalance(buys_volume_5m: float, sells_volume_5m: float, 
-                                    total_buys_5m: int = 0, total_sells_5m: int = 0) -> float:
+                                    total_buys_5m: int = 0, total_sells_5m: int = 0, settings: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculate orderflow imbalance component with volume weighting and significance threshold.
         
@@ -205,8 +204,8 @@ class ComponentCalculator:
                 
             total_volume = buys_volume_5m + sells_volume_5m
             
-            # High activity volume threshold for orderflow significance
-            min_volume_threshold = 500.0  # $500 minimum total volume for 5 minutes
+            # Get orderflow volume threshold from settings or use default
+            min_volume_threshold = float(settings.get("min_orderflow_volume_5m", 500.0) if settings else 500.0)
             if total_volume < min_volume_threshold:
                 return 0.0
             
