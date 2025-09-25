@@ -1196,9 +1196,9 @@ class PriorityProcessor:
             
             # Calculate activity score based on recent updates
             activity_score = 0.5  # Default
-            if hasattr(token, 'updated_at') and token.updated_at:
+            if hasattr(token, 'last_updated_at') and token.last_updated_at:
                 import time
-                time_since_update = time.time() - token.updated_at.timestamp()
+                time_since_update = time.time() - token.last_updated_at.timestamp()
                 # Higher score for more recently updated tokens
                 activity_score = max(0.1, 1.0 - (time_since_update / 3600))  # Decay over 1 hour
             

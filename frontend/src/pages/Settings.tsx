@@ -56,9 +56,9 @@ export default function Settings(){
     setSaving(true); setMessage('')
     try{
       const keys = getSettingsKeys(activeModel)
-      for(const k of keys){
-        if(vals[k] != null){ await putSetting(k, String(vals[k])) }
-      }
+      // Batch all settings updates for better performance
+      const settingsToUpdate = keys.filter(k => vals[k] != null)
+      await Promise.all(settingsToUpdate.map(k => putSetting(k, String(vals[k]))))
       if(recalculate){ await recalc() }
       setMessage(recalculate ? 'Сохранено. Пересчёт запущен.' : 'Сохранено.')
     } finally{ setSaving(false) }

@@ -233,8 +233,10 @@ async def refresh_token(mint: str, db: Session = Depends(get_db)) -> RefreshResu
     token = repo.get_by_mint(mint)
     if not token:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="token not found")
-    # Fetch pairs
-    pairs = DexScreenerClient(timeout=5.0).get_pairs(mint)
+    # Fetch pairs using resilient client
+    from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
+    resilient_client = ResilientDexScreenerClient(timeout=3.0, cache_ttl=60)
+    pairs = resilient_client.get_pairs(mint)
     if pairs is None:
         raise HTTPException(status_code=503, detail="dexscreener unavailable")
     
@@ -294,8 +296,10 @@ async def get_token_pools(mint: str, db: Session = Depends(get_db)) -> list[Pool
             if isinstance(p, dict) and str(p.get("dex") or "") not in exclude and (p.get("is_wsol") or p.get("is_usdc"))
         ]
     else:
-        # Фолбэк: получить актуальные пары напрямую
-        pairs = DexScreenerClient(timeout=5.0).get_pairs(mint)
+        # Фолбэк: получить актуальные пары через resilient client
+        from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
+        resilient_client = ResilientDexScreenerClient(timeout=3.0, cache_ttl=60)
+        pairs = resilient_client.get_pairs(mint)
         if pairs:
             pools = []
             _WSOL = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}

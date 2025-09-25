@@ -722,9 +722,10 @@ class LoadBasedProcessor:
     to maintain system stability under high load conditions.
     """
     
-    def __init__(self):
+    def __init__(self, initial_processing_factor: float = 1.0):
         import logging
         self.log = logging.getLogger("load_processor")
+        self.initial_processing_factor = initial_processing_factor
         
         self.cpu_threshold_warning = 70.0  # Start reducing load at 70% CPU
         self.cpu_threshold_critical = 85.0  # Aggressive reduction at 85% CPU
@@ -738,7 +739,8 @@ class LoadBasedProcessor:
         
         # Current state
         self.current_load_level = "normal"  # normal, reduced, minimal
-        self.current_processing_factor = 1.0
+        # Initialize processing factor from config or use normal factor
+        self.current_processing_factor = getattr(self, 'initial_processing_factor', self.normal_processing_factor)
         self.disabled_features = set()
         
         # Load history for trend analysis
