@@ -118,6 +118,11 @@ async def _process_group(group: str) -> None:
                     continue
 
             processed += 1
+            
+            # Debug logging for problem tokens
+            if t.symbol in ['SKETCHY', 'Deperps', 'Charlotte', 'USD1']:
+                log.info("processing_problem_token", extra={"extra": {"symbol": t.symbol, "mint": t.mint_address[:8], "last_score": last_score}})
+            
             # Execute HTTP call in thread pool to avoid blocking event loop
             import asyncio
             pairs = await asyncio.to_thread(client.get_pairs, t.mint_address)
@@ -132,7 +137,11 @@ async def _process_group(group: str) -> None:
                 # Check if we should skip update due to minimal score change
                 from src.domain.validation.data_filters import should_skip_score_update
                 if should_skip_score_update(score, last_score, min_score_change):
-                    log.debug("score_update_skipped", extra={"extra": {"group": group, "mint": t.mint_address, "change": abs(score - (last_score or 0))}})
+                    # Enhanced logging for problem tokens
+                    if t.symbol in ['SKETCHY', 'Deperps', 'Charlotte', 'USD1']:
+                        log.info("problem_token_skipped", extra={"extra": {"symbol": t.symbol, "new_score": score, "last_score": last_score, "change": abs(score - (last_score or 0)), "min_change": min_score_change}})
+                    else:
+                        log.debug("score_update_skipped", extra={"extra": {"group": group, "mint": t.mint_address, "change": abs(score - (last_score or 0))}})
                     continue
                 
                 # Save score result
