@@ -43,8 +43,8 @@ async def _process_group(group: str) -> None:
         from src.monitoring.metrics import get_load_processor
         load_processor = get_load_processor()
         
-        # Adjust batch size based on system load
-        base_limit = 500
+        # Adjust batch size based on system load - reduced for better performance
+        base_limit = 100 if group == "hot" else 50  # Smaller batches for better performance
         adjusted_limit = load_processor.get_adjusted_batch_size(base_limit)
         
         # Get priority-based token processing

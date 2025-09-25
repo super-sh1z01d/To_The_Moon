@@ -67,7 +67,7 @@ def _external_liq_ge(mint: str, pairs: list[dict], threshold: float) -> bool:
     return False
 
 
-def enforce_activation_once(limit_monitoring: int = 200, limit_active: int = 200) -> None:
+def enforce_activation_once(limit_monitoring: int = 50, limit_active: int = 50) -> None:
     logv = logging.getLogger("activation")
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
@@ -77,7 +77,7 @@ def enforce_activation_once(limit_monitoring: int = 200, limit_active: int = 200
         except Exception:
             threshold = 200.0
 
-        client = DexScreenerClient(timeout=5.0)
+        client = DexScreenerClient(timeout=3.0)  # Shorter timeout for activation task
 
         # Promote monitoring → active if has external WSOL/SOL pool with Lq >= threshold
         if limit_monitoring:
