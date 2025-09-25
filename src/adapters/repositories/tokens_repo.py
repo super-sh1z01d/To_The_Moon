@@ -345,8 +345,14 @@ class TokensRepository:
             q = q.filter(Token.status != "archived")
         else:
             q = q.filter(Token.status.in_(statuses))
+        # min_score применяется только к токенам в мониторинге, активные показываем всегда
         if min_score is not None:
-            q = q.filter(((Token.status != "active") | (TokenScore.score >= min_score)))
+            # Если запрашиваются только активные токены - не применяем фильтр по скору
+            if statuses and len(statuses) == 1 and statuses[0] == "active":
+                pass  # Не фильтруем активные токены по скору
+            else:
+                # Для смешанных запросов или токенов в мониторинге применяем фильтр
+                q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
         return int(q.scalar() or 0)
 
     def get_score_history(self, token_id: int, limit: int = 20) -> List[TokenScore]:
