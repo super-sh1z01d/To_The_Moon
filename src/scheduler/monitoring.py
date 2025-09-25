@@ -253,12 +253,22 @@ class SchedulerHealthMonitor:
                 ]
                 self.metrics.average_processing_time_cold = sum(cold_processing_times) / len(cold_processing_times)
             
-            # Tokens per minute
+            # Tokens per minute - calculate based on actual time range
             all_recent = recent_hot + recent_cold
             if all_recent:
                 total_tokens = sum(e.tokens_processed for e in all_recent)
-                total_time_hours = len(all_recent) * (self.hot_interval_sec + self.cold_interval_sec) / 3600
-                self.metrics.tokens_per_minute = (total_tokens / total_time_hours) / 60 if total_time_hours > 0 else 0
+                
+                # Calculate actual time range from first to last event
+                start_times = [e.start_time for e in all_recent if e.start_time]
+                end_times = [e.end_time for e in all_recent if e.end_time]
+                
+                if start_times and end_times:
+                    actual_duration_seconds = (max(end_times) - min(start_times)).total_seconds()
+                    actual_duration_minutes = max(1, actual_duration_seconds / 60)  # Minimum 1 minute
+                    self.metrics.tokens_per_minute = total_tokens / actual_duration_minutes
+                else:
+                    # Fallback to simple calculation if timestamps missing
+                    self.metrics.tokens_per_minute = total_tokens / 60  # Assume 1 hour = 60 minutes
             
             # Error count
             self.metrics.total_errors_last_hour = sum(e.error_count for e in all_recent)

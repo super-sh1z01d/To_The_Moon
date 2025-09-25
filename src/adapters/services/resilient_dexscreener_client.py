@@ -248,34 +248,62 @@ class ResilientDexScreenerClient:
                     "duration": duration
                 })
                 
+                # Record API call for health monitoring
+                from src.monitoring.health_monitor import get_health_monitor
+                health_monitor = get_health_monitor()
+                
                 # Handle different response codes
                 if resp.status_code == 200:
-                    return self._parse_response(resp, mint)
+                    result = self._parse_response(resp, mint)
+                    # Record successful call (convert to milliseconds)
+                    health_monitor.record_api_call("dexscreener", True, duration * 1000)
+                    return result
                 elif resp.status_code == 404:
                     # Not found is not an error, just no pairs
                     log.debug(f"No pairs found for mint {mint}")
+                    # Record as successful (404 is expected for some tokens)
+                    health_monitor.record_api_call("dexscreener", True, duration * 1000)
                     return []
                 elif resp.status_code == 429:
                     # Rate limiting - retryable
+                    health_monitor.record_api_call("dexscreener", False, duration * 1000, "Rate limited")
                     raise DexScreenerRateLimitError(f"Rate limited for mint {mint}")
                 elif resp.status_code >= 500:
                     # Server errors - retryable
+                    health_monitor.record_api_call("dexscreener", False, duration * 1000, f"Server error {resp.status_code}")
                     raise DexScreenerAPIError(f"Server error {resp.status_code} for mint {mint}")
                 elif resp.status_code >= 400:
                     # Client errors (except 404, 429) - non-retryable
+                    health_monitor.record_api_call("dexscreener", False, duration * 1000, f"Client error {resp.status_code}")
                     raise DexScreenerInvalidResponseError(f"Client error {resp.status_code} for mint {mint}")
                 else:
                     # Unexpected status codes
+                    health_monitor.record_api_call("dexscreener", False, duration * 1000, f"Unexpected status {resp.status_code}")
                     raise DexScreenerAPIError(f"Unexpected status {resp.status_code} for mint {mint}")
                     
         except httpx.TimeoutException:
+            # Record timeout (use default timeout duration)
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            health_monitor.record_api_call("dexscreener", False, self.timeout * 1000, "Timeout")
             raise DexScreenerTimeoutError(f"Timeout for mint {mint}")
         except httpx.ConnectError:
+            # Record connection error (use 0 duration since connection failed)
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            health_monitor.record_api_call("dexscreener", False, 0, "Connection error")
             raise DexScreenerConnectionError(f"Connection error for mint {mint}")
         except httpx.HTTPError as e:
+            # Record HTTP error
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            health_monitor.record_api_call("dexscreener", False, 0, f"HTTP error: {e}")
             raise DexScreenerConnectionError(f"HTTP error for mint {mint}: {e}")
         except Exception as e:
             # Unexpected errors - treat as retryable
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            health_monitor.record_api_call("dexscreener", False, 0, f"Unexpected error: {e}")
             raise DexScreenerAPIError(f"Unexpected error for mint {mint}: {e}")
     
     def _parse_response(self, resp: httpx.Response, mint: str) -> Optional[list[dict[str, Any]]]:
