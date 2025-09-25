@@ -6,6 +6,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 from src.core.config import get_config
 from src.core.json_logging import configure_logging
 from src.scheduler.service import init_scheduler
