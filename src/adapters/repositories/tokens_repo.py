@@ -39,7 +39,16 @@ class TokensRepository:
             return False
 
     def list_by_status(self, status: str, limit: int = 100, offset: int = 0) -> list[Token]:
-        q = self.db.query(Token).filter(Token.status == status).order_by(Token.id.asc())
+        # Order by last_updated_at ASC (oldest updates first) to prioritize stale tokens,
+        # then by created_at DESC (newest tokens first) for tokens never updated
+        q = (
+            self.db.query(Token)
+            .filter(Token.status == status)
+            .order_by(
+                Token.last_updated_at.asc().nullsfirst(),  # Prioritize never-updated tokens
+                Token.created_at.desc()  # Then newest tokens first
+            )
+        )
         if offset:
             q = q.offset(offset)
         if limit:
@@ -193,7 +202,7 @@ class TokensRepository:
             self.db.query(Token)
             .filter(Token.status == "monitoring")
             .filter(Token.created_at < cutoff)
-            .order_by(Token.created_at.asc())
+            .order_by(Token.created_at.desc())  # Newest first - more likely to be relevant
             .limit(limit)
         )
         return list(q.all())

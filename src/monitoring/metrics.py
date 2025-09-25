@@ -31,8 +31,8 @@ class MetricsCollector:
         memory_mb = memory.used / (1024 * 1024)
         memory_percent = memory.percent
         
-        # CPU metrics
-        cpu_percent = psutil.cpu_percent(interval=1)
+        # CPU metrics (non-blocking)
+        cpu_percent = psutil.cpu_percent(interval=0)
         
         # Disk metrics
         disk = psutil.disk_usage('/')
@@ -765,8 +765,8 @@ class LoadBasedProcessor:
     def assess_system_load(self) -> Dict[str, float]:
         """Assess current system load metrics."""
         try:
-            # Get CPU usage
-            cpu_percent = psutil.cpu_percent(interval=1)
+            # Get CPU usage (non-blocking)
+            cpu_percent = psutil.cpu_percent(interval=0)
             
             # Get memory usage
             memory = psutil.virtual_memory()
@@ -776,8 +776,8 @@ class LoadBasedProcessor:
             disk = psutil.disk_usage('/')
             disk_percent = (disk.used / disk.total) * 100
             
-            # Get number of active connections (approximate)
-            connections = len(psutil.net_connections())
+            # Skip expensive net_connections() call - use cached value or estimate
+            connections = getattr(self, '_cached_connections', 50)  # Use reasonable default
             
             # Calculate load score (weighted average)
             load_score = (cpu_percent * 0.4 + memory_percent * 0.4 + 
