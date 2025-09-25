@@ -1199,8 +1199,10 @@ class PriorityProcessor:
             if hasattr(token, 'last_updated_at') and token.last_updated_at:
                 import time
                 time_since_update = time.time() - token.last_updated_at.timestamp()
-                # Higher score for more recently updated tokens
-                activity_score = max(0.1, 1.0 - (time_since_update / 3600))  # Decay over 1 hour
+                # Higher score for tokens that need updates (inverted logic)
+                # Tokens not updated for 1+ hours get max priority (1.0)
+                # Recently updated tokens get lower priority (0.1)
+                activity_score = min(1.0, max(0.1, time_since_update / 3600))  # Increase over 1 hour
             
             # Normalize metrics (simple approach)
             # These thresholds should be calibrated based on actual data
@@ -1286,8 +1288,11 @@ class PriorityProcessor:
             deferred_count = 0
             
             with self._lock:
+                # First pass: collect priority-based tokens (up to 80% of limit)
+                priority_limit = int(limit * 0.8)  # Reserve 20% for fairness
+                
                 for token, priority_score in token_priorities:
-                    if len(prioritized_tokens) >= limit:
+                    if len(prioritized_tokens) >= priority_limit:
                         break
                     
                     category = self.categorize_token_by_priority(token, priority_score)
@@ -1321,6 +1326,32 @@ class PriorityProcessor:
                             normal_priority_count += 1
                         else:
                             low_priority_count += 1
+                
+                # Second pass: add fairness tokens (oldest first) to fill remaining slots
+                if len(prioritized_tokens) < limit and active_tokens:
+                    # Get tokens not already selected, sorted by last_updated_at (oldest first)
+                    selected_ids = {token.id for token in prioritized_tokens}
+                    remaining_tokens = [t for t in active_tokens if t.id not in selected_ids]
+                    
+                    # Sort by last_updated_at (oldest first) for fairness
+                    remaining_tokens.sort(key=lambda t: t.last_updated_at or t.created_at)
+                    
+                    fairness_slots = limit - len(prioritized_tokens)
+                    fairness_added = 0
+                    
+                    for token in remaining_tokens:
+                        if fairness_added >= fairness_slots:
+                            break
+                        
+                        prioritized_tokens.append(token)
+                        low_priority_count += 1  # Count as low priority
+                        fairness_added += 1
+                    
+                    if fairness_added > 0:
+                        self.logger.info(
+                            f"Added {fairness_added} fairness tokens (oldest first) to ensure all active tokens get processed",
+                            extra={"extra": {"fairness_tokens": fairness_added, "group": group}}
+                        )
                 
                 # Update processing statistics
                 self.processing_stats["high_priority_processed"] += high_priority_count
