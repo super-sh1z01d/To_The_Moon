@@ -193,8 +193,8 @@ class AlertManager:
                         }
                     }
                 )
-                # Don't return success if Telegram is not configured
-                raise Exception("Telegram not configured")
+                # Return without sending if Telegram is not configured
+                return
             
             # Format message for Telegram
             level_emoji = {
