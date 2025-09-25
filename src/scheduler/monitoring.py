@@ -1258,8 +1258,9 @@ class PriorityProcessor:
         """Get tokens ordered by priority with load-based adjustments."""
         try:
             # Get ALL tokens (both active and monitoring) for proper hot/cold filtering by score
-            active_tokens = repo.list_by_status("active", limit=limit)
-            monitoring_tokens = repo.list_by_status("monitoring", limit=limit)
+            # Don't limit active tokens - we need to process all of them
+            active_tokens = repo.list_by_status("active", limit=1000)  # Get all active tokens
+            monitoring_tokens = repo.list_by_status("monitoring", limit=limit)  # Limit monitoring tokens
             base_tokens = active_tokens + monitoring_tokens
             
             if not base_tokens:
