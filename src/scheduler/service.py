@@ -136,12 +136,18 @@ async def _process_group(group: str) -> None:
                 
                 # Check if we should skip update due to minimal score change
                 from src.domain.validation.data_filters import should_skip_score_update
-                if should_skip_score_update(score, last_score, min_score_change):
-                    # Enhanced logging for problem tokens
-                    if t.symbol in ['SKETCHY', 'Deperps', 'Charlotte', 'USD1']:
-                        log.info("problem_token_skipped", extra={"extra": {"symbol": t.symbol, "new_score": score, "last_score": last_score, "change": abs(score - (last_score or 0)), "min_change": min_score_change}})
-                    else:
-                        log.debug("score_update_skipped", extra={"extra": {"group": group, "mint": t.mint_address, "change": abs(score - (last_score or 0))}})
+                should_skip = should_skip_score_update(score, last_score, min_score_change)
+                
+                # For active tokens, always update timestamp even if score didn't change significantly
+                # This shows the token is "alive" and being processed
+                if should_skip and t.status == "active":
+                    # Update only timestamp for active tokens to show they're being processed
+                    repo.update_token_timestamp(t.id)
+                    log.debug("active_token_timestamp_updated", extra={"extra": {"symbol": t.symbol, "mint": t.mint_address[:8], "score_change": abs(score - (last_score or 0))}})
+                    continue
+                elif should_skip:
+                    # For monitoring tokens, skip as usual
+                    log.debug("score_update_skipped", extra={"extra": {"group": group, "mint": t.mint_address, "change": abs(score - (last_score or 0))}})
                     continue
                 
                 # Save score result

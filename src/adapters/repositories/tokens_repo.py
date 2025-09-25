@@ -173,6 +173,16 @@ class TokensRepository:
         
         return result
 
+    def update_token_timestamp(self, token_id: int) -> None:
+        """Update token's last_updated_at timestamp without changing other fields."""
+        from datetime import datetime, timezone
+        
+        token = self.db.query(Token).filter(Token.id == token_id).first()
+        if token:
+            token.last_updated_at = datetime.now(tz=timezone.utc)
+            self.db.add(token)
+            self.db.commit()
+
     def get_previous_smoothed_score(self, token_id: int) -> Optional[float]:
         """Получить предыдущий сглаженный скор для вычисления нового сглаженного значения."""
         latest = (
