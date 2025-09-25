@@ -180,6 +180,19 @@ class AlertManager:
             bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
             chat_id = os.getenv("TELEGRAM_CHAT_ID")
             
+            # Debug logging
+            log.info(
+                "telegram_handler_called",
+                extra={
+                    "extra": {
+                        "has_token": bool(bot_token),
+                        "has_chat_id": bool(chat_id),
+                        "alert_component": alert.component,
+                        "alert_level": alert.level.value
+                    }
+                }
+            )
+            
             if not bot_token or not chat_id:
                 log.warning(
                     "telegram_config_missing",
