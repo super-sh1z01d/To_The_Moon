@@ -133,8 +133,9 @@ async def _process_group(group: str) -> None:
                 score, smoothed_score, metrics, raw_components, smoothed_components = scoring_service.calculate_token_score(t, pairs)
                 
                 # Check if we should skip update due to minimal score change
+                # Compare smoothed scores for consistency (both are smoothed values)
                 from src.domain.validation.data_filters import should_skip_score_update
-                should_skip = should_skip_score_update(score, last_score, min_score_change)
+                should_skip = should_skip_score_update(smoothed_score, last_score, min_score_change)
                 
                 # For active tokens, always update timestamp even if score didn't change significantly
                 # This shows the token is "alive" and being processed

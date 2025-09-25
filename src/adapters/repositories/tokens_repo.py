@@ -219,14 +219,29 @@ class TokensRepository:
 
     # --- Архивация ---
     def has_score_ge_since(self, token_id: int, min_score: float, since_dt) -> bool:
-        q = (
+        # For hybrid model, check both raw and smoothed scores
+        # Token should NOT be archived if EITHER score is above threshold
+        raw_score_query = (
             self.db.query(TokenScore)
             .filter(TokenScore.token_id == token_id)
             .filter(TokenScore.created_at >= since_dt)
             .filter(TokenScore.score.isnot(None))
             .filter(TokenScore.score >= min_score)
         )
-        return self.db.query(q.exists()).scalar()  # type: ignore[arg-type]
+        
+        smoothed_score_query = (
+            self.db.query(TokenScore)
+            .filter(TokenScore.token_id == token_id)
+            .filter(TokenScore.created_at >= since_dt)
+            .filter(TokenScore.smoothed_score.isnot(None))
+            .filter(TokenScore.smoothed_score >= min_score)
+        )
+        
+        # Return True if EITHER raw OR smoothed score meets threshold
+        has_raw_score = self.db.query(raw_score_query.exists()).scalar()  # type: ignore[arg-type]
+        has_smoothed_score = self.db.query(smoothed_score_query.exists()).scalar()  # type: ignore[arg-type]
+        
+        return has_raw_score or has_smoothed_score
 
     def archive_token(self, token: Token, reason: str) -> None:
         from datetime import datetime, timezone
