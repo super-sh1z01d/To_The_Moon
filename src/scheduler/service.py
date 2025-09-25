@@ -101,10 +101,17 @@ async def _process_group(group: str) -> None:
                 last_score = float(snap.score) if (snap and snap.score is not None) else None
             
             is_hot = last_score is not None and last_score >= min_score
-            if group == "hot" and not is_hot:
-                continue
-            if group == "cold" and is_hot:
-                continue
+            
+            # Active tokens should always be processed by hot group regardless of score
+            if t.status == "active":
+                if group == "cold":
+                    continue  # Active tokens don't go to cold group
+            else:
+                # For monitoring tokens, use score-based filtering
+                if group == "hot" and not is_hot:
+                    continue
+                if group == "cold" and is_hot:
+                    continue
 
             processed += 1
             pairs = client.get_pairs(t.mint_address)
