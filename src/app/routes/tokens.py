@@ -33,8 +33,9 @@ class TokenItem(BaseModel):
     delta_p_15m: Optional[float] = None
     n_5m: Optional[int] = None
     primary_dex: Optional[str] = None
-    fetched_at: Optional[str] = None
-    scored_at: Optional[str] = None
+    fetched_at: Optional[str] = Field(default=None, description="Last time token data was fetched from external APIs")
+    scored_at: Optional[str] = Field(default=None, description="Last time token score was calculated and saved")
+    last_processed_at: Optional[str] = Field(default=None, description="Last time token was processed by scheduler")
     solscan_url: str
     raw_components: Optional[ComponentBreakdown] = None
     smoothed_components: Optional[ComponentBreakdown] = None
@@ -141,8 +142,9 @@ async def list_tokens(
                 ),
                 n_5m=(int(metrics.get("n_5m")) if metrics and metrics.get("n_5m") is not None else None),
                 primary_dex=(str(metrics.get("primary_dex")) if metrics and metrics.get("primary_dex") else None),
-                fetched_at=(token.last_updated_at.replace(tzinfo=timezone.utc).isoformat() if token.last_updated_at else None),
+                fetched_at=(str(metrics.get("fetched_at")) if metrics and metrics.get("fetched_at") else None),
                 scored_at=(snap.created_at.replace(tzinfo=timezone.utc).isoformat() if snap and snap.created_at else None),
+                last_processed_at=(token.last_updated_at.replace(tzinfo=timezone.utc).isoformat() if token.last_updated_at else None),
                 solscan_url=f"https://solscan.io/token/{token.mint_address}",
                 raw_components=raw_components,
                 smoothed_components=smoothed_components,

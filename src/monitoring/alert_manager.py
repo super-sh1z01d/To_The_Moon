@@ -185,13 +185,16 @@ class AlertManager:
                     "telegram_config_missing",
                     extra={
                         "extra": {
-                            "message": "Telegram bot token or chat ID not configured",
+                            "message": "Telegram bot token or chat ID not configured - alert not sent",
                             "has_token": bool(bot_token),
-                            "has_chat_id": bool(chat_id)
+                            "has_chat_id": bool(chat_id),
+                            "alert_component": alert.component,
+                            "alert_level": alert.level.value
                         }
                     }
                 )
-                return
+                # Don't return success if Telegram is not configured
+                raise Exception("Telegram not configured")
             
             # Format message for Telegram
             level_emoji = {
