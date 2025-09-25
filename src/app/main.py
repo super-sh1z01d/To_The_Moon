@@ -139,6 +139,60 @@ def create_app() -> FastAPI:
             app.state.config_reloader = config_reloader
             app.state.structured_logger = structured_logger
             
+            # Initialize Telegram alerts for production
+            try:
+                from src.monitoring.alert_manager import get_alert_manager, AlertRule, AlertLevel, AlertChannel
+                alert_manager = get_alert_manager()
+                
+                # Clear any existing rules and add production rules
+                alert_manager._alert_rules.clear()
+                
+                production_rules = [
+                    AlertRule(
+                        component_pattern="*",
+                        min_level=AlertLevel.CRITICAL,
+                        cooldown_minutes=5,
+                        max_frequency_per_hour=12,
+                        channels=[AlertChannel.TELEGRAM, AlertChannel.LOG, AlertChannel.CONSOLE]
+                    ),
+                    AlertRule(
+                        component_pattern="dexscreener*",
+                        min_level=AlertLevel.ERROR,
+                        cooldown_minutes=10,
+                        max_frequency_per_hour=6,
+                        channels=[AlertChannel.TELEGRAM, AlertChannel.LOG]
+                    ),
+                    AlertRule(
+                        component_pattern="scheduler*",
+                        min_level=AlertLevel.ERROR,
+                        cooldown_minutes=15,
+                        max_frequency_per_hour=4,
+                        channels=[AlertChannel.TELEGRAM, AlertChannel.LOG]
+                    ),
+                    AlertRule(
+                        component_pattern="database*",
+                        min_level=AlertLevel.ERROR,
+                        cooldown_minutes=5,
+                        max_frequency_per_hour=8,
+                        channels=[AlertChannel.TELEGRAM, AlertChannel.LOG, AlertChannel.CONSOLE]
+                    ),
+                    AlertRule(
+                        component_pattern="system*",
+                        min_level=AlertLevel.WARNING,
+                        cooldown_minutes=30,
+                        max_frequency_per_hour=2,
+                        channels=[AlertChannel.TELEGRAM, AlertChannel.LOG]
+                    )
+                ]
+                
+                for rule in production_rules:
+                    alert_manager.add_alert_rule(rule)
+                
+                structured_logger.info(f"Telegram alerts initialized with {len(production_rules)} rules")
+                
+            except Exception as e:
+                structured_logger.error("Failed to initialize Telegram alerts", error=e)
+            
             structured_logger.info("All monitoring systems initialized successfully")
             
         except Exception as e:

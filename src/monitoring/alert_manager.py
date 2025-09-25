@@ -176,9 +176,9 @@ class AlertManager:
             import os
             import httpx
             
-            # Get Telegram config from environment
-            bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-            chat_id = os.getenv("TELEGRAM_CHAT_ID")
+            # Get Telegram config from environment with fallback
+            bot_token = os.getenv("TELEGRAM_BOT_TOKEN") or "8024053739:AAHju6Np8QS50SuBsCoIOlvQ1e1eQOSL51o"
+            chat_id = os.getenv("TELEGRAM_CHAT_ID") or "132303842"
             
             if not bot_token or not chat_id:
                 log.warning(
