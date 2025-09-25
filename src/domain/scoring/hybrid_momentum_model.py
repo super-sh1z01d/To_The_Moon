@@ -201,8 +201,8 @@ class HybridMomentumModel:
             # Validate and sanitize inputs
             validated_inputs = ComponentCalculator.validate_component_inputs(metrics)
             
-            # Get filtering thresholds from settings
-            filtering_settings = self._get_filtering_settings()
+            # Get filtering thresholds based on token status
+            filtering_settings = self._get_filtering_settings(token.status)
             
             # Calculate each component with filtering settings
             tx_accel = ComponentCalculator.calculate_tx_accel(
@@ -298,25 +298,39 @@ class HybridMomentumModel:
             # Return default configuration
             return WeightConfig()
     
-    def _get_filtering_settings(self) -> Dict[str, Any]:
+    def _get_filtering_settings(self, token_status: str = "active") -> Dict[str, Any]:
         """
-        Get filtering threshold settings from settings service.
+        Get filtering threshold settings based on token status.
         
+        Args:
+            token_status: Token status ("monitoring" or "active")
+            
         Returns:
             Dictionary with filtering thresholds
         """
         try:
-            return {
-                "min_tx_threshold_5m": float(self.settings.get("min_tx_threshold_5m") or "100"),
-                "min_tx_threshold_1h": float(self.settings.get("min_tx_threshold_1h") or "1200"),
-                "min_volume_threshold_5m": float(self.settings.get("min_volume_threshold_5m") or "500.0"),
-                "min_volume_threshold_1h": float(self.settings.get("min_volume_threshold_1h") or "2000.0"),
-                "min_orderflow_volume_5m": float(self.settings.get("min_orderflow_volume_5m") or "500.0"),
-            }
+            if token_status == "monitoring":
+                # For monitoring tokens: minimal filtering, only basic validation
+                return {
+                    "min_tx_threshold_5m": 1.0,    # At least 1 transaction
+                    "min_tx_threshold_1h": 1.0,    # At least 1 transaction  
+                    "min_volume_threshold_5m": 1.0,  # At least $1 volume
+                    "min_volume_threshold_1h": 1.0,  # At least $1 volume
+                    "min_orderflow_volume_5m": 1.0,  # At least $1 volume
+                }
+            else:
+                # For active tokens: strict filtering (current behavior)
+                return {
+                    "min_tx_threshold_5m": float(self.settings.get("min_tx_threshold_5m") or "100"),
+                    "min_tx_threshold_1h": float(self.settings.get("min_tx_threshold_1h") or "1200"),
+                    "min_volume_threshold_5m": float(self.settings.get("min_volume_threshold_5m") or "500.0"),
+                    "min_volume_threshold_1h": float(self.settings.get("min_volume_threshold_1h") or "2000.0"),
+                    "min_orderflow_volume_5m": float(self.settings.get("min_orderflow_volume_5m") or "500.0"),
+                }
         except Exception as e:
             self.logger.warning(
                 "filtering_settings_error_using_defaults",
-                extra={"error": str(e)}
+                extra={"error": str(e), "token_status": token_status}
             )
             # Return default thresholds
             return {

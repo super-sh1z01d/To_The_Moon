@@ -95,8 +95,13 @@ class ScoringService:
             Tuple of (score, smoothed_score, metrics, raw_components, smoothed_components)
         """
         try:
-            # Get enhanced metrics
-            min_liquidity = float(self.settings.get("min_pool_liquidity_usd") or "500")
+            # Get enhanced metrics with status-based liquidity filtering
+            if token.status == "monitoring":
+                # For monitoring tokens: use activation threshold (lower)
+                min_liquidity = float(self.settings.get("activation_min_liquidity_usd") or "200")
+            else:
+                # For active tokens: use strict filtering (current behavior)
+                min_liquidity = float(self.settings.get("min_pool_liquidity_usd") or "500")
             # NOTE: max_price_change_5m removed - not used in Hybrid Momentum model
             
             metrics = aggregate_enhanced_metrics(
