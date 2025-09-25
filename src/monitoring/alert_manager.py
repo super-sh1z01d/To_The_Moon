@@ -21,6 +21,7 @@ class AlertChannel(Enum):
     """Available alert channels."""
     LOG = "log"
     CONSOLE = "console"
+    TELEGRAM = "telegram"
     # Future: EMAIL = "email", SLACK = "slack", etc.
 
 
@@ -124,7 +125,8 @@ class AlertManager:
         """Setup default alert handlers."""
         self._alert_handlers = {
             AlertChannel.LOG: self._handle_log_alert,
-            AlertChannel.CONSOLE: self._handle_console_alert
+            AlertChannel.CONSOLE: self._handle_console_alert,
+            AlertChannel.TELEGRAM: self._handle_telegram_alert
         }
     
     def _handle_log_alert(self, alert: HealthAlert, rule: AlertRule) -> None:
@@ -167,6 +169,99 @@ class AlertManager:
             print(f"   Context: {alert.context}")
         print(f"   Correlation ID: {alert.correlation_id}")
         print()
+    
+    def _handle_telegram_alert(self, alert: HealthAlert, rule: AlertRule) -> None:
+        """Handle alert by sending to Telegram."""
+        try:
+            import os
+            import httpx
+            
+            # Get Telegram config from environment
+            bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+            chat_id = os.getenv("TELEGRAM_CHAT_ID")
+            
+            if not bot_token or not chat_id:
+                log.warning(
+                    "telegram_config_missing",
+                    extra={
+                        "extra": {
+                            "message": "Telegram bot token or chat ID not configured",
+                            "has_token": bool(bot_token),
+                            "has_chat_id": bool(chat_id)
+                        }
+                    }
+                )
+                return
+            
+            # Format message for Telegram
+            level_emoji = {
+                AlertLevel.INFO: "ℹ️",
+                AlertLevel.WARNING: "⚠️", 
+                AlertLevel.ERROR: "❌",
+                AlertLevel.CRITICAL: "🚨"
+            }.get(alert.level, "ℹ️")
+            
+            timestamp = alert.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
+            
+            message = f"{level_emoji} *{alert.level.value.upper()}*: {alert.message}\n"
+            message += f"📍 Component: `{alert.component}`\n"
+            message += f"🕐 Time: {timestamp}\n"
+            
+            if alert.context:
+                # Limit context to avoid message length issues
+                context_str = str(alert.context)[:200]
+                if len(str(alert.context)) > 200:
+                    context_str += "..."
+                message += f"📋 Context: `{context_str}`\n"
+            
+            message += f"🔗 ID: `{alert.correlation_id}`"
+            
+            # Send to Telegram with rate limiting
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": message,
+                "parse_mode": "Markdown",
+                "disable_web_page_preview": True
+            }
+            
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(url, json=payload)
+                
+                if response.status_code == 200:
+                    log.debug(
+                        "telegram_alert_sent",
+                        extra={
+                            "extra": {
+                                "correlation_id": alert.correlation_id,
+                                "component": alert.component,
+                                "level": alert.level.value
+                            }
+                        }
+                    )
+                else:
+                    log.error(
+                        "telegram_alert_failed",
+                        extra={
+                            "extra": {
+                                "status_code": response.status_code,
+                                "response": response.text[:200],
+                                "correlation_id": alert.correlation_id
+                            }
+                        }
+                    )
+                    
+        except Exception as e:
+            log.error(
+                "telegram_alert_error",
+                extra={
+                    "extra": {
+                        "error": str(e),
+                        "correlation_id": alert.correlation_id,
+                        "component": alert.component
+                    }
+                }
+            )
     
     def _generate_alert_key(self, alert: HealthAlert) -> str:
         """Generate unique key for alert deduplication."""
