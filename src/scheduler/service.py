@@ -143,7 +143,7 @@ async def _process_group(group: str) -> None:
                 if should_skip and t.status == "active":
                     # Update only timestamp for active tokens to show they're being processed
                     repo.update_token_timestamp(t.id)
-                    log.debug("active_token_timestamp_updated", extra={"extra": {"symbol": t.symbol, "mint": t.mint_address[:8], "score_change": abs(score - (last_score or 0))}})
+                    log.info("active_token_timestamp_updated", extra={"extra": {"symbol": t.symbol, "mint": t.mint_address[:8], "score_change": abs(score - (last_score or 0))}})
                     continue
                 elif should_skip:
                     # For monitoring tokens, skip as usual
