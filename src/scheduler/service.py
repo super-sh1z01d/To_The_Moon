@@ -75,11 +75,15 @@ async def _process_group(group: str) -> None:
         active_model = scoring_service.get_active_model()
         log.info("processing_group", extra={"extra": {"group": group, "active_model": active_model, "tokens_count": len(tokens)}})
         
-        # Добавляем отладочную информацию для диагностики
+        # Batch load snapshots to avoid N+1 queries - do this once for both distribution and processing
+        token_ids = [t.id for t in tokens]
+        snapshots = repo.get_latest_snapshots_batch(token_ids)
+        
+        # Calculate distribution using pre-loaded snapshots
         hot_count = 0
         cold_count = 0
         for t in tokens:
-            snap = repo.get_latest_snapshot(t.id)
+            snap = snapshots.get(t.id)
             last_score = float(snap.smoothed_score) if (snap and snap.smoothed_score is not None) else None
             if last_score is None:
                 last_score = float(snap.score) if (snap and snap.score is not None) else None
@@ -91,10 +95,6 @@ async def _process_group(group: str) -> None:
                 cold_count += 1
         
         log.info("group_distribution", extra={"extra": {"group": group, "hot_tokens": hot_count, "cold_tokens": cold_count, "min_score": min_score}})
-        
-        # Batch load snapshots to avoid N+1 queries
-        token_ids = [t.id for t in tokens]
-        snapshots = repo.get_latest_snapshots_batch(token_ids)
         
         for t in tokens:
             snap = snapshots.get(t.id)
@@ -118,7 +118,9 @@ async def _process_group(group: str) -> None:
                     continue
 
             processed += 1
-            pairs = client.get_pairs(t.mint_address)
+            # Execute HTTP call in thread pool to avoid blocking event loop
+            import asyncio
+            pairs = await asyncio.to_thread(client.get_pairs, t.mint_address)
             if pairs is None:
                 log.warning("pairs_fetch_failed", extra={"extra": {"group": group, "mint": t.mint_address}})
                 continue
