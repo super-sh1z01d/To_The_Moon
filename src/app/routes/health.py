@@ -149,6 +149,87 @@ async def get_detailed_health():
         raise HTTPException(status_code=500, detail="Detailed health check failed")
 
 
+@router.get("/data-freshness")
+async def get_data_freshness():
+    """
+    Check for stale data that indicates scheduler problems.
+    
+    Returns alerts if tokens haven't been updated recently.
+    """
+    try:
+        from src.adapters.db.base import SessionLocal
+        from src.adapters.repositories.tokens_repo import TokensRepository
+        from datetime import timedelta
+        
+        with SessionLocal() as db:
+            repo = TokensRepository(db)
+            now = datetime.now(timezone.utc)
+            
+            # Check active tokens for stale data
+            active_tokens = repo.list_by_status("active", limit=50)
+            stale_active = []
+            
+            for token in active_tokens:
+                if token.last_updated_at:
+                    age_minutes = (now - token.last_updated_at).total_seconds() / 60
+                    if age_minutes > 30:  # Alert if not updated in 30+ minutes
+                        stale_active.append({
+                            "symbol": token.symbol or "[no symbol]",
+                            "mint": token.mint_address[:8] + "...",
+                            "age_minutes": round(age_minutes, 1),
+                            "last_updated": token.last_updated_at.isoformat()
+                        })
+            
+            # Check monitoring tokens
+            monitoring_tokens = repo.list_by_status("monitoring", limit=50)
+            stale_monitoring = []
+            
+            for token in monitoring_tokens:
+                if token.last_updated_at:
+                    age_minutes = (now - token.last_updated_at).total_seconds() / 60
+                    if age_minutes > 60:  # Alert if not updated in 60+ minutes
+                        stale_monitoring.append({
+                            "symbol": token.symbol or "[no symbol]",
+                            "mint": token.mint_address[:8] + "...",
+                            "age_minutes": round(age_minutes, 1),
+                            "last_updated": token.last_updated_at.isoformat()
+                        })
+            
+            status = "healthy"
+            alerts = []
+            
+            if stale_active:
+                status = "degraded"
+                alerts.append({
+                    "level": "warning",
+                    "message": f"{len(stale_active)} active tokens not updated in 30+ minutes",
+                    "details": stale_active[:5]  # Show first 5
+                })
+            
+            if stale_monitoring:
+                if len(stale_monitoring) > 10:
+                    status = "degraded"
+                    alerts.append({
+                        "level": "warning", 
+                        "message": f"{len(stale_monitoring)} monitoring tokens not updated in 60+ minutes",
+                        "details": stale_monitoring[:5]  # Show first 5
+                    })
+            
+            return {
+                "status": status,
+                "active_tokens_checked": len(active_tokens),
+                "stale_active_count": len(stale_active),
+                "monitoring_tokens_checked": len(monitoring_tokens),
+                "stale_monitoring_count": len(stale_monitoring),
+                "alerts": alerts,
+                "last_check": now.isoformat()
+            }
+            
+    except Exception as e:
+        log.error(f"Error checking data freshness: {e}")
+        raise HTTPException(status_code=500, detail="Data freshness check failed")
+
+
 @router.get("/scheduler")
 async def get_scheduler_health():
     """
@@ -189,6 +270,79 @@ async def get_scheduler_health():
     except Exception as e:
         log.error(f"Error getting scheduler health: {e}")
         raise HTTPException(status_code=500, detail="Scheduler health check failed")
+
+
+@router.get("/scheduler-performance")
+async def get_scheduler_performance():
+    """
+    Check scheduler performance and detect overload issues.
+    
+    Analyzes recent logs for missed jobs and performance problems.
+    """
+    try:
+        import subprocess
+        import re
+        
+        # Get recent scheduler logs
+        result = subprocess.run([
+            "journalctl", "-u", "tothemoon.service", "--since", "10 minutes ago"
+        ], capture_output=True, text=True, timeout=10)
+        
+        if result.returncode != 0:
+            return {"status": "unknown", "error": "Could not read logs"}
+        
+        logs = result.stdout
+        
+        # Count missed jobs
+        missed_jobs = re.findall(r'was missed by (\d+):(\d+):(\d+\.\d+)', logs)
+        missed_count = len(missed_jobs)
+        
+        # Calculate total missed time
+        total_missed_seconds = 0
+        for hours, minutes, seconds in missed_jobs:
+            total_missed_seconds += int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+        
+        # Count group summaries (successful executions)
+        successful_executions = len(re.findall(r'group_summary', logs))
+        
+        # Determine status
+        status = "healthy"
+        alerts = []
+        
+        if missed_count > 5:
+            status = "degraded"
+            alerts.append({
+                "level": "warning",
+                "message": f"{missed_count} scheduler jobs missed in last 10 minutes"
+            })
+        
+        if missed_count > 15:
+            status = "critical"
+            alerts[-1]["level"] = "critical"
+        
+        if total_missed_seconds > 60:
+            status = "degraded"
+            alerts.append({
+                "level": "warning", 
+                "message": f"Total missed time: {total_missed_seconds:.1f} seconds"
+            })
+        
+        return {
+            "status": status,
+            "missed_jobs_count": missed_count,
+            "total_missed_seconds": round(total_missed_seconds, 1),
+            "successful_executions": successful_executions,
+            "alerts": alerts,
+            "last_check": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error checking scheduler performance: {e}")
+        return {
+            "status": "unknown",
+            "error": str(e),
+            "last_check": datetime.now(timezone.utc).isoformat()
+        }
 
 
 @router.get("/resources")
