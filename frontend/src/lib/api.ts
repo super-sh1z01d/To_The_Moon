@@ -17,6 +17,7 @@ export type TokenItem = {
   primary_dex?: string
   fetched_at?: string
   scored_at?: string
+  last_processed_at?: string
   solscan_url: string
   raw_components?: ComponentBreakdown
   smoothed_components?: ComponentBreakdown

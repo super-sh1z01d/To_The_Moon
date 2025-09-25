@@ -172,7 +172,7 @@ export default function Dashboard(){
             <th>Статус</th>
             <th title="Ссылки на Solscan пулов SOL/WSOL">Пулы (WSOL)</th>
             <th title="Ссылки на Solscan пулов USDC">Пулы (USDC)</th>
-            <th title="Время расчёта скора">Расчёт</th>
+            <th title="Время последней обработки токена планировщиком">Обработан</th>
             <th>Solscan</th>
           </tr>
         </thead>
@@ -214,7 +214,9 @@ export default function Dashboard(){
                   {(!pools[it.mint_address] || (pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='USDC').length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
                 </div>
               </td>
-              <td>{formatCalcTime(it.scored_at)}</td>
+              <td title={`Последний расчет скора: ${formatCalcTime(it.scored_at)}`}>
+                {formatCalcTime(it.last_processed_at || it.scored_at)}
+              </td>
               <td><a href={it.solscan_url} target="_blank" rel="noreferrer">Открыть</a></td>
           </tr>
         ))}
@@ -245,7 +247,10 @@ function statusBadge(s?: string){
 function renderCalc(it: TokenItem){
   const f = it.fetched_at ? fmtDate(it.fetched_at) : '—'
   const s = it.scored_at ? fmtDate(it.scored_at) : '—'
-  return <span className="muted" title={`Dex: ${it.fetched_at||'-'}\nScore: ${it.scored_at||'-'}`}>Dex: {f} / Score: {s}</span>
+  const p = it.last_processed_at ? fmtDate(it.last_processed_at) : '—'
+  return <span className="muted" title={`Данные получены: ${it.fetched_at||'-'}\nСкор рассчитан: ${it.scored_at||'-'}\nПоследняя обработка: ${it.last_processed_at||'-'}`}>
+    Обработан: {p} / Скор: {s}
+  </span>
 }
 
 function fmtDate(iso: string){
