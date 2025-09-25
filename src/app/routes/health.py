@@ -918,38 +918,6 @@ async def get_performance_metrics():
         raise HTTPException(status_code=500, detail="Performance metrics retrieval failed")
 
 
-@router.get("/test-telegram")
-async def test_telegram_alert():
-    """Test Telegram alert functionality."""
-    try:
-        from src.monitoring.alert_manager import get_alert_manager, AlertLevel
-        from src.monitoring.models import HealthAlert
-        from datetime import datetime, timezone
-        
-        alert_manager = get_alert_manager()
-        
-        test_alert = HealthAlert(
-            component="api_test",
-            level=AlertLevel.CRITICAL,
-            message="🧪 API TEST: Telegram alert from health endpoint",
-            context={"source": "health_api", "test": True},
-            timestamp=datetime.now(timezone.utc)
-        )
-        
-        success = alert_manager.send_alert(test_alert)
-        
-        return {
-            "success": success,
-            "message": "Telegram alert test completed",
-            "rules_count": len(alert_manager._alert_rules)
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Telegram alert test failed"
-        }
 
 @router.get("/performance/api/{service}")
 async def get_api_performance(service: str):
