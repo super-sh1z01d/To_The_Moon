@@ -171,7 +171,11 @@ async def get_data_freshness():
             
             for token in active_tokens:
                 if token.last_updated_at:
-                    age_minutes = (now - token.last_updated_at).total_seconds() / 60
+                    # Ensure both datetimes are timezone-aware
+                    last_updated = token.last_updated_at
+                    if last_updated.tzinfo is None:
+                        last_updated = last_updated.replace(tzinfo=timezone.utc)
+                    age_minutes = (now - last_updated).total_seconds() / 60
                     if age_minutes > 30:  # Alert if not updated in 30+ minutes
                         stale_active.append({
                             "symbol": token.symbol or "[no symbol]",
@@ -186,7 +190,11 @@ async def get_data_freshness():
             
             for token in monitoring_tokens:
                 if token.last_updated_at:
-                    age_minutes = (now - token.last_updated_at).total_seconds() / 60
+                    # Ensure both datetimes are timezone-aware
+                    last_updated = token.last_updated_at
+                    if last_updated.tzinfo is None:
+                        last_updated = last_updated.replace(tzinfo=timezone.utc)
+                    age_minutes = (now - last_updated).total_seconds() / 60
                     if age_minutes > 60:  # Alert if not updated in 60+ minutes
                         stale_monitoring.append({
                             "symbol": token.symbol or "[no symbol]",
