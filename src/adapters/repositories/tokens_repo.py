@@ -138,6 +138,41 @@ class TokensRepository:
             .first()
         )
 
+    def get_latest_snapshots_batch(self, token_ids: list[int]) -> dict[int, Optional[TokenScore]]:
+        """Get latest snapshots for multiple tokens in a single query to avoid N+1 pattern."""
+        if not token_ids:
+            return {}
+        
+        # Subquery to get the latest snapshot ID for each token
+        from sqlalchemy import func
+        subq = (
+            self.db.query(
+                TokenScore.token_id,
+                func.max(TokenScore.created_at).label('max_created_at')
+            )
+            .filter(TokenScore.token_id.in_(token_ids))
+            .group_by(TokenScore.token_id)
+            .subquery()
+        )
+        
+        # Get the actual latest snapshots
+        snapshots = (
+            self.db.query(TokenScore)
+            .join(
+                subq,
+                (TokenScore.token_id == subq.c.token_id) & 
+                (TokenScore.created_at == subq.c.max_created_at)
+            )
+            .all()
+        )
+        
+        # Create mapping
+        result = {token_id: None for token_id in token_ids}
+        for snap in snapshots:
+            result[snap.token_id] = snap
+        
+        return result
+
     def get_previous_smoothed_score(self, token_id: int) -> Optional[float]:
         """Получить предыдущий сглаженный скор для вычисления нового сглаженного значения."""
         latest = (

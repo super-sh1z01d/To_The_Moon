@@ -92,8 +92,12 @@ async def _process_group(group: str) -> None:
         
         log.info("group_distribution", extra={"extra": {"group": group, "hot_tokens": hot_count, "cold_tokens": cold_count, "min_score": min_score}})
         
+        # Batch load snapshots to avoid N+1 queries
+        token_ids = [t.id for t in tokens]
+        snapshots = repo.get_latest_snapshots_batch(token_ids)
+        
         for t in tokens:
-            snap = repo.get_latest_snapshot(t.id)
+            snap = snapshots.get(t.id)
             # Используем сглаженный скор для группировки (как в API)
             last_score = float(snap.smoothed_score) if (snap and snap.smoothed_score is not None) else None
             # Фолбэк на сырой скор если сглаженного нет

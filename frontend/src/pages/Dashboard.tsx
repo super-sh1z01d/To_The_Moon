@@ -26,7 +26,9 @@ export default function Dashboard(){
     setLoading(true)
     try{
       const statuses = [ statusFilter.active ? 'active' : null, statusFilter.monitoring ? 'monitoring' : null, statusFilter.archived ? 'archived' : null ].filter(Boolean) as string[]
-      const res = await getTokens(minScore, limit, offset, sort, statuses)
+      // Always use score_desc for API call, do component sorting client-side
+      const apiSort = sort.startsWith('score_') ? sort : 'score_desc'
+      const res = await getTokens(minScore, limit, offset, apiSort, statuses)
       
       // Apply fresh-only filter on client side
       let filteredItems = res.items
@@ -66,17 +68,26 @@ export default function Dashboard(){
       
       setItems(filteredItems)
       setTotal(freshOnly ? filteredItems.length : res.total)
-      // Prefetch pools for visible tokens if not loaded yet
-      for(const it of res.items){
-        const mint = it.mint_address
-        if(!pools[mint] && !pLoading[mint]){
-          setPLoading(prev=>({...prev, [mint]: true}))
-          getPools(mint).then(data=>{
-            setPools(prev=>({...prev, [mint]: data}))
-          }).finally(()=>{
-            setPLoading(prev=>({...prev, [mint]: false}))
+      
+      // Batch pool loading for better performance
+      const tokensToLoad = res.items.filter(it => !pools[it.mint_address] && !pLoading[it.mint_address])
+      if (tokensToLoad.length > 0) {
+        // Batch update loading state
+        const newLoadingState = tokensToLoad.reduce((acc, it) => {
+          acc[it.mint_address] = true
+          return acc
+        }, {} as Record<string, boolean>)
+        setPLoading(prev => ({...prev, ...newLoadingState}))
+        
+        // Load pools for each token
+        tokensToLoad.forEach(it => {
+          const mint = it.mint_address
+          getPools(mint).then(data => {
+            setPools(prev => ({...prev, [mint]: data}))
+          }).finally(() => {
+            setPLoading(prev => ({...prev, [mint]: false}))
           })
-        }
+        })
       }
     } finally{ setLoading(false) }
   }
