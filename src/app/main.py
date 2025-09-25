@@ -8,7 +8,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
-load_dotenv()
+import os
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env'))
 
 from src.core.config import get_config
 from src.core.json_logging import configure_logging
