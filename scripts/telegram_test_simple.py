@@ -7,9 +7,14 @@ import httpx
 import sys
 import os
 
-# Explicit credentials
-BOT_TOKEN = "8024053739:AAHju6Np8QS50SuBsCoIOlvQ1e1eQOSL51o"
-CHAT_ID = "132303842"
+# Get credentials from environment
+import os
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+if not BOT_TOKEN or not CHAT_ID:
+    print("❌ Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables")
+    sys.exit(1)
 
 def send_telegram_message(message):
     """Send message to Telegram."""
