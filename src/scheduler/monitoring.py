@@ -1213,6 +1213,9 @@ class PriorityProcessor:
                 # Tokens not updated for 1+ hours get max priority (1.0)
                 # Recently updated tokens get lower priority (0.1)
                 activity_score = min(1.0, max(0.1, time_since_update / 3600))  # Increase over 1 hour
+            else:
+                # Tokens that have never been processed (monitoring tokens) get highest priority
+                activity_score = 1.0
             
             # Normalize metrics (simple approach)
             # These thresholds should be calibrated based on actual data
@@ -1227,6 +1230,14 @@ class PriorityProcessor:
                 momentum_score * self.price_momentum_weight +
                 activity_score * self.activity_weight
             )
+            
+            # Give monitoring tokens higher priority to ensure they get processed
+            if hasattr(token, 'status') and token.status == 'monitoring':
+                # Boost monitoring tokens priority, especially if never processed
+                if not (hasattr(token, 'last_updated_at') and token.last_updated_at):
+                    priority_score += 0.5  # Significant boost for unprocessed monitoring tokens
+                else:
+                    priority_score += 0.2  # Moderate boost for processed monitoring tokens
             
             token_id = getattr(token, 'address', None) or getattr(token, 'mint', None) or 'unknown'
             self.logger.debug(
