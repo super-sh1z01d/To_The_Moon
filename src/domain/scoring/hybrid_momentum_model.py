@@ -110,7 +110,7 @@ class HybridMomentumModel:
                 raise ValueError("Invalid weight configuration")
             
             # Calculate raw components
-            raw_components = self.calculate_components(metrics, token.created_at, weights)
+            raw_components = self.calculate_components(metrics, token, weights)
             
             # Calculate raw final score
             raw_final_score = self._calculate_weighted_score(raw_components, weights)
@@ -183,7 +183,7 @@ class HybridMomentumModel:
     def calculate_components(
         self, 
         metrics: Dict[str, Any], 
-        token_created_at: datetime,
+        token: Any,  # Token object with status and created_at
         weights: WeightConfig
     ) -> Dict[str, float]:
         """
@@ -191,7 +191,7 @@ class HybridMomentumModel:
         
         Args:
             metrics: Enhanced metrics from DEX aggregator
-            token_created_at: Token creation timestamp
+            token: Token object with status and created_at attributes
             weights: Weight configuration
             
         Returns:
@@ -257,7 +257,7 @@ class HybridMomentumModel:
                     "error": str(e),
                     "traceback": traceback.format_exc(),
                     "metrics_keys": list(metrics.keys()) if metrics else [],
-                    "token_created_at": str(token_created_at),
+                    "token_created_at": str(token.created_at),
                     "token_status": getattr(token, 'status', 'unknown') if hasattr(token, 'status') else 'no_token'
                 }
             )
