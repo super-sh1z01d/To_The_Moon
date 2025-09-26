@@ -250,12 +250,15 @@ class HybridMomentumModel:
             return components
             
         except Exception as e:
+            import traceback
             self.logger.error(
                 "component_calculation_error",
                 extra={
                     "error": str(e),
+                    "traceback": traceback.format_exc(),
                     "metrics_keys": list(metrics.keys()) if metrics else [],
                     "token_created_at": str(token_created_at),
+                    "token_status": getattr(token, 'status', 'unknown') if hasattr(token, 'status') else 'no_token'
                 }
             )
             # Return zero components as fallback
