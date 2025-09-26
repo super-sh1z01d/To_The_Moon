@@ -361,9 +361,9 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     from apscheduler.triggers.interval import IntervalTrigger
     from src.scheduler.tasks import archive_once, enforce_activation_once
 
-    # Reduce batch size to prevent timeouts
+    # Increase batch size to cover more tokens for activation
     scheduler.add_job(
-        lambda: enforce_activation_once(limit_monitoring=20, limit_active=20), 
+        lambda: enforce_activation_once(limit_monitoring=50, limit_active=20), 
         IntervalTrigger(minutes=3), 
         id="activation_enforcer", 
         max_instances=1
