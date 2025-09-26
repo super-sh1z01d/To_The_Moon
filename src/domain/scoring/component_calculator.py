@@ -15,7 +15,7 @@ class ComponentCalculator:
     """Calculator for hybrid momentum scoring components."""
     
     @staticmethod
-    def calculate_tx_accel(tx_count_5m: float, tx_count_1h: float, settings: Optional[Dict[str, Any]] = None) -> float:
+    def calculate_tx_accel(tx_count_5m: float, tx_count_1h: float, filtering_settings: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculate transaction acceleration component with improved stability.
         
@@ -33,15 +33,21 @@ class ComponentCalculator:
             Transaction acceleration ratio (0.0 if invalid inputs)
         """
         try:
+            # Basic data validation - only check for valid data, no artificial thresholds
             if tx_count_5m < 0 or tx_count_1h < 0:
                 return 0.0
             
-            # Get thresholds from settings or use defaults
-            min_tx_threshold_1h = float(settings.get("min_tx_threshold_1h", 1200) if settings else 1200)
-            min_tx_threshold_5m = float(settings.get("min_tx_threshold_5m", 100) if settings else 100)
-            
-            if tx_count_1h < min_tx_threshold_1h or tx_count_5m < min_tx_threshold_5m:
-                return 0.0
+            # Apply filtering thresholds from settings
+            if filtering_settings:
+                min_tx_5m = filtering_settings.get("min_tx_threshold_5m", 1.0)
+                min_tx_1h = filtering_settings.get("min_tx_threshold_1h", 1.0)
+                
+                if tx_count_5m < min_tx_5m or tx_count_1h < min_tx_1h:
+                    return 0.0
+            else:
+                # Fallback: require some minimal activity (at least 1 transaction)
+                if tx_count_5m == 0 or tx_count_1h == 0:
+                    return 0.0
                 
             # Calculate rates per minute
             rate_5m = tx_count_5m / 5.0
@@ -72,7 +78,7 @@ class ComponentCalculator:
             return 0.0
     
     @staticmethod
-    def calculate_vol_momentum(volume_5m: float, volume_1h: float, liquidity_usd: float = 0.0, settings: Optional[Dict[str, Any]] = None) -> float:
+    def calculate_vol_momentum(volume_5m: float, volume_1h: float, liquidity_usd: float = 0.0, filtering_settings: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculate volume momentum component with liquidity weighting.
         
@@ -94,12 +100,17 @@ class ComponentCalculator:
             if volume_5m < 0 or volume_1h < 0:
                 return 0.0
             
-            # Get volume thresholds from settings or use defaults
-            min_volume_threshold_1h = float(settings.get("min_volume_threshold_1h", 2000.0) if settings else 2000.0)
-            min_volume_threshold_5m = float(settings.get("min_volume_threshold_5m", 500.0) if settings else 500.0)
-            
-            if volume_1h < min_volume_threshold_1h or volume_5m < min_volume_threshold_5m:
-                return 0.0
+            # Apply filtering thresholds from settings
+            if filtering_settings:
+                min_vol_5m = filtering_settings.get("min_volume_threshold_5m", 1.0)
+                min_vol_1h = filtering_settings.get("min_volume_threshold_1h", 1.0)
+                
+                if volume_5m < min_vol_5m or volume_1h < min_vol_1h:
+                    return 0.0
+            else:
+                # Fallback: require some minimal trading activity (at least $1 volume)
+                if volume_5m == 0 or volume_1h == 0:
+                    return 0.0
                 
             # Average 5-minute volume over the last hour
             avg_5m_volume = volume_1h / 12.0
