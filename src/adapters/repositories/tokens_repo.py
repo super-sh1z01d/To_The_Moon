@@ -54,6 +54,29 @@ class TokensRepository:
         if limit:
             q = q.limit(limit)
         return list(q.all())
+    
+    def list_monitoring_for_activation(self, limit: int = 100) -> list[Token]:
+        """
+        Get monitoring tokens ordered by score (highest first) for activation task.
+        This ensures tokens with high scores (likely to have sufficient liquidity) 
+        are checked first for activation.
+        """
+        from sqlalchemy import desc
+        from src.adapters.db.models import TokenScore
+        
+        # Join with latest token scores and order by score DESC
+        q = (
+            self.db.query(Token)
+            .filter(Token.status == "monitoring")
+            .outerjoin(TokenScore, Token.id == TokenScore.token_id)
+            .order_by(
+                desc(TokenScore.smoothed_score),  # Highest scores first
+                desc(TokenScore.score),           # Then by raw score
+                Token.created_at.desc()           # Finally by creation time
+            )
+            .limit(limit)
+        )
+        return list(q.all())
 
     def set_active(self, token: Token) -> None:
         from datetime import datetime, timezone

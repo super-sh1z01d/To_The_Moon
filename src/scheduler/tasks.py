@@ -81,7 +81,7 @@ def enforce_activation_once(limit_monitoring: int = 50, limit_active: int = 50) 
 
         # Promote monitoring → active if has external WSOL/SOL pool with Lq >= threshold
         if limit_monitoring:
-            mons = repo.list_by_status("monitoring", limit=limit_monitoring)
+            mons = repo.list_monitoring_for_activation(limit=limit_monitoring)
             promoted = 0
             for t in mons:
                 pairs = client.get_pairs(t.mint_address)
