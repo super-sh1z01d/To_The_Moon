@@ -11,7 +11,7 @@ def check_activation_conditions(mint: str, pairs: list[dict[str, Any]], min_liqu
     Условия активации (ИЛИ):
     Условие 1: Пул на Pump.fun + хотя бы один внешний пул с достаточной ликвидностью
     ИЛИ
-    Условие 2: Более двух внешних пулов с достаточной ликвидностью (без требования Pump.fun)
+    Условие 2: Два или более внешних пулов с достаточной ликвидностью (без требования Pump.fun)
     """
     has_pumpfun_wsol = False
     external_pools_with_liquidity = 0
@@ -57,7 +57,7 @@ def check_activation_conditions(mint: str, pairs: list[dict[str, Any]], min_liqu
     # Условие 1: Pump.fun + хотя бы один внешний пул с ликвидностью
     condition_1 = has_pumpfun_wsol and external_pools_with_liquidity >= 1
     
-    # Условие 2: Более двух внешних пулов с ликвидностью
-    condition_2 = external_pools_with_liquidity > 2
+    # Условие 2: Два или более внешних пулов с ликвидностью
+    condition_2 = external_pools_with_liquidity >= 2
     
     return condition_1 or condition_2
