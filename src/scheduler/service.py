@@ -112,10 +112,17 @@ async def _process_group(group: str) -> None:
                     continue  # Active tokens don't go to cold group
             else:
                 # For monitoring tokens, use score-based filtering
-                if group == "hot" and not is_hot:
-                    continue
-                if group == "cold" and is_hot:
-                    continue
+                # Tokens without scores (new monitoring tokens) should go to cold group
+                if last_score is None:
+                    # New monitoring tokens without scores go to cold group for activation check
+                    if group == "hot":
+                        continue
+                else:
+                    # Existing monitoring tokens with scores use normal hot/cold filtering
+                    if group == "hot" and not is_hot:
+                        continue
+                    if group == "cold" and is_hot:
+                        continue
 
             processed += 1
             
