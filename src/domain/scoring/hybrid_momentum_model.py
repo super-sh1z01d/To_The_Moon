@@ -320,6 +320,10 @@ class HybridMomentumModel:
                     "min_volume_threshold_5m": 1.0,  # At least $1 volume
                     "min_volume_threshold_1h": 1.0,  # At least $1 volume
                     "min_orderflow_volume_5m": 1.0,  # At least $1 volume
+                    # Component calculation parameters (same for all tokens)
+                    "liquidity_factor_threshold": float(self.settings.get("liquidity_factor_threshold") or "100000.0"),
+                    "orderflow_significance_threshold": float(self.settings.get("orderflow_significance_threshold") or "500.0"),
+                    "manipulation_detection_ratio": float(self.settings.get("manipulation_detection_ratio") or "3.0"),
                 }
             else:
                 # For active tokens: strict filtering (current behavior)
@@ -329,6 +333,10 @@ class HybridMomentumModel:
                     "min_volume_threshold_5m": float(self.settings.get("min_volume_threshold_5m") or "500.0"),
                     "min_volume_threshold_1h": float(self.settings.get("min_volume_threshold_1h") or "2000.0"),
                     "min_orderflow_volume_5m": float(self.settings.get("min_orderflow_volume_5m") or "500.0"),
+                    # Component calculation parameters
+                    "liquidity_factor_threshold": float(self.settings.get("liquidity_factor_threshold") or "100000.0"),
+                    "orderflow_significance_threshold": float(self.settings.get("orderflow_significance_threshold") or "500.0"),
+                    "manipulation_detection_ratio": float(self.settings.get("manipulation_detection_ratio") or "3.0"),
                 }
         except Exception as e:
             self.logger.warning(
@@ -342,6 +350,10 @@ class HybridMomentumModel:
                 "min_volume_threshold_5m": 500.0,
                 "min_volume_threshold_1h": 2000.0,
                 "min_orderflow_volume_5m": 500.0,
+                # Component calculation parameters
+                "liquidity_factor_threshold": 100000.0,
+                "orderflow_significance_threshold": 500.0,
+                "manipulation_detection_ratio": 3.0,
             }
     
     def _calculate_weighted_score(

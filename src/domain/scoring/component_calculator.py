@@ -124,8 +124,10 @@ class ComponentCalculator:
             # Liquidity factor: normalize liquidity impact
             # Tokens with higher liquidity get better scores for same momentum
             if liquidity_usd > 0:
-                # Sigmoid-like function: significant boost up to $100k liquidity for high-activity tokens
-                liquidity_factor = min(1.0, liquidity_usd / 100000.0)
+                # Get liquidity threshold from settings or use default
+                liquidity_threshold = float(filtering_settings.get("liquidity_factor_threshold", 100000.0) if filtering_settings else 100000.0)
+                # Sigmoid-like function: significant boost up to configured liquidity threshold
+                liquidity_factor = min(1.0, liquidity_usd / liquidity_threshold)
                 # Apply square root to reduce extreme differences
                 liquidity_factor = math.sqrt(liquidity_factor)
             else:
@@ -224,8 +226,9 @@ class ComponentCalculator:
             volume_imbalance = (buys_volume_5m - sells_volume_5m) / total_volume
             
             # Apply significance weighting based on total volume
-            # Higher volume imbalances are more meaningful
-            volume_significance = min(1.0, total_volume / 500.0)  # Full weight at $500+
+            # Get significance threshold from settings or use default
+            significance_threshold = float(settings.get("orderflow_significance_threshold", 500.0) if settings else 500.0)
+            volume_significance = min(1.0, total_volume / significance_threshold)
             
             # If we have transaction counts, check for manipulation patterns
             if total_buys_5m > 0 and total_sells_5m > 0:
@@ -236,8 +239,10 @@ class ComponentCalculator:
                 # Detect potential manipulation: very few large trades vs many small ones
                 if total_txs > 0:
                     size_ratio = max(avg_buy_size, avg_sell_size) / (total_volume / total_txs) if total_txs > 0 else 1
+                    # Get manipulation detection ratio from settings or use default
+                    manipulation_ratio = float(settings.get("manipulation_detection_ratio", 3.0) if settings else 3.0)
                     # Reduce weight if dominated by very few large trades (potential manipulation)
-                    if size_ratio > 3.0:  # One trade is 3x average (stricter detection)
+                    if size_ratio > manipulation_ratio:
                         volume_significance *= 0.5
             
             result = volume_imbalance * volume_significance

@@ -43,4 +43,9 @@ DEFAULT_SETTINGS: dict[str, str] = {
     
     # NotArb bot integration
     "notarb_min_score": "0.5",              # Minimum score threshold for NotArb bot export
+    
+    # Component calculation parameters (previously hardcoded)
+    "liquidity_factor_threshold": "100000.0",  # Liquidity threshold for volume momentum factor ($100k)
+    "orderflow_significance_threshold": "500.0",  # Volume threshold for orderflow significance ($500)
+    "manipulation_detection_ratio": "3.0",     # Size ratio threshold for manipulation detection (3x average)
 }
