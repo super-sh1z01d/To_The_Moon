@@ -60,22 +60,20 @@ class TokensRepository:
         Get monitoring tokens ordered by score (highest first) for activation task.
         This ensures tokens with high scores (likely to have sufficient liquidity) 
         are checked first for activation.
-        """
-        from sqlalchemy import desc
-        from src.adapters.db.models import TokenScore
         
-        # Join with latest token scores and order by score DESC
+        For now, use the same logic as list_by_status but prioritize by last_updated_at DESC
+        to check tokens that were recently scored first.
+        """
         q = (
             self.db.query(Token)
             .filter(Token.status == "monitoring")
-            .outerjoin(TokenScore, Token.id == TokenScore.token_id)
             .order_by(
-                desc(TokenScore.smoothed_score),  # Highest scores first
-                desc(TokenScore.score),           # Then by raw score
-                Token.created_at.desc()           # Finally by creation time
+                Token.last_updated_at.desc().nulls_last(),  # Recently updated first
+                Token.created_at.desc()                     # Then newest tokens first
             )
-            .limit(limit)
         )
+        if limit:
+            q = q.limit(limit)
         return list(q.all())
 
     def set_active(self, token: Token) -> None:
