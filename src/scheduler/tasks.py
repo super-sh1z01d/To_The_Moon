@@ -84,29 +84,32 @@ def enforce_activation_once(limit_monitoring: int = 50, limit_active: int = 50) 
             mons = repo.list_monitoring_for_activation(limit=limit_monitoring)
             promoted = 0
             for t in mons:
-                pairs = client.get_pairs(t.mint_address)
-                if not pairs:
-                    continue
-                # Проверяем условия активации с учетом минимальной ликвидности
-                from src.domain.validation.dex_rules import check_activation_conditions
-                if check_activation_conditions(t.mint_address, pairs, threshold):
-                    # best effort: fill name/symbol if empty
-                    name = None
-                    symbol = None
-                    try:
-                        for p in pairs:
-                            base = (p.get("baseToken") or {})
-                            if str(base.get("address")) == t.mint_address:
-                                name = name or base.get("name")
-                                symbol = symbol or base.get("symbol")
-                                if name and symbol:
-                                    break
-                    except Exception:
-                        pass
-                    repo.update_token_fields(t, name=name, symbol=symbol)
-                    repo.set_active(t)
-                    promoted += 1
-                    logv.info("activated_by_liquidity", extra={"extra": {"mint": t.mint_address, "threshold": threshold}})
+                try:
+                    pairs = client.get_pairs(t.mint_address)
+                    if not pairs:
+                        continue
+                    # Проверяем условия активации с учетом минимальной ликвидности
+                    from src.domain.validation.dex_rules import check_activation_conditions
+                    if check_activation_conditions(t.mint_address, pairs, threshold):
+                        # best effort: fill name/symbol if empty
+                        name = None
+                        symbol = None
+                        try:
+                            for p in pairs:
+                                base = (p.get("baseToken") or {})
+                                if str(base.get("address")) == t.mint_address:
+                                    name = name or base.get("name")
+                                    symbol = symbol or base.get("symbol")
+                                    if name and symbol:
+                                        break
+                        except Exception:
+                            pass
+                        repo.update_token_fields(t, name=name, symbol=symbol)
+                        repo.set_active(t)
+                        promoted += 1
+                        logv.info("activated_by_liquidity", extra={"extra": {"mint": t.mint_address, "threshold": threshold}})
+                except Exception as e:
+                    logv.error("activation_error", extra={"extra": {"mint": t.mint_address, "error": str(e)}})
             logv.info("promotion_summary", extra={"extra": {"checked": len(mons), "promoted": promoted, "threshold": threshold}})
 
         # Demote active → monitoring if no external WSOL/SOL pools with Lq >= threshold
