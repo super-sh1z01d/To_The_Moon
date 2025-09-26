@@ -172,7 +172,9 @@ def should_skip_score_update(
     if previous_score is None:
         return False  # Первое обновление всегда важно
     
-    change = abs(new_score - previous_score)
+    # Convert to float to handle Decimal types from database
+    prev_score_float = float(previous_score)
+    change = abs(new_score - prev_score_float)
     
     if change < min_change:
         log.debug(f"Skipping minor score change: {change:.3f} < {min_change}")
