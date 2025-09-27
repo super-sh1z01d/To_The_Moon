@@ -44,8 +44,8 @@ async def _process_group(group: str) -> None:
         load_processor = get_load_processor()
         
         # Adjust batch size based on system load and token count
-        # Significantly increased batch sizes for higher throughput
-        base_limit = 50 if group == "hot" else 100  # Much larger batches for better performance
+        # Conservative batch sizes to prevent server overload
+        base_limit = 35 if group == "hot" else 70  # Balanced batches for stable performance
         adjusted_limit = load_processor.get_adjusted_batch_size(base_limit)
         
         # Get priority-based token processing
