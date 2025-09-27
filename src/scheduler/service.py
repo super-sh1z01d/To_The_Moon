@@ -43,8 +43,9 @@ async def _process_group(group: str) -> None:
         from src.monitoring.metrics import get_load_processor
         load_processor = get_load_processor()
         
-        # Adjust batch size based on system load - further reduced to prevent overload
-        base_limit = 30 if group == "hot" else 20  # Much smaller batches to prevent system overload
+        # Adjust batch size based on system load and token count
+        # Increased cold batch size to handle large number of monitoring tokens
+        base_limit = 30 if group == "hot" else 50  # Larger cold batches for monitoring tokens
         adjusted_limit = load_processor.get_adjusted_batch_size(base_limit)
         
         # Get priority-based token processing
@@ -63,11 +64,14 @@ async def _process_group(group: str) -> None:
             from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
             # Use shorter cache for hot tokens (more frequent updates)
             cache_ttl = 15 if group == "hot" else 30
-            client = ResilientDexScreenerClient(timeout=5.0, cache_ttl=cache_ttl)
-            log.info(f"Using resilient DexScreener client with circuit breaker and {cache_ttl}s cache for {group} tokens")
+            # Shorter timeout for cold group to process more tokens faster
+            timeout = 3.0 if group == "cold" else 5.0
+            client = ResilientDexScreenerClient(timeout=timeout, cache_ttl=cache_ttl)
+            log.info(f"Using resilient DexScreener client with circuit breaker, {timeout}s timeout and {cache_ttl}s cache for {group} tokens")
         else:
-            client = DexScreenerClient(timeout=5.0)
-            log.info("Using standard DexScreener client")
+            timeout = 3.0 if group == "cold" else 5.0
+            client = DexScreenerClient(timeout=timeout)
+            log.info(f"Using standard DexScreener client with {timeout}s timeout")
         
         processed = 0
         updated = 0
