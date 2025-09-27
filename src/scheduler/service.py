@@ -65,11 +65,11 @@ async def _process_group(group: str) -> None:
             # Use shorter cache for hot tokens (more frequent updates)
             cache_ttl = 15 if group == "hot" else 30
             # Shorter timeout for cold group to process more tokens faster
-            timeout = 3.0 if group == "cold" else 5.0
+            timeout = 2.0 if group == "cold" else 5.0
             client = ResilientDexScreenerClient(timeout=timeout, cache_ttl=cache_ttl)
             log.info(f"Using resilient DexScreener client with circuit breaker, {timeout}s timeout and {cache_ttl}s cache for {group} tokens")
         else:
-            timeout = 3.0 if group == "cold" else 5.0
+            timeout = 2.0 if group == "cold" else 5.0
             client = DexScreenerClient(timeout=timeout)
             log.info(f"Using standard DexScreener client with {timeout}s timeout")
         
