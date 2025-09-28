@@ -78,6 +78,86 @@ class ComponentCalculator:
             return 0.0
     
     @staticmethod
+    def calculate_tx_arbitrage_activity(tx_count_5m: float, tx_count_1h: float, filtering_settings: Optional[Dict[str, Any]] = None) -> float:
+        """
+        Calculate transaction activity component optimized for high-frequency arbitrage.
+        
+        Hybrid Formula: (absolute_activity * 0.7) + (acceleration * 0.3)
+        
+        This combines absolute transaction volume with acceleration to identify
+        tokens suitable for high-frequency arbitrage bots. Designed for bots
+        operating at 700ms intervals requiring 200+ transactions per 5 minutes.
+        
+        Args:
+            tx_count_5m: Number of transactions in last 5 minutes
+            tx_count_1h: Number of transactions in last 1 hour
+            filtering_settings: Optional settings for thresholds
+            
+        Returns:
+            Arbitrage activity score (0.0 to 1.0)
+        """
+        try:
+            # Basic data validation
+            if tx_count_5m < 0 or tx_count_1h < 0:
+                return 0.0
+            
+            # Get thresholds from settings or use defaults optimized for arbitrage
+            if filtering_settings:
+                min_threshold = filtering_settings.get("arbitrage_min_tx_5m", 50)
+                optimal_threshold = filtering_settings.get("arbitrage_optimal_tx_5m", 200)
+                acceleration_weight = filtering_settings.get("arbitrage_acceleration_weight", 0.3)
+            else:
+                min_threshold = 50    # Minimum threshold to enter calculation
+                optimal_threshold = 200  # Optimal threshold for arbitrage bots
+                acceleration_weight = 0.3  # 30% weight for acceleration
+            
+            # 1. Absolute Activity Component (70% weight by default)
+            if tx_count_5m < min_threshold:
+                absolute_score = 0.0
+            elif tx_count_5m >= optimal_threshold:
+                absolute_score = 1.0
+            else:
+                # Linear scaling between thresholds
+                absolute_score = (tx_count_5m - min_threshold) / (optimal_threshold - min_threshold)
+            
+            # 2. Acceleration Component (30% weight by default)
+            if tx_count_5m == 0 or tx_count_1h == 0:
+                acceleration_score = 0.0
+            else:
+                rate_5m = tx_count_5m / 5.0
+                rate_1h = tx_count_1h / 60.0
+                
+                if rate_1h <= 0:
+                    acceleration_score = 0.0
+                else:
+                    # Calculate acceleration ratio
+                    accel_ratio = rate_5m / rate_1h
+                    
+                    if accel_ratio >= 2.0:
+                        # 2x acceleration or more = maximum acceleration score
+                        acceleration_score = 1.0
+                    elif accel_ratio >= 1.0:
+                        # Linear scaling from 1x to 2x acceleration
+                        acceleration_score = (accel_ratio - 1.0) / 1.0
+                    else:
+                        # Deceleration = no acceleration bonus
+                        acceleration_score = 0.0
+            
+            # 3. Combine components with weights
+            absolute_weight = 1.0 - acceleration_weight
+            final_score = (absolute_score * absolute_weight) + (acceleration_score * acceleration_weight)
+            
+            # Ensure result is within bounds
+            return max(0.0, min(1.0, final_score))
+            
+        except (ZeroDivisionError, TypeError, ValueError):
+            logging.getLogger("component_calculator").warning(
+                "tx_arbitrage_activity_calculation_error", 
+                extra={"tx_count_5m": tx_count_5m, "tx_count_1h": tx_count_1h}
+            )
+            return 0.0
+
+    @staticmethod
     def calculate_vol_momentum(volume_5m: float, volume_1h: float, liquidity_usd: float = 0.0, filtering_settings: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculate volume momentum component with liquidity weighting.

@@ -204,12 +204,23 @@ class HybridMomentumModel:
             # Get filtering thresholds based on token status
             filtering_settings = self._get_filtering_settings(token.status)
             
-            # Calculate each component with filtering settings
-            tx_accel = ComponentCalculator.calculate_tx_accel(
-                validated_inputs["tx_count_5m"],
-                validated_inputs["tx_count_1h"],
-                filtering_settings
-            )
+            # Calculate transaction component based on mode setting
+            tx_calculation_mode = self.settings.get("tx_calculation_mode") or "acceleration"
+            
+            if tx_calculation_mode == "arbitrage_activity":
+                # Use new arbitrage-optimized calculation
+                tx_accel = ComponentCalculator.calculate_tx_arbitrage_activity(
+                    validated_inputs["tx_count_5m"],
+                    validated_inputs["tx_count_1h"],
+                    filtering_settings
+                )
+            else:
+                # Use traditional acceleration calculation (default)
+                tx_accel = ComponentCalculator.calculate_tx_accel(
+                    validated_inputs["tx_count_5m"],
+                    validated_inputs["tx_count_1h"],
+                    filtering_settings
+                )
             
             vol_momentum = ComponentCalculator.calculate_vol_momentum(
                 validated_inputs["volume_5m"],
@@ -324,6 +335,10 @@ class HybridMomentumModel:
                     "liquidity_factor_threshold": float(self.settings.get("liquidity_factor_threshold") or "100000.0"),
                     "orderflow_significance_threshold": float(self.settings.get("orderflow_significance_threshold") or "500.0"),
                     "manipulation_detection_ratio": float(self.settings.get("manipulation_detection_ratio") or "3.0"),
+                    # Arbitrage mode parameters
+                    "arbitrage_min_tx_5m": int(self.settings.get("arbitrage_min_tx_5m") or "50"),
+                    "arbitrage_optimal_tx_5m": int(self.settings.get("arbitrage_optimal_tx_5m") or "200"),
+                    "arbitrage_acceleration_weight": float(self.settings.get("arbitrage_acceleration_weight") or "0.3"),
                 }
             else:
                 # For active tokens: strict filtering (current behavior)
@@ -337,6 +352,10 @@ class HybridMomentumModel:
                     "liquidity_factor_threshold": float(self.settings.get("liquidity_factor_threshold") or "100000.0"),
                     "orderflow_significance_threshold": float(self.settings.get("orderflow_significance_threshold") or "500.0"),
                     "manipulation_detection_ratio": float(self.settings.get("manipulation_detection_ratio") or "3.0"),
+                    # Arbitrage mode parameters
+                    "arbitrage_min_tx_5m": int(self.settings.get("arbitrage_min_tx_5m") or "50"),
+                    "arbitrage_optimal_tx_5m": int(self.settings.get("arbitrage_optimal_tx_5m") or "200"),
+                    "arbitrage_acceleration_weight": float(self.settings.get("arbitrage_acceleration_weight") or "0.3"),
                 }
         except Exception as e:
             self.logger.warning(

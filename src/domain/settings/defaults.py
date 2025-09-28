@@ -48,4 +48,10 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "liquidity_factor_threshold": "100000.0",  # Liquidity threshold for volume momentum factor ($100k)
     "orderflow_significance_threshold": "500.0",  # Volume threshold for orderflow significance ($500)
     "manipulation_detection_ratio": "3.0",     # Size ratio threshold for manipulation detection (3x average)
+    
+    # Arbitrage mode settings
+    "tx_calculation_mode": "acceleration",     # Transaction calculation mode: "acceleration" or "arbitrage_activity"
+    "arbitrage_min_tx_5m": "50",              # Minimum transactions for arbitrage calculation
+    "arbitrage_optimal_tx_5m": "200",         # Optimal transactions for arbitrage bots
+    "arbitrage_acceleration_weight": "0.3",   # Weight of acceleration component in arbitrage mode
 }
