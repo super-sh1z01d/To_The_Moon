@@ -43,6 +43,9 @@ async def _process_group(group: str) -> None:
         from src.monitoring.metrics import get_load_processor
         load_processor = get_load_processor()
         
+        # Capture system metrics once at the beginning
+        system_metrics = load_processor.get_current_load()
+        
         # Adjust batch size based on system load and token count
         # Conservative batch sizes to prevent server overload
         base_limit = 35 if group == "hot" else 70  # Balanced batches for stable performance
@@ -54,8 +57,14 @@ async def _process_group(group: str) -> None:
         
         # Get tokens with priority ordering
         tokens = priority_processor.get_prioritized_tokens(
-            repo, group, adjusted_limit, load_processor.get_current_load()
+            repo, group, adjusted_limit, system_metrics
         )
+        
+        # Process deferred tokens if system load is low (only for cold group to avoid conflicts)
+        if group == "cold" and system_metrics.get("cpu_percent", 100) < 70:
+            deferred_processed = priority_processor.process_deferred_tokens(repo, max_tokens=20)
+            if deferred_processed > 0:
+                log.info(f"processed_deferred_tokens", extra={"extra": {"count": deferred_processed, "group": group}})
         # Use resilient client with circuit breaker in production
         from src.core.config import get_config
         config = get_config()
@@ -262,8 +271,8 @@ async def _process_group(group: str) -> None:
             "response_time": processing_time,
             "throughput": processed / (processing_time / 60) if processing_time > 0 else 0,  # tokens per minute
             "error_rate": 0,  # Could be calculated from failed token updates
-            "cpu_usage": system_metrics.get("cpu_percent", 0) if 'system_metrics' in locals() else 0,
-            "memory_usage": system_metrics.get("memory_percent", 0) if 'system_metrics' in locals() else 0
+            "cpu_usage": system_metrics.get("cpu_percent", 0),
+            "memory_usage": system_metrics.get("memory_percent", 0)
         }
         
         degradation_detector.record_performance_metric("scheduler", performance_metrics)
@@ -340,6 +349,11 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     
     hot_interval = load_processor.get_adjusted_interval(base_hot_interval)
     cold_interval = load_processor.get_adjusted_interval(base_cold_interval)
+
+    # Update health monitor intervals to match actual scheduler settings
+    from src.scheduler.monitoring import get_health_monitor
+    health_monitor = get_health_monitor()
+    health_monitor.update_intervals(hot_interval, cold_interval)
 
     scheduler = AsyncIOScheduler()
     

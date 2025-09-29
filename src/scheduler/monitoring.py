@@ -50,12 +50,17 @@ class SchedulerHealthMonitor:
     def __init__(self):
         self.last_hot_run: Optional[datetime] = None
         self.last_cold_run: Optional[datetime] = None
-        self.hot_interval_sec = 30
-        self.cold_interval_sec = 120
+        self.hot_interval_sec = 30  # Default, will be updated from settings
+        self.cold_interval_sec = 120  # Default, will be updated from settings
         self.metrics = SchedulerMetrics()
         self._lock = threading.Lock()
         self._active_jobs: Dict[str, JobExecution] = {}
         self._job_timeout_seconds = 300  # 5 minutes timeout for stuck jobs
+    
+    def update_intervals(self, hot_interval_sec: int, cold_interval_sec: int):
+        """Update monitoring intervals to match actual scheduler settings."""
+        self.hot_interval_sec = hot_interval_sec
+        self.cold_interval_sec = cold_interval_sec
         
     def record_group_execution(self, group: str, tokens_processed: int, tokens_updated: int):
         """Записать выполнение группы."""
@@ -736,9 +741,11 @@ class SelfHealingSchedulerWrapper:
                 # Trigger emergency restart if threshold exceeded
                 if self._consecutive_failures >= self._critical_failure_threshold:
                     log.critical("triggering_emergency_restart_due_to_critical_health")
-                    return asyncio.create_task(
+                    # Schedule restart asynchronously without blocking
+                    asyncio.create_task(
                         self.emergency_restart("critical_health_threshold_exceeded")
-                    ).result()
+                    )
+                    return True
             
             # Check for stuck jobs
             stuck_jobs = health_status["performance"]["stuck_jobs"]
@@ -748,10 +755,11 @@ class SelfHealingSchedulerWrapper:
                     extra={"stuck_jobs_count": stuck_jobs}
                 )
                 
-                # Trigger graceful restart for stuck jobs
-                return asyncio.create_task(
+                # Schedule graceful restart for stuck jobs asynchronously
+                asyncio.create_task(
                     self.graceful_restart("stuck_jobs_detected")
-                ).result()
+                )
+                return True
             
             # Reset consecutive failures if health is good
             if health_status["status"] in ["healthy", "degraded"]:
@@ -1281,9 +1289,10 @@ class PriorityProcessor:
         """Get tokens ordered by priority with load-based adjustments."""
         try:
             # Get ALL tokens (both active and monitoring) for proper hot/cold filtering by score
-            # Don't limit active tokens - we need to process all of them
-            active_tokens = repo.list_by_status("active", limit=1000)  # Get all active tokens
-            monitoring_tokens = repo.list_by_status("monitoring", limit=limit)  # Limit monitoring tokens
+            # Use higher limits to ensure we don't miss tokens as the database grows
+            active_limit = 5000  # Increased from 1000 to handle growth
+            active_tokens = repo.list_by_status("active", limit=active_limit)
+            monitoring_tokens = repo.list_by_status("monitoring", limit=limit)
             base_tokens = active_tokens + monitoring_tokens
             
             if not base_tokens:
