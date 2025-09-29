@@ -56,9 +56,14 @@ async def _process_group(group: str) -> None:
         from src.scheduler.priority_processor import get_priority_processor
         priority_processor = get_priority_processor()
         
+        # Use adaptive batch sizing for better performance
+        from src.scheduler.parallel_processor import get_adaptive_batch_processor
+        adaptive_processor = get_adaptive_batch_processor()
+        adaptive_limit = adaptive_processor.get_adaptive_batch_size(adjusted_limit, system_metrics)
+        
         # Get tokens with priority ordering
         tokens = priority_processor.get_prioritized_tokens(
-            repo, group, adjusted_limit, system_metrics
+            repo, group, adaptive_limit, system_metrics
         )
         
         # Process deferred tokens if system load is low (only for cold group to avoid conflicts)

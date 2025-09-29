@@ -144,6 +144,9 @@ class ResilientDexScreenerClient:
             'failed_requests': 0
         }
         
+        # Initialize async HTTP client for parallel processing
+        self._async_client = None
+        
         log.info("Resilient DexScreener client initialized", extra={
             "timeout": timeout,
             "cache_ttl": cache_ttl,
