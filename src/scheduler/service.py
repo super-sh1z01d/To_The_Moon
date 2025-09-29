@@ -256,27 +256,35 @@ async def _process_group(group: str) -> None:
         processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
         performance_tracker.record_scheduler_execution(group, processing_time, processed, updated)
         
-        # Structured logging
-        structured_logger = get_structured_logger("scheduler")
-        structured_logger.log_scheduler_execution(
-            group=group,
-            tokens_processed=processed,
-            tokens_updated=updated,
-            processing_time=processing_time,
-            error_count=0,
-            batch_size=adjusted_limit
-        )
+        # Structured logging with fallback
+        try:
+            structured_logger = get_structured_logger("scheduler")
+            if structured_logger:
+                structured_logger.log_scheduler_execution(
+                    group=group,
+                    tokens_processed=processed,
+                    tokens_updated=updated,
+                    processing_time=processing_time,
+                    error_count=0,
+                    batch_size=adjusted_limit
+                )
+        except Exception as e:
+            log.warning(f"Structured logging failed: {e}")
         
         # Performance optimization
         performance_optimizer = get_performance_optimizer()
         optimization_result = performance_optimizer.optimize_service("scheduler")
         
         if optimization_result.get("optimized") and optimization_result.get("changes"):
-            structured_logger.info(
-                f"Scheduler performance optimized",
-                group=group,
-                optimization_changes=optimization_result["changes"]
-            )
+            try:
+                if 'structured_logger' in locals() and structured_logger:
+                    structured_logger.info(
+                        f"Scheduler performance optimized",
+                        group=group,
+                        optimization_changes=optimization_result["changes"]
+                    )
+            except Exception as e:
+                log.warning(f"Structured logging for optimization failed: {e}")
         
         # Performance degradation detection
         from src.monitoring.metrics import get_performance_degradation_detector
@@ -296,13 +304,17 @@ async def _process_group(group: str) -> None:
         # Check for predictive alerts
         predictive_alerts = degradation_detector.get_predictive_alerts("scheduler", forecast_minutes=15)
         for alert in predictive_alerts:
-            structured_logger.warning(
-                f"Predictive performance alert: {alert['message']}",
-                group=group,
-                alert_type=alert["type"],
-                confidence=alert["confidence"],
-                projected_value=alert["projected_value"]
-            )
+            try:
+                if 'structured_logger' in locals() and structured_logger:
+                    structured_logger.warning(
+                        f"Predictive performance alert: {alert['message']}",
+                        group=group,
+                        alert_type=alert["type"],
+                        confidence=alert["confidence"],
+                        projected_value=alert["projected_value"]
+                    )
+            except Exception as e:
+                log.warning(f"Structured logging for predictive alert failed: {e}")
         
         # Check if we need to perform health check and recovery
         try:
