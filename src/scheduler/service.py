@@ -125,18 +125,34 @@ async def _process_group(group: str) -> None:
                 if group == "cold":
                     continue  # Active tokens don't go to cold group
             else:
-                # For monitoring tokens, use score-based filtering
-                # Tokens without scores (new monitoring tokens) should go to cold group
+                # For monitoring tokens, use score-based filtering with activation priority
                 if last_score is None:
                     # New monitoring tokens without scores go to cold group for activation check
                     if group == "hot":
                         continue
                 else:
-                    # Existing monitoring tokens with scores use normal hot/cold filtering
-                    if group == "hot" and not is_hot:
-                        continue
-                    if group == "cold" and is_hot:
-                        continue
+                    # High-scoring monitoring tokens should be processed more frequently
+                    # to enable faster activation and keep data fresh
+                    high_score_threshold = min_score * 2.0  # 2x min_score for priority processing
+                    is_high_priority = last_score >= high_score_threshold
+                    
+                    if group == "hot":
+                        # Hot group processes high-priority monitoring tokens + all active tokens
+                        if not (is_hot or is_high_priority):
+                            continue
+                    elif group == "cold":
+                        # Cold group processes low-priority monitoring tokens + activation checks
+                        if is_hot and is_high_priority:
+                            continue
+                    
+                    # Log high-priority monitoring tokens for debugging
+                    if is_high_priority and t.status == "monitoring":
+                        log.debug(f"processing_high_priority_monitoring_token", extra={"extra": {
+                            "mint": t.mint_address[:20] + "...", 
+                            "score": last_score, 
+                            "group": group,
+                            "threshold": high_score_threshold
+                        }})
 
             processed += 1
             
@@ -389,10 +405,10 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     from apscheduler.triggers.interval import IntervalTrigger
     from src.scheduler.tasks import archive_once, enforce_activation_once
 
-    # Increase batch size to cover more tokens for activation
+    # Increase frequency and batch size for faster activation
     scheduler.add_job(
-        lambda: enforce_activation_once(limit_monitoring=50, limit_active=20), 
-        IntervalTrigger(minutes=3), 
+        lambda: enforce_activation_once(limit_monitoring=100, limit_active=50), 
+        IntervalTrigger(minutes=1), 
         id="activation_enforcer", 
         max_instances=1
     )
