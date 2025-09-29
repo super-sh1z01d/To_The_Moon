@@ -23,19 +23,21 @@ function formatTime(timestamp: number): string {
 export default function ArbitragePanel({ tokens, notarbMinScore = 0.5 }: ArbitragePanelProps) {
   // Мемоизация для производительности
   const stats = useMemo(() => {
-    const watchThreshold = Math.max(0.4, notarbMinScore - 0.1) // Наблюдение на 0.1 ниже порога бота
+    // Фиксированные пороги для стабильности
+    const botThreshold = notarbMinScore // Используем настройку для ботов
+    const watchThreshold = 0.5 // Фиксированный порог для наблюдения
     
     return {
-      botReady: tokens.filter(t => (t.score || 0) >= notarbMinScore).length,
+      botReady: tokens.filter(t => (t.score || 0) >= botThreshold).length,
       watchList: tokens.filter(t => {
         const score = t.score || 0
-        return score >= watchThreshold && score < notarbMinScore
+        return score >= watchThreshold && score < botThreshold
       }).length,
       highActivity: tokens.filter(t => (t.n_5m || 0) >= 150).length,
       freshTokens: tokens.filter(t => getTokenAge(t.created_at) <= 6).length,
       totalActive: tokens.length,
       // Для отображения порогов
-      botThreshold: notarbMinScore,
+      botThreshold: botThreshold,
       watchThreshold: watchThreshold
     }
   }, [tokens, notarbMinScore])
