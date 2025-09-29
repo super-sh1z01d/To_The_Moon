@@ -332,7 +332,7 @@ class ResilientDexScreenerClient:
     
     async def get_pairs_async(self, mint: str) -> Optional[list[dict[str, Any]]]:
         """
-        Async version of get_pairs.
+        Async version of get_pairs with native async HTTP client.
         
         Args:
             mint: Token mint address
@@ -340,10 +340,120 @@ class ResilientDexScreenerClient:
         Returns:
             List of token pairs or None if unavailable
         """
-        # For now, run sync version in thread pool
-        # In a real implementation, you might want to use httpx.AsyncClient
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self.get_pairs, mint)
+        if self._async_client is None:
+            self._async_client = httpx.AsyncClient(timeout=self.timeout)
+        
+        # Use same resilience patterns as sync version
+        cache_key = f"pairs:{mint}"
+        
+        # Check cache first
+        if self.enable_cache:
+            cached_result = self._cache.get(cache_key)
+            if cached_result is not None:
+                self._stats['cache_hits'] += 1
+                return cached_result
+            self._stats['cache_misses'] += 1
+        
+        self._stats['total_requests'] += 1
+        
+        # Apply circuit breaker if enabled
+        if self.enable_circuit_breaker:
+            try:
+                result = await self._circuit_breaker.call_async(
+                    self._make_async_api_call, mint
+                )
+            except CircuitBreakerOpenError:
+                self._stats['circuit_breaker_trips'] += 1
+                log.warning(f"Circuit breaker open for mint {mint}, using fallback")
+                # Try to return cached result as fallback
+                if self.enable_cache:
+                    fallback = self._cache.get(cache_key)
+                    if fallback is not None:
+                        return fallback
+                return None
+        else:
+            result = await self._make_async_api_call(mint)
+        
+        # Cache successful results
+        if self.enable_cache and result is not None:
+            self._cache.set(cache_key, result)
+        
+        if result is not None:
+            self._stats['successful_requests'] += 1
+        else:
+            self._stats['failed_requests'] += 1
+        
+        return result
+    
+    async def _make_async_api_call(self, mint: str) -> Optional[list[dict[str, Any]]]:
+        """Make async API call with error handling."""
+        url = f"https://api.dexscreener.com/latest/dex/tokens/{mint}"
+        
+        try:
+            start_time = time.time()
+            
+            async with self._async_client as client:
+                resp = await client.get(url)
+                
+            duration = time.time() - start_time
+            
+            log.debug(f"DexScreener async API call completed", extra={
+                "mint": mint[:20] + "...",
+                "status_code": resp.status_code,
+                "duration": duration
+            })
+            
+            # Record API call for health monitoring
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            
+            # Handle different response codes (same logic as sync version)
+            if resp.status_code == 200:
+                result = self._parse_response(resp, mint)
+                health_monitor.record_api_call("dexscreener", True, duration * 1000)
+                return result
+            elif resp.status_code == 404:
+                health_monitor.record_api_call("dexscreener", True, duration * 1000)
+                return []
+            elif resp.status_code == 429:
+                health_monitor.record_api_call("dexscreener", False, duration * 1000, "Rate limited")
+                raise DexScreenerRateLimitError(f"Rate limited for mint {mint}")
+            elif resp.status_code >= 500:
+                health_monitor.record_api_call("dexscreener", False, duration * 1000, f"Server error {resp.status_code}")
+                raise DexScreenerAPIError(f"Server error {resp.status_code} for mint {mint}")
+            elif resp.status_code >= 400:
+                health_monitor.record_api_call("dexscreener", False, duration * 1000, f"Client error {resp.status_code}")
+                raise DexScreenerInvalidResponseError(f"Client error {resp.status_code} for mint {mint}")
+            else:
+                health_monitor.record_api_call("dexscreener", False, duration * 1000, f"Unexpected status {resp.status_code}")
+                raise DexScreenerAPIError(f"Unexpected status {resp.status_code} for mint {mint}")
+                
+        except httpx.TimeoutException:
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            health_monitor.record_api_call("dexscreener", False, self.timeout * 1000, "Timeout")
+            raise DexScreenerTimeoutError(f"Timeout for mint {mint}")
+        except httpx.ConnectError:
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            health_monitor.record_api_call("dexscreener", False, 0, "Connection error")
+            raise DexScreenerConnectionError(f"Connection error for mint {mint}")
+        except httpx.HTTPError as e:
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            health_monitor.record_api_call("dexscreener", False, 0, f"HTTP error: {e}")
+            raise DexScreenerConnectionError(f"HTTP error for mint {mint}: {e}")
+        except Exception as e:
+            from src.monitoring.health_monitor import get_health_monitor
+            health_monitor = get_health_monitor()
+            health_monitor.record_api_call("dexscreener", False, 0, f"Unexpected error: {e}")
+            raise DexScreenerAPIError(f"Unexpected error for mint {mint}: {e}")
+    
+    async def close_async_client(self):
+        """Close async HTTP client."""
+        if self._async_client is not None:
+            await self._async_client.aclose()
+            self._async_client = None
     
     def is_healthy(self) -> bool:
         """Check if the API client is healthy."""
