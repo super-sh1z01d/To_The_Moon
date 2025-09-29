@@ -284,8 +284,25 @@ def enable_parallel_processing_in_service():
                 
                 log.info(f"Using parallel DexScreener client with {timeout}s timeout", extra={"extra": {"group": group}})
                 
-                # Get tokens using same logic as original
-                tokens = repo.get_tokens_for_processing(group, min_score)
+                # Get tokens using same logic as original service.py
+                from src.scheduler.priority_processor import get_priority_processor
+                from src.scheduler.parallel_processor import get_adaptive_batch_processor
+                from src.monitoring.metrics import get_load_processor
+                
+                load_processor = get_load_processor()
+                system_metrics = load_processor.get_current_load()
+                
+                # Use same batch sizing logic as original
+                base_limit = 35 if group == "hot" else 70
+                adjusted_limit = load_processor.get_adjusted_batch_size(base_limit)
+                
+                adaptive_processor = get_adaptive_batch_processor()
+                adaptive_limit = adaptive_processor.get_adaptive_batch_size(adjusted_limit, system_metrics)
+                
+                priority_processor = get_priority_processor()
+                tokens = priority_processor.get_prioritized_tokens(
+                    repo, group, adaptive_limit, system_metrics
+                )
                 
                 if not tokens:
                     log.info(f"No tokens to process for group {group}")
@@ -346,4 +363,41 @@ def enable_parallel_processing_in_service():
         
     except Exception as e:
         log.error(f"❌ Failed to enable parallel processing: {e}")
+        return False
+
+
+def enable_parallel_integration():
+    """
+    Enable parallel processing integration in the main scheduler.
+    This function patches the main service.py to use parallel processing.
+    """
+    try:
+        import src.scheduler.service as scheduler_service
+        
+        # Store original function
+        original_process_group = scheduler_service._process_group
+        
+        # Create our enhanced version
+        async def enhanced_process_group_with_parallel(group: str) -> None:
+            """Enhanced _process_group with integrated parallel processing."""
+            log.info(f"🚀 Using parallel processing for {group} group")
+            
+            try:
+                # Try to use the enhanced service first
+                from src.scheduler.enhanced_service import process_group_with_parallel_fetch
+                await process_group_with_parallel_fetch(group)
+                log.info(f"✅ Enhanced parallel processing completed for {group}")
+            except Exception as e:
+                log.warning(f"Enhanced processing failed for {group}: {e}, falling back to original")
+                # Fallback to original implementation
+                await original_process_group(group)
+        
+        # Replace the function
+        scheduler_service._process_group = enhanced_process_group_with_parallel
+        
+        log.info("✅ Parallel integration enabled successfully")
+        return True
+        
+    except Exception as e:
+        log.error(f"❌ Failed to enable parallel integration: {e}")
         return False

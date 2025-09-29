@@ -12,7 +12,7 @@ from src.adapters.db.models import Token
 from src.adapters.repositories.tokens_repo import TokensRepository as TokenRepository
 from src.domain.scoring.scoring_service import ScoringService
 from src.scheduler.parallel_processor import get_parallel_processor, get_adaptive_batch_processor
-from src.scheduler.load_processor import get_load_processor
+# load_processor will be imported with fallback
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +23,21 @@ class OptimizedTokenProcessor:
     """
     
     def __init__(self):
-        self.load_processor = get_load_processor()
+        # Initialize load_processor with fallback
+        try:
+            from src.scheduler.load_processor import get_load_processor
+            self.load_processor = get_load_processor()
+        except ImportError:
+            # Fallback implementation
+            class FallbackLoadProcessor:
+                def get_current_load(self):
+                    return {"cpu_percent": 50, "memory_percent": 50}
+                def get_adjusted_batch_size(self, base_limit):
+                    return base_limit
+                def record_performance(self, *args, **kwargs):
+                    pass
+            self.load_processor = FallbackLoadProcessor()
+        
         self.adaptive_processor = get_adaptive_batch_processor()
         
     async def process_token_group(

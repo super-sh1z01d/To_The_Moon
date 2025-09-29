@@ -371,6 +371,17 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         log.info("scheduler_disabled_by_env_var")
         return None
 
+    # 🚀 АВТОМАТИЧЕСКОЕ ВКЛЮЧЕНИЕ ОПТИМИЗАЦИЙ
+    try:
+        from src.scheduler.simple_optimizations import enable_simple_optimizations
+        if enable_simple_optimizations():
+            log.info("✅ Scheduler optimizations enabled successfully")
+        else:
+            log.warning("⚠️ Scheduler optimizations failed to enable, using fallback")
+    except Exception as e:
+        log.error(f"❌ Failed to enable scheduler optimizations: {e}")
+        # Продолжаем работу без оптимизаций
+
     with SessionLocal() as sess:
         settings = SettingsService(sess)
         try:

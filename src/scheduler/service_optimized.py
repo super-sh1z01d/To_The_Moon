@@ -10,7 +10,7 @@ from typing import Tuple
 
 from src.adapters.repositories.tokens_repo import TokensRepository as TokenRepository
 from src.domain.scoring.scoring_service import ScoringService
-from src.scheduler.load_processor import get_load_processor
+# load_processor will be imported inside functions with fallback
 from src.scheduler.optimized_processor import get_optimized_processor
 from src.adapters.services.dexscreener_client import DexScreenerClient
 from src.core.config import get_config
@@ -40,8 +40,25 @@ async def process_group_optimized(
     """
     start_time = datetime.now()
     
-    # Get system metrics and load processor
-    load_processor = get_load_processor()
+    # Get system metrics and load processor with fallback
+    try:
+        from src.scheduler.load_processor import get_load_processor
+        load_processor = get_load_processor()
+    except ImportError:
+        # Fallback implementation if load_processor doesn't exist
+        class FallbackLoadProcessor:
+            def get_adjusted_interval(self, base_interval):
+                return base_interval
+            def record_performance(self, *args, **kwargs):
+                pass
+            def get_current_load(self):
+                return {"cpu_percent": 50, "memory_percent": 50}
+            def get_adjusted_batch_size(self, base_limit):
+                return base_limit
+            def process_load_adjustment(self, *args, **kwargs):
+                pass
+        load_processor = FallbackLoadProcessor()
+    
     system_metrics = load_processor.get_current_load()
     
     # Use adaptive batch sizing for better performance
