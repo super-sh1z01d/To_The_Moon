@@ -45,6 +45,9 @@ export default function EnhancedScoreCell({
     oi: 0.25
   }
   
+  // Версия компонента для принудительного обновления кеша
+  const componentVersion = "v1.1"
+  
   return (
     <div className={`score-cell ${getScoreClass(score)} ${compact ? 'compact' : ''}`}>
       
