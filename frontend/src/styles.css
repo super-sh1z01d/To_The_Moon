@@ -567,6 +567,14 @@ thead th{ position: sticky; top: 0; z-index: 1 }
   color: var(--color-gray-900);
 }
 
+.comp-percent {
+  width: 35px;
+  font-family: 'SF Mono', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--color-gray-500);
+}
+
 .comp-bar {
   flex: 1;
   height: 2px;
@@ -581,7 +589,9 @@ thead th{ position: sticky; top: 0; z-index: 1 }
 }
 
 .tx-fill { background: var(--color-info); }
+.vol-fill { background: var(--color-primary); }
 .fresh-fill { background: var(--color-success); }
+.oi-fill { background: var(--color-warning); }
 
 .score-tooltip {
   position: absolute;
@@ -613,17 +623,34 @@ thead th{ position: sticky; top: 0; z-index: 1 }
 .breakdown-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   margin: 2px 0;
   font-size: 11px;
 }
 
 .breakdown-row span:first-child {
   color: var(--color-gray-600);
+  min-width: 35px;
+}
+
+.breakdown-row span:nth-child(2) {
+  font-family: 'SF Mono', monospace;
+  font-weight: 500;
+}
+
+.breakdown-row span:nth-child(3) {
+  color: var(--color-gray-600);
+  font-size: 10px;
+  font-family: 'SF Mono', monospace;
 }
 
 .breakdown-row span:last-child {
-  color: var(--color-gray-600);
+  color: var(--color-gray-500);
   font-size: 10px;
+  font-weight: 600;
+  min-width: 30px;
+  text-align: right;
 }
 
 .tooltip-meta {
