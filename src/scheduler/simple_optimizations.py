@@ -223,7 +223,27 @@ async def process_group_optimized_simple(
 
 
 def enable_simple_optimizations():
-    """Enable simple optimizations by monkey-patching the original scheduler."""
+    """Enable optimizations using the enhanced scheduler with parallel processing."""
+    try:
+        # Try to use the new enhanced scheduler first
+        from src.scheduler.enhanced_service import enable_enhanced_scheduler
+        
+        if enable_enhanced_scheduler():
+            log.info("✅ Enhanced scheduler with parallel processing enabled")
+            return True
+        
+        # Fallback to simple optimizations if enhanced fails
+        log.warning("Enhanced scheduler failed, falling back to simple optimizations")
+        return _enable_fallback_optimizations()
+        
+    except Exception as e:
+        log.error(f"Failed to enable enhanced optimizations: {e}")
+        # Fallback to simple optimizations
+        return _enable_fallback_optimizations()
+
+
+def _enable_fallback_optimizations():
+    """Fallback method using the original simple optimizations."""
     try:
         import src.scheduler.service as scheduler_service
         
@@ -295,11 +315,11 @@ def enable_simple_optimizations():
         # Replace the original function
         scheduler_service._process_group = optimized_process_group_wrapper
         
-        log.info("Simple scheduler optimizations enabled successfully")
+        log.info("✅ Fallback simple scheduler optimizations enabled")
         return True
         
     except Exception as e:
-        log.error(f"Failed to enable simple optimizations: {e}")
+        log.error(f"❌ Failed to enable fallback optimizations: {e}")
         return False
 
 
