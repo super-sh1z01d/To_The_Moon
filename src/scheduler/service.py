@@ -292,7 +292,10 @@ async def _process_group(group: str) -> None:
         try:
             from src.app.main import app
             if hasattr(app.state, 'self_healing_wrapper'):
-                app.state.self_healing_wrapper.check_health_and_recover()
+                # Schedule health check asynchronously to avoid blocking
+                asyncio.create_task(
+                    app.state.self_healing_wrapper.check_health_and_recover()
+                )
         except Exception as e:
             # Self-healing is optional, don't fail if not available
             log.debug(f"Self-healing check skipped: {e}")
@@ -395,6 +398,36 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     )
     # Архивация раз в час
     scheduler.add_job(archive_once, IntervalTrigger(hours=1), id="archiver_hourly", max_instances=1)
+    
+    # Обработка deferred queue каждые 5 минут при низкой нагрузке
+    def process_deferred_queue_task():
+        """Process deferred tokens when system load is acceptable."""
+        try:
+            from src.monitoring.metrics import get_load_processor
+            from src.scheduler.priority_processor import get_priority_processor
+            from src.adapters.db.base import SessionLocal
+            from src.adapters.repositories.tokens_repo import TokensRepository
+            
+            load_processor = get_load_processor()
+            current_load = load_processor.get_current_load()
+            
+            # Only process if CPU usage is reasonable
+            if current_load.get("cpu_percent", 100) < 75:
+                priority_processor = get_priority_processor()
+                with SessionLocal() as sess:
+                    repo = TokensRepository(sess)
+                    processed = priority_processor.process_deferred_tokens(repo, max_tokens=30)
+                    if processed > 0:
+                        log.info(f"deferred_queue_maintenance", extra={"extra": {"processed": processed, "cpu_percent": current_load.get("cpu_percent")}})
+        except Exception as e:
+            log.error(f"deferred_queue_processing_error", extra={"extra": {"error": str(e)}})
+    
+    scheduler.add_job(
+        process_deferred_queue_task, 
+        IntervalTrigger(minutes=5), 
+        id="deferred_queue_processor", 
+        max_instances=1
+    )
     
     # NotArb pools file updates - simple 15 second interval
     from src.scheduler.notarb_tasks import update_notarb_pools_file

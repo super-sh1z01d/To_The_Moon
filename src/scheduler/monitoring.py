@@ -715,7 +715,7 @@ class SelfHealingSchedulerWrapper:
         finally:
             self._is_restarting = False
     
-    def check_health_and_recover(self) -> bool:
+    async def check_health_and_recover(self) -> bool:
         """
         Check scheduler health and perform recovery if needed.
         
@@ -741,10 +741,7 @@ class SelfHealingSchedulerWrapper:
                 # Trigger emergency restart if threshold exceeded
                 if self._consecutive_failures >= self._critical_failure_threshold:
                     log.critical("triggering_emergency_restart_due_to_critical_health")
-                    # Schedule restart asynchronously without blocking
-                    asyncio.create_task(
-                        self.emergency_restart("critical_health_threshold_exceeded")
-                    )
+                    await self.emergency_restart("critical_health_threshold_exceeded")
                     return True
             
             # Check for stuck jobs
@@ -755,10 +752,8 @@ class SelfHealingSchedulerWrapper:
                     extra={"stuck_jobs_count": stuck_jobs}
                 )
                 
-                # Schedule graceful restart for stuck jobs asynchronously
-                asyncio.create_task(
-                    self.graceful_restart("stuck_jobs_detected")
-                )
+                # Trigger graceful restart for stuck jobs
+                await self.graceful_restart("stuck_jobs_detected")
                 return True
             
             # Reset consecutive failures if health is good
@@ -1343,8 +1338,15 @@ class PriorityProcessor:
                             should_defer = True
                     
                     if should_defer:
-                        self.deferred_queue.append((token, priority_score))
-                        deferred_count += 1
+                        # Limit deferred queue size to prevent unbounded growth
+                        max_deferred_size = 500  # Reasonable limit
+                        if len(self.deferred_queue) < max_deferred_size:
+                            self.deferred_queue.append((token, priority_score))
+                            deferred_count += 1
+                        else:
+                            # Queue is full, process token normally instead of deferring
+                            prioritized_tokens.append(token)
+                            low_priority_count += 1
                         continue
                     
                     if should_process:

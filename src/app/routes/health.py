@@ -882,7 +882,7 @@ async def trigger_health_check():
             raise HTTPException(status_code=404, detail="Self-healing scheduler not enabled")
         
         wrapper = app.state.self_healing_wrapper
-        health_ok = wrapper.check_health_and_recover()
+        health_ok = await wrapper.check_health_and_recover()
         
         return {
             "message": "Health check completed",
