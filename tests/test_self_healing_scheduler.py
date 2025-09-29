@@ -211,7 +211,8 @@ class TestSelfHealingSchedulerWrapper:
                 assert self.wrapper._restart_count == 1
                 mock_new_scheduler.start.assert_called_once()
     
-    def test_check_health_and_recover_healthy(self):
+    @pytest.mark.asyncio
+    async def test_check_health_and_recover_healthy(self):
         """Test health check with healthy scheduler."""
         with patch('src.scheduler.monitoring.health_monitor') as mock_monitor:
             mock_monitor.get_comprehensive_health_status.return_value = {
@@ -219,12 +220,13 @@ class TestSelfHealingSchedulerWrapper:
                 "performance": {"stuck_jobs": 0}
             }
             
-            result = self.wrapper.check_health_and_recover()
+            result = await self.wrapper.check_health_and_recover()
             
             assert result is True
             assert self.wrapper._consecutive_failures == 0
     
-    def test_check_health_and_recover_critical(self):
+    @pytest.mark.asyncio
+    async def test_check_health_and_recover_critical(self):
         """Test health check with critical scheduler status."""
         with patch('src.scheduler.monitoring.health_monitor') as mock_monitor:
             mock_monitor.get_comprehensive_health_status.return_value = {
@@ -233,16 +235,17 @@ class TestSelfHealingSchedulerWrapper:
             }
             
             # First critical status
-            result = self.wrapper.check_health_and_recover()
+            result = await self.wrapper.check_health_and_recover()
             assert result is True
             assert self.wrapper._consecutive_failures == 1
             
             # Second critical status
-            result = self.wrapper.check_health_and_recover()
+            result = await self.wrapper.check_health_and_recover()
             assert result is True
             assert self.wrapper._consecutive_failures == 2
     
-    def test_check_health_and_recover_stuck_jobs(self):
+    @pytest.mark.asyncio
+    async def test_check_health_and_recover_stuck_jobs(self):
         """Test health check with stuck jobs."""
         with patch('src.scheduler.monitoring.health_monitor') as mock_monitor:
             mock_monitor.get_comprehensive_health_status.return_value = {
@@ -253,7 +256,7 @@ class TestSelfHealingSchedulerWrapper:
             with patch.object(self.wrapper, 'graceful_restart', new_callable=AsyncMock) as mock_restart:
                 mock_restart.return_value = True
                 
-                result = self.wrapper.check_health_and_recover()
+                result = await self.wrapper.check_health_and_recover()
                 
                 # Should trigger graceful restart due to stuck jobs
                 assert result is True

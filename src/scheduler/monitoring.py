@@ -741,8 +741,8 @@ class SelfHealingSchedulerWrapper:
                 # Trigger emergency restart if threshold exceeded
                 if self._consecutive_failures >= self._critical_failure_threshold:
                     log.critical("triggering_emergency_restart_due_to_critical_health")
-                    await self.emergency_restart("critical_health_threshold_exceeded")
-                    return True
+                    restart_result = await self.emergency_restart("critical_health_threshold_exceeded")
+                    return restart_result
             
             # Check for stuck jobs
             stuck_jobs = health_status["performance"]["stuck_jobs"]
@@ -753,8 +753,8 @@ class SelfHealingSchedulerWrapper:
                 )
                 
                 # Trigger graceful restart for stuck jobs
-                await self.graceful_restart("stuck_jobs_detected")
-                return True
+                restart_result = await self.graceful_restart("stuck_jobs_detected")
+                return restart_result
             
             # Reset consecutive failures if health is good
             if health_status["status"] in ["healthy", "degraded"]:

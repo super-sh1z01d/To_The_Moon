@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -142,7 +143,6 @@ async def _process_group(group: str) -> None:
 
             
             # Execute HTTP call in thread pool to avoid blocking event loop
-            import asyncio
             pairs = await asyncio.to_thread(client.get_pairs, t.mint_address)
             if pairs is None:
                 log.warning("pairs_fetch_failed", extra={"extra": {"group": group, "mint": t.mint_address}})
@@ -444,7 +444,6 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     
     # Запускаем независимый процессор холодных токенов
     # Это обходит проблемы с APScheduler
-    import asyncio
     from src.scheduler.cold_processor import start_cold_processor
     
     async def init_cold_processor():
