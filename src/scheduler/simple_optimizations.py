@@ -171,7 +171,8 @@ async def process_group_optimized_simple(
             
             try:
                 # Get last score for comparison
-                last_score = repo.get_latest_token_score(token.id)
+                last_snapshot = repo.get_latest_score(token.id)
+                last_score = last_snapshot.smoothed_score if last_snapshot else None
                 
                 # Calculate score
                 score, smoothed_score, metrics, raw_components, smoothed_components = scoring_service.calculate_token_score(token, pairs)
