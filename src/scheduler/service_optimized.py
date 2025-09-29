@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Tuple
 
-from src.adapters.repositories.token_repository import TokenRepository
+from src.adapters.repositories.tokens_repo import TokensRepository as TokenRepository
 from src.domain.scoring.scoring_service import ScoringService
 from src.scheduler.load_processor import get_load_processor
 from src.scheduler.optimized_processor import get_optimized_processor

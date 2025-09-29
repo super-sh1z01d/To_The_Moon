@@ -16,7 +16,7 @@ from typing import Dict, Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.adapters.db.deps import get_db
-from src.adapters.repositories.token_repository import TokenRepository
+from src.adapters.repositories.tokens_repo import TokensRepository as TokenRepository
 from src.domain.scoring.scoring_service import ScoringService
 from src.scheduler.service import _process_group as original_process_group
 from src.scheduler.service_optimized import process_group_optimized

@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Tuple
 
 from src.adapters.db.models import Token
-from src.adapters.repositories.token_repository import TokenRepository
+from src.adapters.repositories.tokens_repo import TokensRepository as TokenRepository
 from src.domain.scoring.scoring_service import ScoringService
 from src.scheduler.parallel_processor import get_parallel_processor, get_adaptive_batch_processor
 from src.scheduler.load_processor import get_load_processor
