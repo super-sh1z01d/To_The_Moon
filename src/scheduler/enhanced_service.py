@@ -113,12 +113,20 @@ async def process_group_with_parallel_fetch(group: str) -> None:
         }})
         
         # Record performance metrics (same as original service.py)
+        processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+        
         try:
             from src.monitoring.metrics import get_performance_tracker, get_structured_logger, get_performance_optimizer
             
+            # Record scheduler execution with correct method
             performance_tracker = get_performance_tracker()
-            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
-            performance_tracker.record_execution_time("scheduler", processing_time)
+            performance_tracker.record_scheduler_execution(
+                group=group,
+                processing_time=processing_time,
+                tokens_processed=processed,
+                tokens_updated=updated,
+                error_count=0
+            )
             
             # Structured logging with fallback
             try:
@@ -140,10 +148,21 @@ async def process_group_with_parallel_fetch(group: str) -> None:
             performance_optimizer = get_performance_optimizer()
             optimization_result = performance_optimizer.optimize_service("scheduler")
             
-        except ImportError:
-            # Fallback logging if metrics module not available
-            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
-            log.info(f"Enhanced scheduler execution: {group} group, {processed} processed, {updated} updated, {processing_time:.2f}s")
+        except Exception as e:
+            # Catch all exceptions to prevent scheduler crashes
+            log.warning(f"Performance tracking failed: {e}")
+        
+        # Record health monitoring (restore missing functionality)
+        try:
+            from src.scheduler.monitoring import get_scheduler_health_monitor
+            health_monitor = get_scheduler_health_monitor()
+            health_monitor.record_group_execution(group, processed, updated)
+        except Exception as e:
+            # Don't crash if health monitoring fails
+            log.warning(f"Health monitoring failed: {e}")
+        
+        # Fallback logging for debugging
+        log.info(f"Enhanced scheduler execution: {group} group, {processed} processed, {updated} updated, {processing_time:.2f}s")
 
 
 async def _process_tokens_parallel(
