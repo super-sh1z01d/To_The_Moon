@@ -36,11 +36,22 @@ async def process_group_with_parallel_fetch(group: str) -> None:
         min_score = float(settings.get("min_score") or 0.1)
         min_score_change = float(settings.get("min_score_change") or 0.05)
         
-        # Get client with appropriate timeout (same logic as original)
-        timeout = 5.0 if group == "hot" else 2.0
-        client = DexScreenerClient(timeout=timeout)
+        # Use resilient client with circuit breaker in production (same as original)
+        from src.core.config import get_config
+        config = get_config()
         
-        log.info(f"Using enhanced DexScreener client with {timeout}s timeout", extra={"extra": {"group": group}})
+        if config.app_env == "prod":
+            from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
+            # Use shorter cache for hot tokens (more frequent updates)
+            cache_ttl = 15 if group == "hot" else 30
+            # Shorter timeout for cold group to process more tokens faster
+            timeout = 2.0 if group == "cold" else 5.0
+            client = ResilientDexScreenerClient(timeout=timeout, cache_ttl=cache_ttl)
+            log.info(f"Using resilient DexScreener client with circuit breaker, {timeout}s timeout and {cache_ttl}s cache for {group} tokens")
+        else:
+            timeout = 2.0 if group == "cold" else 5.0
+            client = DexScreenerClient(timeout=timeout)
+            log.info(f"Using standard DexScreener client with {timeout}s timeout")
         
         # Get system metrics and load processor (same logic as original)
         try:
@@ -77,6 +88,10 @@ async def process_group_with_parallel_fetch(group: str) -> None:
             "tokens_count": len(tokens)
         }})
         
+        # Batch load snapshots to avoid N+1 queries (same as original)
+        token_ids = [t.id for t in tokens]
+        snapshots = repo.get_latest_snapshots_batch(token_ids)
+        
         # Enhanced: Parallel pairs fetching
         processed, updated = await _process_tokens_parallel(
             tokens=tokens,
@@ -85,6 +100,7 @@ async def process_group_with_parallel_fetch(group: str) -> None:
             repo=repo,
             group=group,
             min_score_change=min_score_change,
+            snapshots=snapshots,
             max_concurrent=8 if group == "hot" else 6
         )
         
@@ -96,27 +112,34 @@ async def process_group_with_parallel_fetch(group: str) -> None:
             "model": settings.get("scoring_model_active") or "legacy"
         }})
         
-        # Record execution for monitoring (same as original)
+        # Record performance metrics (same as original service.py)
         try:
-            from src.scheduler.monitoring import record_group_execution
-            record_group_execution()
-        except ImportError:
-            pass
-        
-        # Log scheduler execution metrics (same as original)
-        try:
-            from src.monitoring.metrics import log_scheduler_execution
-            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
-            batch_size = 70 if group == "cold" else 35
+            from src.monitoring.metrics import get_performance_tracker, get_structured_logger, get_performance_optimizer
             
-            log_scheduler_execution({
-                'group': group,
-                'tokens_processed': processed,
-                'tokens_updated': updated,
-                'processing_time': processing_time,
-                'error_count': 0,
-                'batch_size': batch_size
-            })
+            performance_tracker = get_performance_tracker()
+            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            performance_tracker.record_execution_time("scheduler", processing_time)
+            
+            # Structured logging with fallback
+            try:
+                structured_logger = get_structured_logger("scheduler")
+                if structured_logger:
+                    batch_size = 70 if group == "cold" else 35
+                    structured_logger.log_scheduler_execution(
+                        group=group,
+                        tokens_processed=processed,
+                        tokens_updated=updated,
+                        processing_time=processing_time,
+                        error_count=0,
+                        batch_size=batch_size
+                    )
+            except Exception as e:
+                log.warning(f"Structured logging failed: {e}")
+            
+            # Performance optimization
+            performance_optimizer = get_performance_optimizer()
+            optimization_result = performance_optimizer.optimize_service("scheduler")
+            
         except ImportError:
             # Fallback logging if metrics module not available
             processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -130,6 +153,7 @@ async def _process_tokens_parallel(
     repo: Any,
     group: str,
     min_score_change: float,
+    snapshots: Dict[int, Any],
     max_concurrent: int = 8
 ) -> Tuple[int, int]:
     """
@@ -158,9 +182,11 @@ async def _process_tokens_parallel(
             continue
         
         try:
-            # Get last score for comparison (same logic as original)
-            last_snapshot = repo.get_latest_score(token.id)
-            last_score = last_snapshot.smoothed_score if last_snapshot else None
+            # Get last score from pre-loaded snapshots (avoids N+1 queries)
+            snap = snapshots.get(token.id)
+            last_score = float(snap.smoothed_score) if (snap and snap.smoothed_score is not None) else None
+            if last_score is None:
+                last_score = float(snap.score) if (snap and snap.score is not None) else None
             
             # Calculate score using unified scoring service (same as original)
             score, smoothed_score, metrics, raw_components, smoothed_components = scoring_service.calculate_token_score(token, pairs)
