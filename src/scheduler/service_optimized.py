@@ -182,14 +182,29 @@ def enable_optimized_scheduler():
     Enable optimized scheduler by replacing the original functions.
     This allows for gradual rollout and easy rollback.
     """
-    import src.scheduler.service as original_service
-    
-    # Replace original functions with optimized versions
-    original_service._process_group = process_group_optimized
-    original_service.process_hot_tokens = process_hot_tokens_optimized
-    original_service.process_cold_tokens = process_cold_tokens_optimized
-    
-    log.info("Optimized scheduler enabled - using parallel processing")
+    try:
+        # Try to use full optimizations first
+        import src.scheduler.service as original_service
+        
+        # Replace original functions with optimized versions
+        original_service._process_group = process_group_optimized
+        original_service.process_hot_tokens = process_hot_tokens_optimized
+        original_service.process_cold_tokens = process_cold_tokens_optimized
+        
+        log.info("Full optimized scheduler enabled - using parallel processing")
+        
+    except ImportError as e:
+        # Fallback to simple optimizations if modules are missing
+        log.warning(f"Full optimizations unavailable ({e}), using simple optimizations")
+        
+        from src.scheduler.simple_optimizations import enable_simple_optimizations, set_optimizations_enabled
+        
+        if enable_simple_optimizations():
+            set_optimizations_enabled(True)
+            log.info("Simple scheduler optimizations enabled - using parallel API calls")
+        else:
+            log.error("Failed to enable any optimizations")
+            raise
 
 
 def disable_optimized_scheduler():
