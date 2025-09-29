@@ -350,10 +350,10 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     hot_interval = load_processor.get_adjusted_interval(base_hot_interval)
     cold_interval = load_processor.get_adjusted_interval(base_cold_interval)
 
-    # Update health monitor intervals to match actual scheduler settings
-    from src.scheduler.monitoring import get_health_monitor
-    health_monitor = get_health_monitor()
-    health_monitor.update_intervals(hot_interval, cold_interval)
+    # Update scheduler health monitor intervals to match actual scheduler settings
+    from src.scheduler.monitoring import get_scheduler_health_monitor
+    scheduler_health_monitor = get_scheduler_health_monitor()
+    scheduler_health_monitor.update_intervals(hot_interval, cold_interval)
 
     scheduler = AsyncIOScheduler()
     
