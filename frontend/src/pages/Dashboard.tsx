@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { getTokens, getPools, TokenItem, PoolItem, getActiveModel } from '../lib/api'
+import { getTokens, getPools, TokenItem, PoolItem, getActiveModel, getSettingsIndividually } from '../lib/api'
 import { Link } from 'react-router-dom'
 import ScoreCell from '../components/ScoreCell'
 import ComponentsCell from '../components/ComponentsCell'
 import AgeCell from '../components/AgeCell'
+import ArbitragePanel from '../components/ArbitragePanel'
+import SystemMonitor from '../components/SystemMonitor'
+import EnhancedScoreCell from '../components/EnhancedScoreCell'
 import { formatCalcTime } from '../lib/scoring-utils'
 
 export default function Dashboard(){
@@ -21,6 +24,7 @@ export default function Dashboard(){
   const [activeModel, setActiveModel] = useState<string>('legacy')
   const [freshOnly, setFreshOnly] = useState(false)
   const [compactMode, setCompactMode] = useState(false)
+  const [notarbMinScore, setNotarbMinScore] = useState<number>(0.5)
 
   async function load(){
     setLoading(true)
@@ -95,6 +99,11 @@ export default function Dashboard(){
     load()
     // Load active scoring model
     getActiveModel().then(model => setActiveModel(model)).catch(() => setActiveModel('legacy'))
+    // Load notarb min score setting
+    getSettingsIndividually(['notarb_min_score']).then(settings => {
+      const score = parseFloat(settings.notarb_min_score || '0.5')
+      setNotarbMinScore(score)
+    }).catch(() => setNotarbMinScore(0.5))
   }, [])
 
   // Load persisted UI state
@@ -128,6 +137,10 @@ export default function Dashboard(){
 
   return (
     <div>
+      {/* Новые компоненты */}
+      <ArbitragePanel tokens={items} notarbMinScore={notarbMinScore} />
+      <SystemMonitor />
+      
       <div className="toolbar">
         <label>Мин. скор: <input type="number" step={0.01} value={minScore} onChange={e=>setMinScore(Number(e.target.value))}/></label>
         <label>Лимит: <input type="number" min={1} max={100} value={limit} onChange={e=>setLimit(Number(e.target.value))} /></label>
@@ -156,15 +169,13 @@ export default function Dashboard(){
                 <th style={{cursor:'pointer'}} title="Transaction Acceleration - ускорение транзакционной активности" onClick={()=>{ setSort(sort==='tx_desc'?'tx_asc':'tx_desc'); setTimeout(load,0) }}>
                   TX {sort==='tx_desc'?'↓':sort==='tx_asc'?'↑':''}
                 </th>
-                <th style={{cursor:'pointer'}} title="Volume Momentum - импульс торгового объема" onClick={()=>{ setSort(sort==='vol_desc'?'vol_asc':'vol_desc'); setTimeout(load,0) }}>
-                  Vol {sort==='vol_desc'?'↓':sort==='vol_asc'?'↑':''}
+                <th className="mobile-hide" style={{cursor:'pointer'}} title="Volume Momentum - импульс торгового объема (отключен: 0% веса)" onClick={()=>{ setSort(sort==='vol_desc'?'vol_asc':'vol_desc'); setTimeout(load,0) }}>
+                  Vol {sort==='vol_desc'?'↓':sort==='vol_asc'?'↑':''} <span style={{opacity: 0.5}}>(0%)</span>
                 </th>
                 <th style={{cursor:'pointer'}} title="Token Freshness - бонус за свежесть токена" onClick={()=>{ setSort(sort==='fresh_desc'?'fresh_asc':'fresh_desc'); setTimeout(load,0) }}>
                   Fresh {sort==='fresh_desc'?'↓':sort==='fresh_asc'?'↑':''}
                 </th>
-                <th style={{cursor:'pointer'}} title="Orderflow Imbalance - дисбаланс покупок/продаж" onClick={()=>{ setSort(sort==='oi_desc'?'oi_asc':'oi_desc'); setTimeout(load,0) }}>
-                  OI {sort==='oi_desc'?'↓':sort==='oi_asc'?'↑':''}
-                </th>
+
                 <th title="Возраст токена с индикатором свежести">Возраст</th>
               </>
             )}
@@ -181,18 +192,19 @@ export default function Dashboard(){
             <tr key={it.mint_address} className={it.status==='archived' ? 'row-archived' : ''}>
               <td><Link to={`/token/${it.mint_address}`}>{it.name || '—'}</Link> <span className="muted">({it.symbol || ''})</span></td>
               <td>
-                <ScoreCell 
-                  score={it.score} 
+                <EnhancedScoreCell 
+                  token={it}
+                  score={it.score || 0} 
                   components={it.smoothed_components} 
-                  model={it.scoring_model || activeModel} 
+                  compact={compactMode}
                 />
               </td>
               {activeModel === 'hybrid_momentum' && (
                 <>
                   <td>{it.smoothed_components ? it.smoothed_components.tx_accel.toFixed(3) : '—'}</td>
-                  <td>{it.smoothed_components ? it.smoothed_components.vol_momentum.toFixed(3) : '—'}</td>
+                  <td className="mobile-hide">{it.smoothed_components ? it.smoothed_components.vol_momentum.toFixed(3) : '—'}</td>
                   <td>{it.smoothed_components ? it.smoothed_components.token_freshness.toFixed(3) : '—'}</td>
-                  <td>{it.smoothed_components ? it.smoothed_components.orderflow_imbalance.toFixed(3) : '—'}</td>
+
                   <td><AgeCell createdAt={it.created_at} /></td>
                 </>
               )}
