@@ -158,8 +158,14 @@ class NotArbPoolsGenerator:
         }
         
         for token in tokens_data:
-            # Get all pool addresses for this specific token mint
-            pool_addresses = [pool["address"] for pool in token["pools"]]
+            # Get pool addresses, limiting to top 4 most liquid pools for arbitrage efficiency
+            all_pools = token["pools"]
+            
+            # Take first 4 pools (they should already be ordered by liquidity from DexScreener)
+            # This helps arbitrage bots focus on the most liquid pools
+            top_pools = all_pools[:4] if len(all_pools) > 4 else all_pools
+            pool_addresses = [pool["address"] for pool in top_pools]
+            
             if pool_addresses:  # Only add if token has pools
                 token_info = {
                     "mint_address": token["mint_address"],
@@ -171,10 +177,12 @@ class NotArbPoolsGenerator:
                 result["tokens"].append(token_info)
                 
                 # Log which token mint this group belongs to
+                total_pools = len(all_pools)
+                used_pools = len(pool_addresses)
                 logger.info(
                     f"Added pool group for token {token['symbol']} "
                     f"(mint: {token['mint_address'][:8]}...) "
-                    f"with {len(pool_addresses)} pools"
+                    f"with {used_pools} pools (top {used_pools} of {total_pools})"
                 )
         
         return result
@@ -238,12 +246,12 @@ class NotArbPoolsGenerator:
         Get just the list of token pools (for backward compatibility)
         
         Returns:
-            List where each inner list contains all pool addresses for one token
+            List where each inner list contains up to 4 most liquid pool addresses for one token
         """
         tokens_data = self.get_top_tokens_with_pools(limit=3)
         result = self.generate_token_pools_with_metadata(tokens_data)
         
-        # Extract just the pools for backward compatibility
+        # Extract just the pools for backward compatibility (max 4 per token)
         return [token["pools"] for token in result.get("tokens", [])]
     
     def get_token_pools_with_metadata(self) -> Dict[str, Any]:

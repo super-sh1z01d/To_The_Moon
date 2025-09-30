@@ -59,7 +59,8 @@ def aggregate_wsol_metrics(
     # 2. Фильтруем только пары WSOL/токен и USDC/токен, где baseToken.address == mint
     ws_pairs: list[dict[str, Any]] = []
     usdc_pairs: list[dict[str, Any]] = []
-    pools: list[dict[str, Any]] = []
+    pools_with_liquidity: list[tuple[dict[str, Any], float]] = []  # (pool_info, liquidity)
+    
     for p in filtered_pairs:
         try:
             base = p.get("baseToken", {})
@@ -70,21 +71,29 @@ def aggregate_wsol_metrics(
             qsym = str(quote.get("symbol", "")).upper()
             if (str(base.get("address")) == mint and dex_id not in _EXCLUDE_DEX_IDS and (qsym in _WSOL_SYMBOLS or qsym in _USDC_SYMBOLS)):
                 addr = p.get("pairAddress") or p.get("address")
-                pools.append(
-                    {
-                        "address": addr,
-                        "dex": dex_id,
-                        "quote": (quote or {}).get("symbol"),
-                        "is_wsol": True if qsym in _WSOL_SYMBOLS else False,
-                        "is_usdc": True if qsym in _USDC_SYMBOLS else False,
-                    }
-                )
+                liquidity_usd = _to_float((p.get("liquidity") or {}).get("usd")) or 0.0
+                
+                pool_info = {
+                    "address": addr,
+                    "dex": dex_id,
+                    "quote": (quote or {}).get("symbol"),
+                    "is_wsol": True if qsym in _WSOL_SYMBOLS else False,
+                    "is_usdc": True if qsym in _USDC_SYMBOLS else False,
+                }
+                
+                # Store pool with its liquidity for sorting
+                pools_with_liquidity.append((pool_info, liquidity_usd))
+                
                 if qsym in _WSOL_SYMBOLS:
                     ws_pairs.append(p)
                 elif qsym in _USDC_SYMBOLS:
                     usdc_pairs.append(p)
         except Exception:
             continue
+    
+    # Sort pools by liquidity (highest first) for better arbitrage opportunities
+    pools_with_liquidity.sort(key=lambda x: x[1], reverse=True)
+    pools = [pool_info for pool_info, _ in pools_with_liquidity]
 
     l_tot = 0.0
     primary = None
