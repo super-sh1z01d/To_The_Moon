@@ -343,11 +343,11 @@ class HybridMomentumModel:
             else:
                 # For active tokens: strict filtering (current behavior)
                 return {
-                    "min_tx_threshold_5m": float(self.settings.get("min_tx_threshold_5m") or "100"),
-                    "min_tx_threshold_1h": float(self.settings.get("min_tx_threshold_1h") or "1200"),
-                    "min_volume_threshold_5m": float(self.settings.get("min_volume_threshold_5m") or "500.0"),
-                    "min_volume_threshold_1h": float(self.settings.get("min_volume_threshold_1h") or "2000.0"),
-                    "min_orderflow_volume_5m": float(self.settings.get("min_orderflow_volume_5m") or "500.0"),
+                    "min_tx_threshold_5m": float(self.settings.get("min_tx_threshold_5m") or "0"),
+                    "min_tx_threshold_1h": float(self.settings.get("min_tx_threshold_1h") or "0"),
+                    "min_volume_threshold_5m": float(self.settings.get("min_volume_threshold_5m") or "0"),
+                    "min_volume_threshold_1h": float(self.settings.get("min_volume_threshold_1h") or "0"),
+                    "min_orderflow_volume_5m": float(self.settings.get("min_orderflow_volume_5m") or "0"),
                     # Component calculation parameters
                     "liquidity_factor_threshold": float(self.settings.get("liquidity_factor_threshold") or "100000.0"),
                     "orderflow_significance_threshold": float(self.settings.get("orderflow_significance_threshold") or "500.0"),
@@ -364,11 +364,11 @@ class HybridMomentumModel:
             )
             # Return default thresholds
             return {
-                "min_tx_threshold_5m": 100.0,
-                "min_tx_threshold_1h": 1200.0,
-                "min_volume_threshold_5m": 500.0,
-                "min_volume_threshold_1h": 2000.0,
-                "min_orderflow_volume_5m": 500.0,
+                "min_tx_threshold_5m": 0.0,
+                "min_tx_threshold_1h": 0.0,
+                "min_volume_threshold_5m": 0.0,
+                "min_volume_threshold_1h": 0.0,
+                "min_orderflow_volume_5m": 0.0,
                 # Component calculation parameters
                 "liquidity_factor_threshold": 100000.0,
                 "orderflow_significance_threshold": 500.0,
