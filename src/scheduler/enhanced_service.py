@@ -42,12 +42,14 @@ async def process_group_with_parallel_fetch(group: str) -> None:
         
         if config.app_env == "prod":
             from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
-            # Use shorter cache for hot tokens (more frequent updates)
-            cache_ttl = 15 if group == "hot" else 30
-            # Shorter timeout for cold group to process more tokens faster
-            timeout = 2.0 if group == "cold" else 5.0
-            client = ResilientDexScreenerClient(timeout=timeout, cache_ttl=cache_ttl)
-            log.info(f"Using resilient DexScreener client with circuit breaker, {timeout}s timeout and {cache_ttl}s cache for {group} tokens")
+            # Disable caching for fresh data, increase timeout to avoid 429 errors
+            timeout = 8.0 if group == "hot" else 6.0  # Longer timeouts to reduce rate limiting
+            client = ResilientDexScreenerClient(
+                timeout=timeout, 
+                cache_ttl=0,  # Disable caching for fresh data
+                enable_cache=False  # Explicitly disable caching
+            )
+            log.info(f"Using resilient DexScreener client with circuit breaker, {timeout}s timeout, NO CACHE for fresh data ({group} tokens)")
         else:
             timeout = 2.0 if group == "cold" else 5.0
             client = DexScreenerClient(timeout=timeout)
@@ -101,7 +103,7 @@ async def process_group_with_parallel_fetch(group: str) -> None:
             group=group,
             min_score_change=min_score_change,
             snapshots=snapshots,
-            max_concurrent=8 if group == "hot" else 6
+            max_concurrent=4 if group == "hot" else 3  # Reduced concurrency to avoid 429 errors
         )
         
         # Log summary (same as original)
@@ -279,6 +281,8 @@ async def _fetch_pairs_parallel(
     async def fetch_single_token(token):
         async with semaphore:
             try:
+                # Small delay to avoid overwhelming DexScreener API
+                await asyncio.sleep(0.1)  # 100ms delay between requests
                 pairs = await asyncio.to_thread(client.get_pairs, token.mint_address)
                 return token.mint_address, pairs
             except Exception as e:
