@@ -104,7 +104,7 @@ async def process_group_with_parallel_fetch(group: str) -> None:
             group=group,
             min_score_change=min_score_change,
             snapshots=snapshots,
-            max_concurrent=2 if group == "hot" else 2  # Further reduced concurrency to avoid 429 errors
+            max_concurrent=1  # Sequential processing to completely avoid 429 errors
         )
         
         # Log summary (same as original)

@@ -107,7 +107,9 @@ class NotArbPoolsGenerator:
                         if isinstance(p, dict) and str(p.get("dex") or "") not in exclude and (p.get("is_wsol") or p.get("is_usdc"))
                     ]
                 else:
-                    # Fallback: get current pairs directly
+                    # Fallback: get current pairs directly (with delay to avoid rate limiting)
+                    import time
+                    time.sleep(0.5)  # 500ms delay between requests
                     pairs = DexScreenerClient(timeout=5.0).get_pairs(token.mint_address)
                     if pairs:
                         _WSOL = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}

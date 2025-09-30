@@ -131,12 +131,15 @@ class ParallelTokenProcessor:
         client: DexScreenerClient,
         group: str
     ) -> TokenProcessingResult:
-        """Process a single token with semaphore control"""
+        """Process a single token with semaphore control and rate limiting"""
         
         async with self.semaphore:
             start_time = datetime.now()
             
             try:
+                # Add delay to avoid rate limiting (500ms between requests)
+                await asyncio.sleep(0.5)
+                
                 # Use async client if available, otherwise use thread pool
                 if hasattr(client, 'get_pairs_async'):
                     pairs = await client.get_pairs_async(token.mint_address)
