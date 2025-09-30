@@ -207,9 +207,9 @@ class NotArbPoolsGenerator:
             tokens_data = self.get_top_tokens_with_pools(limit=3)
             
             if not tokens_data:
-                logger.warning("No tokens with pools found for export")
-                # Export empty array for NotArb compatibility
-                pool_urls = []
+                logger.warning("No tokens with pools found for export - keeping existing file")
+                # Don't overwrite existing file if no new data
+                return True
             else:
                 # Generate token pools with metadata
                 pool_urls = self.generate_token_pools_with_metadata(tokens_data)

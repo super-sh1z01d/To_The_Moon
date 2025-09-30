@@ -473,12 +473,12 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         max_instances=1
     )
     
-    # NotArb pools file updates - simple 15 second interval
+    # NotArb pools file updates - every 60 seconds to avoid API rate limits
     from src.scheduler.notarb_tasks import update_notarb_pools_file
     
     scheduler.add_job(
         update_notarb_pools_file, 
-        IntervalTrigger(seconds=5), 
+        IntervalTrigger(seconds=60), 
         id="notarb_pools_updater", 
         max_instances=1,  # Prevent concurrent execution
         coalesce=True     # Skip if previous execution is still running
