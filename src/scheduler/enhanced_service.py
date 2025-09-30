@@ -47,9 +47,10 @@ async def process_group_with_parallel_fetch(group: str) -> None:
             client = ResilientDexScreenerClient(
                 timeout=timeout, 
                 cache_ttl=0,  # Disable caching for fresh data
-                enable_cache=False  # Explicitly disable caching
+                enable_cache=False,  # Explicitly disable caching
+                enable_circuit_breaker=False  # Temporarily disable circuit breaker to test
             )
-            log.info(f"Using resilient DexScreener client with circuit breaker, {timeout}s timeout, NO CACHE for fresh data ({group} tokens)")
+            log.info(f"Using resilient DexScreener client WITHOUT circuit breaker, {timeout}s timeout, NO CACHE for fresh data ({group} tokens)")
         else:
             timeout = 2.0 if group == "cold" else 5.0
             client = DexScreenerClient(timeout=timeout)
