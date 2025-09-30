@@ -107,27 +107,9 @@ class NotArbPoolsGenerator:
                         if isinstance(p, dict) and str(p.get("dex") or "") not in exclude and (p.get("is_wsol") or p.get("is_usdc"))
                     ]
                 else:
-                    # Fallback: get current pairs directly (with delay to avoid rate limiting)
-                    import time
-                    time.sleep(1.0)  # 1s delay between requests
-                    pairs = DexScreenerClient(timeout=5.0).get_pairs(token.mint_address)
-                    if pairs:
-                        _WSOL = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
-                        _USDC = {"USDC", "usdc"}
-                        exclude = {"pumpfun"}
-                        for p in pairs:
-                            try:
-                                base = (p.get("baseToken") or {})
-                                quote = (p.get("quoteToken") or {})
-                                dex_id = str(p.get("dexId") or "")
-                                if str(base.get("address")) == token.mint_address and str(quote.get("symbol", "")).upper() in (_WSOL | _USDC) and dex_id not in exclude:
-                                    pools.append({
-                                        "address": p.get("pairAddress") or p.get("address"),
-                                        "dex": dex_id,
-                                        "quote": quote.get("symbol"),
-                                    })
-                            except Exception:
-                                continue
+                    # No pools data in database - skip this token
+                    # NotArb should only work with data already processed by main scheduler
+                    pools = []
                 
                 if pools:
                     token_data = {
