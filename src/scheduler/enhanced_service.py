@@ -104,7 +104,7 @@ async def process_group_with_parallel_fetch(group: str) -> None:
             group=group,
             min_score_change=min_score_change,
             snapshots=snapshots,
-            max_concurrent=4 if group == "hot" else 3  # Reduced concurrency to avoid 429 errors
+            max_concurrent=2 if group == "hot" else 2  # Further reduced concurrency to avoid 429 errors
         )
         
         # Log summary (same as original)
@@ -288,8 +288,8 @@ async def _fetch_pairs_parallel(
     async def fetch_single_token(token):
         async with semaphore:
             try:
-                # Small delay to avoid overwhelming DexScreener API
-                await asyncio.sleep(0.1)  # 100ms delay between requests
+                # Larger delay to avoid overwhelming DexScreener API
+                await asyncio.sleep(0.5)  # 500ms delay between requests
                 pairs = await asyncio.to_thread(client.get_pairs, token.mint_address)
                 return token.mint_address, pairs
             except Exception as e:
