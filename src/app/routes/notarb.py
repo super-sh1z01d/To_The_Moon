@@ -28,10 +28,9 @@ async def get_token_pools(db: Session = Depends(get_db)) -> List[List[str]]:
         config = get_config()
         file_path = Path(getattr(config, 'notarb_config_path', 'markets.json'))
         
-        if not file_path.exists():
-            # Generate file if it doesn't exist
-            generator = NotArbPoolsGenerator(str(file_path))
-            generator.export_pools_config()
+        # Always regenerate file to ensure fresh data
+        generator = NotArbPoolsGenerator(str(file_path))
+        generator.export_pools_config()
         
         # Read from file with retry on corruption
         max_retries = 3
