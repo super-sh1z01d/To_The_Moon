@@ -85,6 +85,8 @@ def enforce_activation_once(limit_monitoring: int = 50, limit_active: int = 50) 
             promoted = 0
             for t in mons:
                 try:
+                    import time
+                    time.sleep(1.0)  # Rate limiting: 1s delay
                     pairs = client.get_pairs(t.mint_address)
                     if not pairs:
                         continue
@@ -117,6 +119,8 @@ def enforce_activation_once(limit_monitoring: int = 50, limit_active: int = 50) 
             acts = repo.list_by_status("active", limit=limit_active)
             demoted = 0
             for t in acts:
+                import time
+                time.sleep(1.0)  # Rate limiting: 1s delay
                 pairs = client.get_pairs(t.mint_address)
                 if pairs is None:
                     continue

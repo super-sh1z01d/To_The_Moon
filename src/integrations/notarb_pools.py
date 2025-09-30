@@ -109,7 +109,7 @@ class NotArbPoolsGenerator:
                 else:
                     # Fallback: get current pairs directly (with delay to avoid rate limiting)
                     import time
-                    time.sleep(0.5)  # 500ms delay between requests
+                    time.sleep(1.0)  # 1s delay between requests
                     pairs = DexScreenerClient(timeout=5.0).get_pairs(token.mint_address)
                     if pairs:
                         _WSOL = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}

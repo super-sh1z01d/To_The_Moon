@@ -137,8 +137,8 @@ class ParallelTokenProcessor:
             start_time = datetime.now()
             
             try:
-                # Add delay to avoid rate limiting (500ms between requests)
-                await asyncio.sleep(0.5)
+                # Add delay to avoid rate limiting (1s between requests)
+                await asyncio.sleep(1.0)
                 
                 # Use async client if available, otherwise use thread pool
                 if hasattr(client, 'get_pairs_async'):

@@ -238,7 +238,7 @@ async def refresh_token(mint: str, db: Session = Depends(get_db)) -> RefreshResu
     # Fetch pairs using resilient client with rate limiting
     from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
     import time
-    time.sleep(0.5)  # Rate limiting: 500ms delay
+    time.sleep(1.0)  # Rate limiting: 1s delay
     resilient_client = ResilientDexScreenerClient(timeout=3.0, cache_ttl=300)  # 5 min cache
     pairs = resilient_client.get_pairs(mint)
     if pairs is None:
@@ -303,7 +303,7 @@ async def get_token_pools(mint: str, db: Session = Depends(get_db)) -> list[Pool
         # Фолбэк: получить актуальные пары через resilient client с агрессивным кешированием
         from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
         import time
-        time.sleep(0.5)  # Rate limiting: 500ms delay
+        time.sleep(1.0)  # Rate limiting: 1s delay
         resilient_client = ResilientDexScreenerClient(timeout=3.0, cache_ttl=300)  # 5 min cache
         pairs = resilient_client.get_pairs(mint)
         if pairs:
