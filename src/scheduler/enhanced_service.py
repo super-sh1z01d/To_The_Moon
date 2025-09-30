@@ -211,6 +211,12 @@ async def _process_tokens_parallel(
                 last_score = float(snap.score) if (snap and snap.score is not None) else None
             
             # Calculate score using unified scoring service (same as original)
+            # Debug: Log pairs data quality
+            if pairs:
+                log.debug(f"Scoring {token.symbol} with {len(pairs)} pairs, first pair liquidity: ${pairs[0].get('liquidity', {}).get('usd', 'unknown')}")
+            else:
+                log.warning(f"Scoring {token.symbol} with NO pairs data")
+            
             score, smoothed_score, metrics, raw_components, smoothed_components = scoring_service.calculate_token_score(token, pairs)
             
             # Check if we should skip update (same logic as original)
