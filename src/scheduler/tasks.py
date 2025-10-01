@@ -128,6 +128,8 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                         "no_pairs_found_for_activation",
                         extra={"mint": t.mint_address}
                     )
+                    # Avoid keeping the token at the front of the queue forever
+                    repo.update_token_timestamp(t.id)
                     continue
                     
                 from src.domain.validation.dex_rules import check_activation_conditions
@@ -154,6 +156,9 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                         "activated_by_liquidity",
                         extra={"extra": {"mint": t.mint_address, "threshold": threshold}},
                     )
+                else:
+                    # Token checked but still monitoring; bump timestamp so queue rotates
+                    repo.update_token_timestamp(t.id)
             logv.info(
                 "promotion_summary",
                 extra={"extra": {"checked": len(mons), "promoted": promoted, "threshold": threshold}},
