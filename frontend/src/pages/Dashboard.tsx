@@ -15,7 +15,7 @@ export default function Dashboard(){
   const [total, setTotal] = useState(0)
   const [limit, setLimit] = useState(20)
   const [offset, setOffset] = useState(0)
-  const [sort, setSort] = useState<'score_desc'|'score_asc'|'tx_desc'|'tx_asc'|'vol_desc'|'vol_asc'|'fresh_desc'|'fresh_asc'|'oi_desc'|'oi_asc'>('score_desc')
+  const [sort, setSort] = useState<'score_desc'|'score_asc'|'tx_desc'|'tx_asc'|'fresh_desc'|'fresh_asc'|'oi_desc'|'oi_asc'>('score_desc')
   const [loading, setLoading] = useState(false)
   const [statusFilter, setStatusFilter] = useState<{active:boolean, monitoring:boolean, archived:boolean}>({active:true, monitoring:true, archived:false})
   const [pools, setPools] = useState<Record<string, PoolItem[]>>({})
@@ -55,9 +55,6 @@ export default function Dashboard(){
           if (component === 'tx' && a.smoothed_components && b.smoothed_components) {
             aVal = a.smoothed_components.tx_accel
             bVal = b.smoothed_components.tx_accel
-          } else if (component === 'vol' && a.smoothed_components && b.smoothed_components) {
-            aVal = a.smoothed_components.vol_momentum
-            bVal = b.smoothed_components.vol_momentum
           } else if (component === 'fresh' && a.smoothed_components && b.smoothed_components) {
             aVal = a.smoothed_components.token_freshness
             bVal = b.smoothed_components.token_freshness
@@ -169,9 +166,7 @@ export default function Dashboard(){
                 <th style={{cursor:'pointer'}} title="Transaction Acceleration - ускорение транзакционной активности" onClick={()=>{ setSort(sort==='tx_desc'?'tx_asc':'tx_desc'); setTimeout(load,0) }}>
                   TX {sort==='tx_desc'?'↓':sort==='tx_asc'?'↑':''}
                 </th>
-                <th className="mobile-hide" style={{cursor:'pointer'}} title="Volume Momentum - импульс торгового объема (отключен: 0% веса)" onClick={()=>{ setSort(sort==='vol_desc'?'vol_asc':'vol_desc'); setTimeout(load,0) }}>
-                  Vol {sort==='vol_desc'?'↓':sort==='vol_asc'?'↑':''} <span style={{opacity: 0.5}}>(0%)</span>
-                </th>
+
                 <th style={{cursor:'pointer'}} title="Token Freshness - бонус за свежесть токена" onClick={()=>{ setSort(sort==='fresh_desc'?'fresh_asc':'fresh_desc'); setTimeout(load,0) }}>
                   Fresh {sort==='fresh_desc'?'↓':sort==='fresh_asc'?'↑':''}
                 </th>
@@ -183,6 +178,7 @@ export default function Dashboard(){
             <th>Статус</th>
             <th title="Ссылки на Solscan пулов SOL/WSOL">Пулы (WSOL)</th>
             <th title="Ссылки на Solscan пулов USDC">Пулы (USDC)</th>
+            <th title="Ссылки на Solscan пулов USD1">Пулы (USD1)</th>
             <th title="Время последней обработки токена планировщиком">Обработан</th>
             <th>Solscan</th>
           </tr>
@@ -202,7 +198,7 @@ export default function Dashboard(){
               {activeModel === 'hybrid_momentum' && (
                 <>
                   <td>{it.smoothed_components ? it.smoothed_components.tx_accel.toFixed(3) : '—'}</td>
-                  <td className="mobile-hide">{it.smoothed_components ? it.smoothed_components.vol_momentum.toFixed(3) : '—'}</td>
+
                   <td>{it.smoothed_components ? it.smoothed_components.token_freshness.toFixed(3) : '—'}</td>
 
                   <td><AgeCell createdAt={it.created_at} /></td>
@@ -224,6 +220,14 @@ export default function Dashboard(){
                     <span key={(p.address||'')+ (p.dex||'')+ 'u'} className="pool">{renderDexPill(p)}</span>
                   ))}
                   {(!pools[it.mint_address] || (pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='USDC').length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
+                </div>
+              </td>
+              <td>
+                <div className="pools" style={{marginTop: 4}}>
+                  {(pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='USD1').map(p=> (
+                    <span key={(p.address||'')+ (p.dex||'')+ 'usd1'} className="pool">{renderDexPill(p)}</span>
+                  ))}
+                  {(!pools[it.mint_address] || (pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='USD1').length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
                 </div>
               </td>
               <td title={`Последний расчет скора: ${formatCalcTime(it.scored_at)}`}>
