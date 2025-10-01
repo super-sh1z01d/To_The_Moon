@@ -134,14 +134,7 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                 activation_result = check_activation_conditions(t.mint_address, pairs, threshold)
                 
                 logv.info(
-                    "activation_check_result",
-                    extra={
-                        "mint": t.mint_address,
-                        "batch_pairs_count": len(batch_pairs),
-                        "final_pairs_count": len(pairs),
-                        "activation_result": activation_result,
-                        "threshold": threshold
-                    }
+                    f"activation_check_result: mint={t.mint_address[:8]}... batch={len(batch_pairs)} final={len(pairs)} result={activation_result} threshold={threshold}"
                 )
                 
                 if activation_result:

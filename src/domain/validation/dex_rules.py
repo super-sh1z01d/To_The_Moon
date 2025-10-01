@@ -114,18 +114,7 @@ def check_activation_conditions(mint: str, pairs: list[dict[str, Any]], min_liqu
     result = condition_1 or condition_2
     
     logger.info(
-        "activation_conditions_check",
-        extra={
-            "mint": mint,
-            "total_pairs": len(pairs),
-            "has_pumpfun_wsol": has_pumpfun_wsol,
-            "external_pools_found": external_pools_found,
-            "external_pools_with_liquidity": external_pools_with_liquidity,
-            "min_liquidity_usd": min_liquidity_usd,
-            "condition_1": condition_1,
-            "condition_2": condition_2,
-            "result": result
-        }
+        f"activation_conditions_check: mint={mint[:8]}... pairs={len(pairs)} pumpfun={has_pumpfun_wsol} ext_found={external_pools_found} ext_liq={external_pools_with_liquidity} threshold={min_liquidity_usd} c1={condition_1} c2={condition_2} result={result}"
     )
     
     return result
