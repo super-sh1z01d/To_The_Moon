@@ -233,7 +233,7 @@ def disable_optimized_scheduler():
 
 
 # Configuration flag to enable/disable optimized scheduler
-ENABLE_OPTIMIZED_SCHEDULER = True
+ENABLE_OPTIMIZED_SCHEDULER = False
 
 if ENABLE_OPTIMIZED_SCHEDULER:
     # Auto-enable optimized scheduler on import
