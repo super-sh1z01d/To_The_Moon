@@ -78,15 +78,33 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
 
     async def ensure_pairs(mint: str, pairs: list[dict[str, Any]], threshold: float) -> list[dict[str, Any]]:
         """Ensure we have full pool list by falling back to token-pairs endpoint if needed."""
-        from src.domain.validation.dex_rules import check_activation_conditions
-
-        if pairs and check_activation_conditions(mint, pairs, threshold):
-            return pairs
-
-        # Fetch full dataset from token-pairs endpoint (includes external pools)
+        from src.domain.validation.dex_rules import check_activation_conditions, has_external_pools
+        
+        # Always check if we have external pools in the batch data
+        if pairs and has_external_pools(mint, pairs):
+            # We have external pools, check activation conditions
+            if check_activation_conditions(mint, pairs, threshold):
+                return pairs
+        
+        # Either no external pools found or activation conditions not met
+        # Fetch full dataset from token-pairs endpoint (includes all external pools)
+        logv.debug(
+            "fetching_fallback_pairs_for_activation",
+            extra={"mint": mint, "batch_pairs_count": len(pairs), "threshold": threshold}
+        )
+        
         fallback_pairs = await asyncio.to_thread(fallback_client.get_pairs, mint)
         if fallback_pairs:
+            logv.debug(
+                "fallback_pairs_fetched_for_activation", 
+                extra={"mint": mint, "fallback_pairs_count": len(fallback_pairs)}
+            )
             return fallback_pairs
+        
+        logv.warning(
+            "fallback_pairs_failed_for_activation",
+            extra={"mint": mint, "using_batch_pairs": len(pairs)}
+        )
         return pairs
 
     with SessionLocal() as sess:
@@ -102,12 +120,31 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
             monitoring_pairs = await batch_client.get_pairs_for_mints([t.mint_address for t in mons])
             promoted = 0
             for t in mons:
-                pairs = monitoring_pairs.get(t.mint_address) or []
-                pairs = await ensure_pairs(t.mint_address, pairs, threshold)
+                batch_pairs = monitoring_pairs.get(t.mint_address) or []
+                pairs = await ensure_pairs(t.mint_address, batch_pairs, threshold)
+                
                 if not pairs:
+                    logv.debug(
+                        "no_pairs_found_for_activation",
+                        extra={"mint": t.mint_address}
+                    )
                     continue
+                    
                 from src.domain.validation.dex_rules import check_activation_conditions
-                if check_activation_conditions(t.mint_address, pairs, threshold):
+                activation_result = check_activation_conditions(t.mint_address, pairs, threshold)
+                
+                logv.debug(
+                    "activation_check_result",
+                    extra={
+                        "mint": t.mint_address,
+                        "batch_pairs_count": len(batch_pairs),
+                        "final_pairs_count": len(pairs),
+                        "activation_result": activation_result,
+                        "threshold": threshold
+                    }
+                )
+                
+                if activation_result:
                     name = None
                     symbol = None
                     for p in pairs:
