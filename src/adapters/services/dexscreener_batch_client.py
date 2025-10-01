@@ -37,12 +37,14 @@ class DexScreenerBatchClient:
         cache_ttl: float = 3.0,
         rate_per_sec: float = 4.5,
         burst: int = 10,
+        use_http2: bool = False,
     ) -> None:
         self.chain_id = chain_id
         self.timeout = timeout
         self.max_batch_size = max(1, min(max_batch_size, 30))
         self.cache_ttl = max(0.0, cache_ttl)
         self._rate_limiter = AsyncRateLimiter(rate_per_sec, burst)
+        self._use_http2 = use_http2
         self._client: Optional[httpx.AsyncClient] = None
         self._cache: Dict[str, _CacheEntry] = {}
         self._cache_lock = asyncio.Lock()
@@ -51,7 +53,7 @@ class DexScreenerBatchClient:
     async def _get_client(self) -> httpx.AsyncClient:
         async with self._client_lock:
             if self._client is None:
-                self._client = httpx.AsyncClient(timeout=self.timeout, http2=True)
+                self._client = httpx.AsyncClient(timeout=self.timeout, http2=self._use_http2)
             return self._client
 
     async def close(self) -> None:
@@ -196,4 +198,3 @@ async def close_batch_client() -> None:
         if _batch_client is not None:
             await _batch_client.close()
             _batch_client = None
-

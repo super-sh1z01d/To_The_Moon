@@ -168,15 +168,15 @@ async def process_group_optimized_simple(
                 elif should_skip:
                     continue
                 
-                # Save score result
-               scoring_service.save_score_result(
-                   token=token,
-                   score=score,
-                   smoothed_score=smoothed_score,
-                   metrics=metrics,
-                   raw_components=raw_components,
-                   smoothed_components=smoothed_components
-               )
+                # Save score result and record timestamp for visibility
+                scoring_service.save_score_result(
+                    token=token,
+                    score=score,
+                    smoothed_score=smoothed_score,
+                    metrics=metrics,
+                    raw_components=raw_components,
+                    smoothed_components=smoothed_components
+                )
                 repo.update_token_timestamp(token.id)
                 
                 updated += 1
