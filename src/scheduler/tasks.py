@@ -88,14 +88,14 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
         
         # Either no external pools found or activation conditions not met
         # Fetch full dataset from token-pairs endpoint (includes all external pools)
-        logv.debug(
+        logv.info(
             "fetching_fallback_pairs_for_activation",
             extra={"mint": mint, "batch_pairs_count": len(pairs), "threshold": threshold}
         )
         
         fallback_pairs = await asyncio.to_thread(fallback_client.get_pairs, mint)
         if fallback_pairs:
-            logv.debug(
+            logv.info(
                 "fallback_pairs_fetched_for_activation", 
                 extra={"mint": mint, "fallback_pairs_count": len(fallback_pairs)}
             )
@@ -133,7 +133,7 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                 from src.domain.validation.dex_rules import check_activation_conditions
                 activation_result = check_activation_conditions(t.mint_address, pairs, threshold)
                 
-                logv.debug(
+                logv.info(
                     "activation_check_result",
                     extra={
                         "mint": t.mint_address,

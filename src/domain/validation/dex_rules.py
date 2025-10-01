@@ -113,7 +113,7 @@ def check_activation_conditions(mint: str, pairs: list[dict[str, Any]], min_liqu
     
     result = condition_1 or condition_2
     
-    logger.debug(
+    logger.info(
         "activation_conditions_check",
         extra={
             "mint": mint,
