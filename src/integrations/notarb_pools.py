@@ -158,12 +158,12 @@ class NotArbPoolsGenerator:
         }
         
         for token in tokens_data:
-            # Get pool addresses, limiting to top 4 most liquid pools for arbitrage efficiency
+            # Get pool addresses, limiting to top 3 most liquid pools for arbitrage efficiency
             all_pools = token["pools"]
             
-            # Take first 4 pools (they should already be ordered by liquidity from DexScreener)
+            # Take first 3 pools (they should already be ordered by liquidity from DexScreener)
             # This helps arbitrage bots focus on the most liquid pools
-            top_pools = all_pools[:4] if len(all_pools) > 4 else all_pools
+            top_pools = all_pools[:3] if len(all_pools) > 3 else all_pools
             pool_addresses = [pool["address"] for pool in top_pools]
             
             if pool_addresses:  # Only add if token has pools
@@ -246,12 +246,12 @@ class NotArbPoolsGenerator:
         Get just the list of token pools (for backward compatibility)
         
         Returns:
-            List where each inner list contains up to 4 most liquid pool addresses for one token
+            List where each inner list contains up to 3 most liquid pool addresses for one token
         """
         tokens_data = self.get_top_tokens_with_pools(limit=3)
         result = self.generate_token_pools_with_metadata(tokens_data)
         
-        # Extract just the pools for backward compatibility (max 4 per token)
+        # Extract just the pools for backward compatibility (max 3 per token)
         return [token["pools"] for token in result.get("tokens", [])]
     
     def get_token_pools_with_metadata(self) -> Dict[str, Any]:
