@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import asyncio
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
@@ -70,8 +71,23 @@ def _external_liq_ge(mint: str, pairs: list[dict], threshold: float) -> bool:
 async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int = 50) -> None:
     logv = logging.getLogger("activation")
     from src.adapters.services.dexscreener_batch_client import get_batch_client
+    from src.adapters.services.dexscreener_client import DexScreenerClient
 
     batch_client = await get_batch_client()
+    fallback_client = DexScreenerClient(timeout=3.0)
+
+    async def ensure_pairs(mint: str, pairs: list[dict[str, Any]], threshold: float) -> list[dict[str, Any]]:
+        """Ensure we have full pool list by falling back to token-pairs endpoint if needed."""
+        from src.domain.validation.dex_rules import check_activation_conditions
+
+        if pairs and check_activation_conditions(mint, pairs, threshold):
+            return pairs
+
+        # Fetch full dataset from token-pairs endpoint (includes external pools)
+        fallback_pairs = await asyncio.to_thread(fallback_client.get_pairs, mint)
+        if fallback_pairs:
+            return fallback_pairs
+        return pairs
 
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
@@ -87,6 +103,7 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
             promoted = 0
             for t in mons:
                 pairs = monitoring_pairs.get(t.mint_address) or []
+                pairs = await ensure_pairs(t.mint_address, pairs, threshold)
                 if not pairs:
                     continue
                 from src.domain.validation.dex_rules import check_activation_conditions
@@ -121,6 +138,7 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                 pairs = active_pairs.get(t.mint_address)
                 if pairs is None:
                     continue
+                pairs = await ensure_pairs(t.mint_address, pairs or [], threshold)
                 if not check_activation_conditions(t.mint_address, pairs or [], threshold):
                     repo.set_monitoring(t)
                     demoted += 1
