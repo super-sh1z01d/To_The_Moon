@@ -2,10 +2,8 @@
 Tests for parallel token processor.
 """
 
-import asyncio
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
-from datetime import datetime
 
 from src.scheduler.parallel_processor import (
     ParallelTokenProcessor,
@@ -62,110 +60,87 @@ class TestParallelTokenProcessor:
     @pytest.mark.asyncio
     async def test_process_single_token_success(self, parallel_processor, mock_client, mock_token):
         """Test successful processing of single token."""
-        results = await parallel_processor.process_token_batch([mock_token], mock_client, "test")
-        
+        dummy_client = Mock()
+        dummy_client.get_pairs_for_mints = AsyncMock(
+            return_value={mock_token.mint_address: [{"pair": "test_pair"}]}
+        )
+
+        with patch(
+            "src.adapters.services.dexscreener_batch_client.get_batch_client",
+            new=AsyncMock(return_value=dummy_client),
+        ):
+            results = await parallel_processor.process_token_batch([mock_token], mock_client, "test")
+
         assert len(results) == 1
         result = results[0]
         assert result.token == mock_token
         assert result.success is True
         assert result.pairs == [{"pair": "test_pair"}]
-        assert result.error is None
-    
-    @pytest.mark.asyncio
-    async def test_process_token_with_async_client(self, parallel_processor, mock_client, mock_token):
-        """Test processing with async client."""
-        # Mock async client
-        mock_client.get_pairs_async = AsyncMock(return_value=[{"async_pair": "test"}])
-        
-        results = await parallel_processor.process_token_batch([mock_token], mock_client, "test")
-        
-        assert len(results) == 1
-        result = results[0]
-        assert result.success is True
-        assert result.pairs == [{"async_pair": "test"}]
-        mock_client.get_pairs_async.assert_called_once_with(mock_token.mint_address)
-    
-    @pytest.mark.asyncio
-    async def test_process_token_with_sync_client_fallback(self, parallel_processor, mock_client, mock_token):
-        """Test fallback to sync client when async not available."""
-        # Remove async method
-        delattr(mock_client, 'get_pairs_async')
-        
-        with patch('asyncio.to_thread') as mock_to_thread:
-            mock_to_thread.return_value = [{"sync_pair": "test"}]
-            
-            results = await parallel_processor.process_token_batch([mock_token], mock_client, "test")
-            
-            assert len(results) == 1
-            result = results[0]
-            assert result.success is True
-            assert result.pairs == [{"sync_pair": "test"}]
-            mock_to_thread.assert_called_once_with(mock_client.get_pairs, mock_token.mint_address)
-    
+        dummy_client.get_pairs_for_mints.assert_awaited_once()
+
     @pytest.mark.asyncio
     async def test_process_token_failure(self, parallel_processor, mock_client, mock_token):
         """Test handling of token processing failure."""
-        mock_client.get_pairs_async = AsyncMock(side_effect=Exception("API Error"))
-        
-        results = await parallel_processor.process_token_batch([mock_token], mock_client, "test")
-        
+        dummy_client = Mock()
+        dummy_client.get_pairs_for_mints = AsyncMock(
+            return_value={mock_token.mint_address: None}
+        )
+
+        with patch(
+            "src.adapters.services.dexscreener_batch_client.get_batch_client",
+            new=AsyncMock(return_value=dummy_client),
+        ):
+            results = await parallel_processor.process_token_batch([mock_token], mock_client, "test")
+
         assert len(results) == 1
         result = results[0]
         assert result.success is False
         assert result.pairs is None
-        assert "API Error" in result.error
-    
+        assert result.error == "request_failed"
+
     @pytest.mark.asyncio
-    async def test_process_multiple_tokens_concurrency(self, mock_client):
-        """Test concurrent processing of multiple tokens."""
-        # Create multiple tokens
+    async def test_process_multiple_tokens_single_request(self, mock_client):
+        """Ensure batch client is invoked once with all mints."""
         tokens = []
+        mapping = {}
         for i in range(5):
             token = Mock(spec=Token)
             token.id = i
             token.mint_address = f"test_mint_{i}"
             token.symbol = f"TEST{i}"
             tokens.append(token)
-        
-        # Mock async client with delay to test concurrency
-        async def mock_get_pairs_async(mint):
-            await asyncio.sleep(0.1)  # Simulate API delay
-            return [{"pair": f"pair_for_{mint}"}]
-        
-        mock_client.get_pairs_async = mock_get_pairs_async
-        
-        processor = ParallelTokenProcessor(max_concurrent=3, timeout=5.0)
-        
-        start_time = datetime.now()
-        results = await processor.process_token_batch(tokens, mock_client, "test")
-        end_time = datetime.now()
-        
-        # Should complete faster than sequential processing
-        processing_time = (end_time - start_time).total_seconds()
-        assert processing_time < 0.5  # Should be much faster than 5 * 0.1 = 0.5s
-        
+            mapping[token.mint_address] = [{"pair": f"pair_{i}"}]
+
+        dummy_client = Mock()
+        dummy_client.get_pairs_for_mints = AsyncMock(return_value=mapping)
+
+        with patch(
+            "src.adapters.services.dexscreener_batch_client.get_batch_client",
+            new=AsyncMock(return_value=dummy_client),
+        ):
+            processor = ParallelTokenProcessor(max_concurrent=3, timeout=5.0)
+            results = await processor.process_token_batch(tokens, mock_client, "test")
+
+        dummy_client.get_pairs_for_mints.assert_awaited_once()
         assert len(results) == 5
         assert all(r.success for r in results)
-    
+
     @pytest.mark.asyncio
-    async def test_batch_timeout(self, mock_client, mock_token):
-        """Test batch timeout handling."""
-        # Mock slow async client
-        async def slow_get_pairs_async(mint):
-            await asyncio.sleep(2.0)  # Longer than timeout
-            return [{"pair": "test"}]
-        
-        mock_client.get_pairs_async = slow_get_pairs_async
-        
-        processor = ParallelTokenProcessor(max_concurrent=2, timeout=0.5)
-        
-        results = await processor.process_token_batch([mock_token], mock_client, "test")
-        
-        # Should handle timeout gracefully
+    async def test_process_tokens_handles_missing_entries(self, parallel_processor, mock_client, mock_token):
+        """Tokens missing in response should be marked as failure."""
+        dummy_client = Mock()
+        dummy_client.get_pairs_for_mints = AsyncMock(return_value={})
+
+        with patch(
+            "src.adapters.services.dexscreener_batch_client.get_batch_client",
+            new=AsyncMock(return_value=dummy_client),
+        ):
+            results = await parallel_processor.process_token_batch([mock_token], mock_client, "test")
+
         assert len(results) == 1
-        result = results[0]
-        assert result.success is False
-        assert "batch_timeout" in result.error
+        assert results[0].success is False
+        assert results[0].pairs is None
+
 
 
 class TestAdaptiveBatchProcessor:

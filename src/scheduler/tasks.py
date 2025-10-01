@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.settings.service import SettingsService
-from src.adapters.services.dexscreener_client import DexScreenerClient
 
 
 log = logging.getLogger("archiver")
@@ -67,8 +67,12 @@ def _external_liq_ge(mint: str, pairs: list[dict], threshold: float) -> bool:
     return False
 
 
-def enforce_activation_once(limit_monitoring: int = 50, limit_active: int = 50) -> None:
+async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int = 50) -> None:
     logv = logging.getLogger("activation")
+    from src.adapters.services.dexscreener_batch_client import get_batch_client
+
+    batch_client = await get_batch_client()
+
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
         settings = SettingsService(sess)
@@ -77,57 +81,66 @@ def enforce_activation_once(limit_monitoring: int = 50, limit_active: int = 50) 
         except Exception:
             threshold = 200.0
 
-        client = DexScreenerClient(timeout=3.0)  # Shorter timeout for activation task
-
-        # Promote monitoring → active if has external WSOL/SOL pool with Lq >= threshold
         if limit_monitoring:
             mons = repo.list_monitoring_for_activation(limit=limit_monitoring)
+            monitoring_pairs = await batch_client.get_pairs_for_mints([t.mint_address for t in mons])
             promoted = 0
             for t in mons:
-                try:
-                    import time
-                    time.sleep(1.0)  # Rate limiting: 1s delay
-                    pairs = client.get_pairs(t.mint_address)
-                    if not pairs:
-                        continue
-                    # Проверяем условия активации с учетом минимальной ликвидности
-                    from src.domain.validation.dex_rules import check_activation_conditions
-                    if check_activation_conditions(t.mint_address, pairs, threshold):
-                        # best effort: fill name/symbol if empty
-                        name = None
-                        symbol = None
-                        try:
-                            for p in pairs:
-                                base = (p.get("baseToken") or {})
-                                if str(base.get("address")) == t.mint_address:
-                                    name = name or base.get("name")
-                                    symbol = symbol or base.get("symbol")
-                                    if name and symbol:
-                                        break
-                        except Exception:
-                            pass
-                        repo.update_token_fields(t, name=name, symbol=symbol)
-                        repo.set_active(t)
-                        promoted += 1
-                        logv.info("activated_by_liquidity", extra={"extra": {"mint": t.mint_address, "threshold": threshold}})
-                except Exception as e:
-                    logv.error("activation_error", extra={"extra": {"mint": t.mint_address, "error": str(e)}})
-            logv.info("promotion_summary", extra={"extra": {"checked": len(mons), "promoted": promoted, "threshold": threshold}})
+                pairs = monitoring_pairs.get(t.mint_address) or []
+                if not pairs:
+                    continue
+                from src.domain.validation.dex_rules import check_activation_conditions
+                if check_activation_conditions(t.mint_address, pairs, threshold):
+                    name = None
+                    symbol = None
+                    for p in pairs:
+                        base = (p.get("baseToken") or {})
+                        if str(base.get("address")) == t.mint_address:
+                            name = name or base.get("name")
+                            symbol = symbol or base.get("symbol")
+                            if name and symbol:
+                                break
+                    repo.update_token_fields(t, name=name, symbol=symbol)
+                    repo.set_active(t)
+                    promoted += 1
+                    logv.info(
+                        "activated_by_liquidity",
+                        extra={"extra": {"mint": t.mint_address, "threshold": threshold}},
+                    )
+            logv.info(
+                "promotion_summary",
+                extra={"extra": {"checked": len(mons), "promoted": promoted, "threshold": threshold}},
+            )
 
-        # Demote active → monitoring if no external WSOL/SOL pools with Lq >= threshold
         if limit_active:
             acts = repo.list_by_status("active", limit=limit_active)
+            active_pairs = await batch_client.get_pairs_for_mints([t.mint_address for t in acts])
             demoted = 0
+            from src.domain.validation.dex_rules import check_activation_conditions
             for t in acts:
-                import time
-                time.sleep(1.0)  # Rate limiting: 1s delay
-                pairs = client.get_pairs(t.mint_address)
+                pairs = active_pairs.get(t.mint_address)
                 if pairs is None:
                     continue
-                # Проверяем условия активации с учетом минимальной ликвидности
-                from src.domain.validation.dex_rules import check_activation_conditions
-                if not check_activation_conditions(t.mint_address, pairs, threshold):
+                if not check_activation_conditions(t.mint_address, pairs or [], threshold):
                     repo.set_monitoring(t)
                     demoted += 1
-                    logv.info("demoted_by_liquidity", extra={"extra": {"mint": t.mint_address, "threshold": threshold}})
-            logv.info("demotion_summary", extra={"extra": {"checked": len(acts), "demoted": demoted, "threshold": threshold}})
+                    logv.info(
+                        "demoted_by_liquidity",
+                        extra={"extra": {"mint": t.mint_address, "threshold": threshold}},
+                    )
+            logv.info(
+                "demotion_summary",
+                extra={"extra": {"checked": len(acts), "demoted": demoted, "threshold": threshold}},
+            )
+
+
+def enforce_activation_once(limit_monitoring: int = 50, limit_active: int = 50) -> None:
+    """Backward-compatible entrypoint; schedules async activation when loop is running."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(enforce_activation_async(limit_monitoring=limit_monitoring, limit_active=limit_active))
+    else:
+        loop.create_task(
+            enforce_activation_async(limit_monitoring=limit_monitoring, limit_active=limit_active)
+        )

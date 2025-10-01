@@ -54,75 +54,61 @@ class ParallelTokenProcessor:
         if not tokens:
             return []
             
-        log.info(f"parallel_batch_start", extra={
-            "extra": {
-                "group": group,
-                "token_count": len(tokens),
-                "max_concurrent": self.max_concurrent,
-                "timeout": self.timeout
-            }
-        })
-        
+        log.info(
+            "parallel_batch_start",
+            extra={"extra": {"group": group, "token_count": len(tokens)}}
+        )
+
+        from src.adapters.services.dexscreener_batch_client import get_batch_client
+
+        batch_client = await get_batch_client()
+        mints = [token.mint_address for token in tokens]
+
         start_time = datetime.now()
-        
-        # Create tasks for parallel processing
-        tasks = [
-            self._process_single_token(token, client, group)
-            for token in tokens
-        ]
-        
-        # Execute all tasks with timeout
-        try:
-            results = await asyncio.wait_for(
-                asyncio.gather(*tasks, return_exceptions=True),
-                timeout=self.timeout * len(tokens) / self.max_concurrent + 10  # Dynamic timeout
-            )
-        except asyncio.TimeoutError:
-            log.warning(f"parallel_batch_timeout", extra={
-                "extra": {
-                    "group": group,
-                    "token_count": len(tokens),
-                    "timeout": self.timeout
-                }
-            })
-            # Return partial results for tokens that completed
-            results = [
-                TokenProcessingResult(token, None, False, "batch_timeout")
-                for token in tokens
-            ]
-        
+        pairs_map = await batch_client.get_pairs_for_mints(mints)
         processing_time = (datetime.now() - start_time).total_seconds()
-        
-        # Convert exceptions to failed results
+
         processed_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
+        for token in tokens:
+            pairs = pairs_map.get(token.mint_address)
+            if pairs is None:
                 processed_results.append(
                     TokenProcessingResult(
-                        tokens[i], 
-                        None, 
-                        False, 
-                        f"exception: {str(result)}"
+                        token,
+                        None,
+                        False,
+                        "request_failed",
+                        processing_time
                     )
                 )
             else:
-                processed_results.append(result)
-        
-        # Log batch completion stats
+                processed_results.append(
+                    TokenProcessingResult(
+                        token,
+                        pairs,
+                        True,
+                        None,
+                        processing_time
+                    )
+                )
+
         successful = sum(1 for r in processed_results if r.success)
         failed = len(processed_results) - successful
-        
-        log.info(f"parallel_batch_complete", extra={
-            "extra": {
-                "group": group,
-                "total_tokens": len(tokens),
-                "successful": successful,
-                "failed": failed,
-                "processing_time": processing_time,
-                "tokens_per_second": len(tokens) / processing_time if processing_time > 0 else 0
-            }
-        })
-        
+
+        log.info(
+            "parallel_batch_complete",
+            extra={
+                "extra": {
+                    "group": group,
+                    "total_tokens": len(tokens),
+                    "successful": successful,
+                    "failed": failed,
+                    "processing_time": processing_time,
+                    "tokens_per_second": len(tokens) / processing_time if processing_time > 0 else 0,
+                }
+            },
+        )
+
         return processed_results
     
     async def _process_single_token(
@@ -263,7 +249,11 @@ _adaptive_batch_processor = None
 def get_parallel_processor(max_concurrent: int = 8, timeout: float = 5.0) -> ParallelTokenProcessor:
     """Get or create parallel processor instance"""
     global _parallel_processor
-    if _parallel_processor is None:
+    if (
+        _parallel_processor is None
+        or _parallel_processor.max_concurrent != max_concurrent
+        or _parallel_processor.timeout != timeout
+    ):
         _parallel_processor = ParallelTokenProcessor(max_concurrent, timeout)
     return _parallel_processor
 
@@ -271,6 +261,9 @@ def get_parallel_processor(max_concurrent: int = 8, timeout: float = 5.0) -> Par
 def get_adaptive_batch_processor(initial_batch_size: int = 35) -> AdaptiveBatchProcessor:
     """Get or create adaptive batch processor instance"""
     global _adaptive_batch_processor
-    if _adaptive_batch_processor is None:
+    if (
+        _adaptive_batch_processor is None
+        or _adaptive_batch_processor.current_batch_size != initial_batch_size
+    ):
         _adaptive_batch_processor = AdaptiveBatchProcessor(initial_batch_size)
     return _adaptive_batch_processor

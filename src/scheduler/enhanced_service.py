@@ -273,52 +273,28 @@ async def _process_tokens_parallel(
 
 
 async def _fetch_pairs_parallel(
-    tokens: List[Any], 
-    client: Any, 
+    tokens: List[Any],
+    client: Any,
     max_concurrent: int = 8
 ) -> Dict[str, Any]:
-    """
-    Fetch pairs for multiple tokens in parallel using semaphore control.
-    """
+    """Fetch token pairs using shared batch client."""
     if not tokens:
         return {}
-    
-    semaphore = asyncio.Semaphore(max_concurrent)
-    
-    async def fetch_single_token(token):
-        async with semaphore:
-            try:
-                # Larger delay to avoid overwhelming DexScreener API
-                await asyncio.sleep(0.5)  # 500ms delay between requests
-                pairs = await asyncio.to_thread(client.get_pairs, token.mint_address)
-                return token.mint_address, pairs
-            except Exception as e:
-                log.warning(f"Failed to fetch pairs for {token.mint_address}: {e}")
-                return token.mint_address, None
-    
-    # Execute all fetches in parallel
-    tasks = [fetch_single_token(token) for token in tokens]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    # Process results
-    pairs_data = {}
-    successful = 0
-    failed = 0
-    
-    for result in results:
-        if isinstance(result, Exception):
-            log.warning(f"Exception in parallel fetch: {result}")
-            failed += 1
-        else:
-            mint_address, pairs = result
-            pairs_data[mint_address] = pairs
-            if pairs is not None:
-                successful += 1
-            else:
-                failed += 1
-    
-    log.info(f"Parallel fetch completed: {successful} successful, {failed} failed")
-    return pairs_data
+
+    from src.adapters.services.dexscreener_batch_client import get_batch_client
+
+    batch_client = await get_batch_client()
+    mints = [token.mint_address for token in tokens]
+    pairs_map = await batch_client.get_pairs_for_mints(mints)
+
+    successful = sum(1 for mint in mints if pairs_map.get(mint) is not None)
+    failed = len(mints) - successful
+
+    log.info(
+        f"Parallel fetch completed: {successful} successful, {failed} failed",
+        extra={"extra": {"max_concurrent": max_concurrent}}
+    )
+    return pairs_map
 
 
 def enable_enhanced_scheduler():

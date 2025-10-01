@@ -25,9 +25,9 @@ class SimpleParallelProcessor:
         self.semaphore = asyncio.Semaphore(max_concurrent)
     
     async def process_tokens_parallel(
-        self, 
-        tokens: List[Token], 
-        client, 
+        self,
+        tokens: List[Token],
+        client,  # kept for backward compatibility, batch client is used internally
         group: str
     ) -> List[Tuple[Token, Any]]:
         """Process tokens in parallel and return results."""
@@ -37,45 +37,26 @@ class SimpleParallelProcessor:
         
         log.info(f"Processing {len(tokens)} tokens in parallel for {group} group")
         
-        # Create tasks for parallel processing
-        tasks = [
-            self._process_single_token(token, client)
-            for token in tokens
-        ]
-        
-        # Execute with controlled concurrency
-        results = []
-        for i in range(0, len(tasks), self.max_concurrent):
-            batch = tasks[i:i + self.max_concurrent]
-            batch_results = await asyncio.gather(*batch, return_exceptions=True)
-            results.extend(batch_results)
-        
-        # Filter successful results
+        from src.adapters.services.dexscreener_batch_client import get_batch_client
+
+        batch_client = await get_batch_client()
+        mints = [token.mint_address for token in tokens]
+        pairs_map = await batch_client.get_pairs_for_mints(mints)
+
         successful_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                log.warning(f"Token processing failed: {result}")
+        for token in tokens:
+            pairs = pairs_map.get(token.mint_address)
+            if pairs is None:
+                log.warning(
+                    "Token processing failed",
+                    extra={"extra": {"mint": token.mint_address, "group": group}}
+                )
                 continue
-            
-            token = tokens[i]
-            pairs = result
+
             successful_results.append((token, pairs))
-        
+
         log.info(f"Successfully processed {len(successful_results)}/{len(tokens)} tokens")
         return successful_results
-    
-    async def _process_single_token(self, token: Token, client):
-        """Process a single token with semaphore control."""
-        async with self.semaphore:
-            try:
-                # Use async client if available, otherwise thread pool
-                if hasattr(client, 'get_pairs_async'):
-                    return await client.get_pairs_async(token.mint_address)
-                else:
-                    return await asyncio.to_thread(client.get_pairs, token.mint_address)
-            except Exception as e:
-                log.warning(f"Failed to get pairs for {token.mint_address}: {e}")
-                raise
 
 
 def get_system_load() -> Dict[str, float]:

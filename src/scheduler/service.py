@@ -11,7 +11,6 @@ from fastapi import FastAPI
 from src.core.config import get_config
 from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
-from src.adapters.services.dexscreener_client import DexScreenerClient
 from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
 from src.domain.scoring.scorer import compute_score
 from src.domain.scoring.scoring_service import ScoringService
@@ -71,26 +70,9 @@ async def _process_group(group: str) -> None:
             deferred_processed = priority_processor.process_deferred_tokens(repo, max_tokens=20)
             if deferred_processed > 0:
                 log.info(f"processed_deferred_tokens", extra={"extra": {"count": deferred_processed, "group": group}})
-        # Use resilient client with circuit breaker in production
-        from src.core.config import get_config
-        config = get_config()
-        
-        if config.app_env == "prod":
-            from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
-            # Use shorter cache for hot tokens (more frequent updates)
-            cache_ttl = 15 if group == "hot" else 30
-            # Shorter timeout for cold group to process more tokens faster
-            timeout = 2.0 if group == "cold" else 5.0
-            client = ResilientDexScreenerClient(timeout=timeout, cache_ttl=cache_ttl)
-            log.info(f"Using resilient DexScreener client with circuit breaker, {timeout}s timeout and {cache_ttl}s cache for {group} tokens")
-        else:
-            timeout = 2.0 if group == "cold" else 5.0
-            client = DexScreenerClient(timeout=timeout)
-            log.info(f"Using standard DexScreener client with {timeout}s timeout")
-        
         processed = 0
         updated = 0
-        
+
         active_model = scoring_service.get_active_model()
         log.info("processing_group", extra={"extra": {"group": group, "active_model": active_model, "tokens_count": len(tokens)}})
         
@@ -115,6 +97,13 @@ async def _process_group(group: str) -> None:
         
         log.info("group_distribution", extra={"extra": {"group": group, "hot_tokens": hot_count, "cold_tokens": cold_count, "min_score": min_score}})
         
+        # Fetch pairs for all tokens via shared batch client to minimise DexScreener load
+        from src.adapters.services.dexscreener_batch_client import get_batch_client
+
+        batch_client = await get_batch_client()
+        mint_addresses = [t.mint_address for t in tokens]
+        pairs_map = await batch_client.get_pairs_for_mints(mint_addresses)
+
         for t in tokens:
             snap = snapshots.get(t.id)
             # Используем сглаженный скор для группировки (как в API)
@@ -160,13 +149,12 @@ async def _process_group(group: str) -> None:
                         }})
 
             processed += 1
-            
-
-            
-            # Execute HTTP call in thread pool to avoid blocking event loop
-            pairs = await asyncio.to_thread(client.get_pairs, t.mint_address)
+            pairs = pairs_map.get(t.mint_address)
             if pairs is None:
-                log.warning("pairs_fetch_failed", extra={"extra": {"group": group, "mint": t.mint_address}})
+                log.warning(
+                    "pairs_fetch_failed",
+                    extra={"extra": {"group": group, "mint": t.mint_address, "reason": "request_failed"}}
+                )
                 continue
             
             try:
@@ -431,14 +419,16 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         log.error(f"Failed to add cold_updater jobs: {e}")
     # Валидация monitoring → active каждую минуту
     from apscheduler.triggers.interval import IntervalTrigger
-    from src.scheduler.tasks import archive_once, enforce_activation_once
+    from src.scheduler.tasks import archive_once, enforce_activation_async
 
     # Increase frequency and batch size for faster activation
     scheduler.add_job(
-        lambda: enforce_activation_once(limit_monitoring=100, limit_active=50), 
-        IntervalTrigger(minutes=1), 
-        id="activation_enforcer", 
-        max_instances=1
+        enforce_activation_async,
+        IntervalTrigger(minutes=1),
+        id="activation_enforcer",
+        max_instances=1,
+        kwargs={"limit_monitoring": 100, "limit_active": 50},
+        coalesce=True,
     )
     # Архивация раз в час
     scheduler.add_job(archive_once, IntervalTrigger(hours=1), id="archiver_hourly", max_instances=1)
