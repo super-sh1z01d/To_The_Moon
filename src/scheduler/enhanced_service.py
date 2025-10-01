@@ -241,14 +241,14 @@ async def _process_tokens_parallel(
                 continue
             
             # Save score result (same as original)
-           scoring_service.save_score_result(
-               token=token,
-               score=score,
-               smoothed_score=smoothed_score,
-               metrics=metrics,
-               raw_components=raw_components,
-               smoothed_components=smoothed_components
-           )
+            scoring_service.save_score_result(
+                token=token,
+                score=score,
+                smoothed_score=smoothed_score,
+                metrics=metrics,
+                raw_components=raw_components,
+                smoothed_components=smoothed_components
+            )
             repo.update_token_timestamp(token.id)
 
             updated += 1
