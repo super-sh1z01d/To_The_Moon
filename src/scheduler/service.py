@@ -187,7 +187,9 @@ async def _process_group(group: str) -> None:
                     raw_components=raw_components,
                     smoothed_components=smoothed_components
                 )
-                
+                # Record processing timestamp for visibility on frontend/API
+                repo.update_token_timestamp(t.id)
+
                 updated += 1
                 
                 # Log with model-specific information (if detailed logging is enabled)
