@@ -335,10 +335,10 @@ class HybridMomentumModel:
                     "liquidity_factor_threshold": float(self.settings.get("liquidity_factor_threshold") or "100000.0"),
                     "orderflow_significance_threshold": float(self.settings.get("orderflow_significance_threshold") or "500.0"),
                     "manipulation_detection_ratio": float(self.settings.get("manipulation_detection_ratio") or "3.0"),
-                    # Arbitrage mode parameters
-                    "arbitrage_min_tx_5m": int(self.settings.get("arbitrage_min_tx_5m") or "50"),
+                    # Arbitrage mode parameters - use same settings as active tokens
+                    "arbitrage_min_tx_5m": int(self.settings.get("arbitrage_min_tx_5m") or "100"),
                     "arbitrage_optimal_tx_5m": int(self.settings.get("arbitrage_optimal_tx_5m") or "200"),
-                    "arbitrage_acceleration_weight": float(self.settings.get("arbitrage_acceleration_weight") or "0.3"),
+                    "arbitrage_acceleration_weight": float(self.settings.get("arbitrage_acceleration_weight") or "0.1"),
                 }
             else:
                 # For active tokens: strict filtering (current behavior)
@@ -352,10 +352,10 @@ class HybridMomentumModel:
                     "liquidity_factor_threshold": float(self.settings.get("liquidity_factor_threshold") or "100000.0"),
                     "orderflow_significance_threshold": float(self.settings.get("orderflow_significance_threshold") or "500.0"),
                     "manipulation_detection_ratio": float(self.settings.get("manipulation_detection_ratio") or "3.0"),
-                    # Arbitrage mode parameters
-                    "arbitrage_min_tx_5m": int(self.settings.get("arbitrage_min_tx_5m") or "50"),
+                    # Arbitrage mode parameters - consistent with monitoring tokens
+                    "arbitrage_min_tx_5m": int(self.settings.get("arbitrage_min_tx_5m") or "100"),
                     "arbitrage_optimal_tx_5m": int(self.settings.get("arbitrage_optimal_tx_5m") or "200"),
-                    "arbitrage_acceleration_weight": float(self.settings.get("arbitrage_acceleration_weight") or "0.3"),
+                    "arbitrage_acceleration_weight": float(self.settings.get("arbitrage_acceleration_weight") or "0.1"),
                 }
         except Exception as e:
             self.logger.warning(
