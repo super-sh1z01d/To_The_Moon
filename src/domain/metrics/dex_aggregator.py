@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Optional
 from datetime import datetime, timezone
 
@@ -15,12 +16,54 @@ _WSOL_SYMBOLS = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}
 _USDC_SYMBOLS = {"USDC", "usdc"}
 # Exclude bonding curve platforms; include pumpfun-amm and pumpswap for metrics
 _EXCLUDE_DEX_IDS = {"pumpfun", "launchlab"}
+# Pumpfun-related DEX IDs that indicate we might need fallback data
+_PUMPFUN_RELATED = {"pumpswap", "pumpfun-amm", "pumpfun"}
+
+# Simple cache for fallback pairs data (mint -> (timestamp, pairs))
+_FALLBACK_CACHE = {}
+_CACHE_TTL = 300  # 5 minutes
 
 
 def _to_float(x: Any) -> Optional[float]:
     try:
         return float(x)
     except Exception:
+        return None
+
+
+def _fetch_fallback_pairs(mint: str) -> Optional[list[dict[str, Any]]]:
+    """
+    Fetch full pairs data from token-pairs endpoint when batch data is incomplete.
+    Uses simple caching to avoid repeated requests.
+    """
+    log = logging.getLogger("dex_aggregator")
+    
+    # Check cache first
+    current_time = time.time()
+    if mint in _FALLBACK_CACHE:
+        cached_time, cached_pairs = _FALLBACK_CACHE[mint]
+        if current_time - cached_time < _CACHE_TTL:
+            log.debug(f"Using cached fallback pairs for {mint}")
+            return cached_pairs
+    
+    try:
+        # Lazy import to avoid circular dependencies
+        from ...adapters.services.dexscreener_client import DexScreenerClient
+        
+        client = DexScreenerClient(timeout=3.0)
+        pairs = client.get_pairs(mint)
+        
+        if pairs:
+            # Cache the result
+            _FALLBACK_CACHE[mint] = (current_time, pairs)
+            log.info(f"Fetched fallback pairs for {mint}: {len(pairs)} pairs found")
+            return pairs
+        else:
+            log.warning(f"No fallback pairs found for {mint}")
+            return None
+            
+    except Exception as e:
+        log.error(f"Failed to fetch fallback pairs for {mint}: {e}")
         return None
 
 
@@ -55,6 +98,39 @@ def aggregate_wsol_metrics(
     
     if len(filtered_pairs) < len(pairs):
         log.debug(f"Filtered {len(pairs) - len(filtered_pairs)} low liquidity pools for {mint}")
+    
+    # 1.5. Check if we need fallback data (only pumpfun-related DEXs found)
+    fallback_used = False
+    external_dexs_found = False
+    
+    for p in filtered_pairs:
+        try:
+            base = p.get("baseToken", {})
+            quote = p.get("quoteToken", {})
+            dex_id = str(p.get("dexId") or "")
+            qsym = str(quote.get("symbol", "")).upper()
+            
+            if (str(base.get("address")) == mint and 
+                dex_id not in _EXCLUDE_DEX_IDS and 
+                (qsym in _WSOL_SYMBOLS or qsym in _USDC_SYMBOLS)):
+                
+                if dex_id not in _PUMPFUN_RELATED:
+                    external_dexs_found = True
+                    break
+        except Exception:
+            continue
+    
+    # If only pumpfun-related DEXs found, try fallback
+    if not external_dexs_found:
+        log.info(f"Only pumpfun-related DEXs found for {mint}, trying fallback")
+        fallback_pairs = _fetch_fallback_pairs(mint)
+        if fallback_pairs:
+            # Re-filter with fallback data
+            fallback_filtered = filter_low_liquidity_pools(fallback_pairs, min_liquidity_usd)
+            if len(fallback_filtered) > len(filtered_pairs):
+                log.info(f"Fallback improved data for {mint}: {len(filtered_pairs)} -> {len(fallback_filtered)} pairs")
+                filtered_pairs = fallback_filtered
+                fallback_used = True
     
     # 2. Фильтруем только пары WSOL/токен и USDC/токен, где baseToken.address == mint
     ws_pairs: list[dict[str, Any]] = []
@@ -147,13 +223,14 @@ def aggregate_wsol_metrics(
         "usdc_pairs": len(usdc_pairs),
         "primary_dex": (primary or {}).get("dexId") if primary else None,
         "primary_liq_usd": round(primary_lq, 6) if primary_lq >= 0 else None,
-        "source": "dexscreener",
+        "source": "dexscreener_with_fallback" if fallback_used else "dexscreener",
         "pools": pools,
         "fetched_at": datetime.now(tz=timezone.utc).isoformat(),
         # Информация о фильтрации
         "total_pairs_received": len(pairs),
         "filtered_pairs_used": len(filtered_pairs),
         "pools_filtered_out": len(pairs) - len(filtered_pairs),
+        "fallback_used": fallback_used,
     }
     
     # 6. Валидация консистентности финальных метрик с градацией серьезности
