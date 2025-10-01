@@ -68,8 +68,8 @@ class TokensRepository:
             self.db.query(Token)
             .filter(Token.status == "monitoring")
             .order_by(
-                Token.last_updated_at.desc().nulls_last(),  # Recently updated first
-                Token.created_at.desc()                     # Then newest tokens first
+                Token.last_updated_at.asc().nullsfirst(),  # Older updates first to avoid starvation
+                Token.created_at.desc()
             )
         )
         if limit:
