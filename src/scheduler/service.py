@@ -429,7 +429,7 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         IntervalTrigger(minutes=1),
         id="activation_enforcer",
         max_instances=1,
-        kwargs={"limit_monitoring": 100, "limit_active": 50},
+        kwargs={"limit_monitoring": 40, "limit_active": 40},
         coalesce=True,
     )
     # Архивация раз в час
