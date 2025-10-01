@@ -12,7 +12,7 @@ def has_external_pools(mint: str, pairs: list[dict[str, Any]]) -> bool:
     Used to determine if we need to fetch fallback data.
     """
     excluded_dexes = {"pumpfun", "launchlab"}
-    usdc_symbols = {"USDC", "usdc"}
+    usdc_symbols = {"USDC", "usdc", "USD1", "usd1"}
     
     for p in pairs:
         try:
@@ -56,7 +56,7 @@ def check_activation_conditions(mint: str, pairs: list[dict[str, Any]], min_liqu
     
     # Исключаем bonding curve платформы
     excluded_dexes = {"pumpfun", "launchlab"}
-    usdc_symbols = {"USDC", "usdc"}
+    usdc_symbols = {"USDC", "usdc", "USD1", "usd1"}
 
     for p in pairs:
         try:
