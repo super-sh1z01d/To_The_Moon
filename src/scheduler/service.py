@@ -431,6 +431,7 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         max_instances=1,
         kwargs={"limit_monitoring": 40, "limit_active": 40},
         coalesce=True,
+        misfire_grace_time=60,
     )
     # Архивация раз в час
     scheduler.add_job(archive_once, IntervalTrigger(hours=1), id="archiver_hourly", max_instances=1)
