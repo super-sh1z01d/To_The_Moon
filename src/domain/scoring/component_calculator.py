@@ -115,7 +115,9 @@ class ComponentCalculator:
             if tx_count_5m < min_threshold:
                 absolute_score = 0.0
             elif tx_count_5m >= optimal_threshold:
-                absolute_score = 1.0
+                # Continue linear scaling above optimal threshold for high-activity tokens
+                # This rewards tokens with exceptional transaction volume for arbitrage
+                absolute_score = 1.0 + (tx_count_5m - optimal_threshold) / optimal_threshold
             else:
                 # Linear scaling between thresholds
                 absolute_score = (tx_count_5m - min_threshold) / (optimal_threshold - min_threshold)
@@ -147,8 +149,9 @@ class ComponentCalculator:
             absolute_weight = 1.0 - acceleration_weight
             final_score = (absolute_score * absolute_weight) + (acceleration_score * acceleration_weight)
             
-            # Ensure result is within bounds
-            return max(0.0, min(1.0, final_score))
+            # Ensure result is within reasonable bounds (allow values > 1.0 for high activity)
+            # Cap at 3.0 to prevent extreme scores while rewarding exceptional activity
+            return max(0.0, min(3.0, final_score))
             
         except (ZeroDivisionError, TypeError, ValueError):
             logging.getLogger("component_calculator").warning(
