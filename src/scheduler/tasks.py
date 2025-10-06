@@ -434,11 +434,12 @@ async def monitor_spam_once() -> None:
             repo = TokensRepository(sess)
             settings = SettingsService(sess)
             
-            # Get minimum score threshold for monitoring
-            min_score = float(settings.get("min_score") or 50.0)
+            # Get minimum score threshold for NotArb config export
+            # This is the threshold for tokens that get exported to the bot
+            notarb_min_score = float(settings.get("notarb_min_score") or 0.5)
             
-            # Get active tokens above threshold
-            tokens = repo.get_active_tokens_above_score(min_score)
+            # Get active tokens above NotArb threshold
+            tokens = repo.get_active_tokens_above_score(notarb_min_score)
             
             if not tokens:
                 log.info("spam_monitor", extra={"extra": {"message": "No tokens to monitor"}})
@@ -449,7 +450,8 @@ async def monitor_spam_once() -> None:
             async with SpamDetector() as detector:
                 spam_results = []
                 
-                for token in tokens[:10]:  # Limit to top 10 for performance
+                # Analyze all tokens above NotArb threshold (no limit)
+                for token in tokens:
                     try:
                         result = await detector.analyze_token_spam(token.mint_address)
                         
