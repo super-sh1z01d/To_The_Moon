@@ -506,6 +506,15 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         max_instances=1
     )
     
+    # Спам-мониторинг каждые 5 минут
+    from src.scheduler.tasks import run_spam_monitor
+    scheduler.add_job(
+        run_spam_monitor, 
+        IntervalTrigger(minutes=5), 
+        id="spam_monitor", 
+        max_instances=1
+    )
+    
     scheduler.start()
     
     # Запускаем независимый процессор холодных токенов
