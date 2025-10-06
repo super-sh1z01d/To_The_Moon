@@ -167,6 +167,15 @@ class TokensRepository:
         except Exception:
             pass
 
+        # Preserve spam_metrics from previous snapshot
+        previous_spam_metrics = None
+        try:
+            latest = self.get_latest_snapshot(token_id)
+            if latest and latest.spam_metrics:
+                previous_spam_metrics = latest.spam_metrics
+        except Exception:
+            pass
+
         snap = TokenScore(
             token_id=token_id, 
             score=score, 
@@ -175,6 +184,7 @@ class TokensRepository:
             raw_components=raw_components,
             smoothed_components=smoothed_components,
             scoring_model=scoring_model,
+            spam_metrics=previous_spam_metrics,  # Preserve spam metrics
             created_at=datetime.now(tz=timezone.utc)
         )
         self.db.add(snap)
