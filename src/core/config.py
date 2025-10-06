@@ -28,6 +28,9 @@ class AppConfig(BaseSettings):
     
     # NotArb integration
     notarb_config_path: str = Field(default="markets.json")
+    
+    # Helius RPC API
+    helius_api_key: str = Field(default="e515761d-a0d4-4c02-ba17-7bc73ebe08b0")
 
 
 @lru_cache(maxsize=1)

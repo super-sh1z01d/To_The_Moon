@@ -5,6 +5,14 @@ export type ComponentBreakdown = {
   orderflow_imbalance: number
 }
 
+export type SpamMetrics = {
+  spam_percentage: number
+  risk_level: 'clean' | 'low' | 'medium' | 'high'
+  total_instructions: number
+  compute_budget_count: number
+  analyzed_at?: string
+}
+
 export type TokenItem = {
   mint_address: string
   name?: string
@@ -24,6 +32,7 @@ export type TokenItem = {
   scoring_model?: string
   created_at?: string
   status?: string
+  spam_metrics?: SpamMetrics
 }
 
 export type TokensResponse = {

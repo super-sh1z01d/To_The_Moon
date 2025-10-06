@@ -459,3 +459,82 @@ class TokensRepository:
             .limit(limit)
             .all()
         )
+    def get_active_tokens_above_score(self, min_score: float, limit: int = 100) -> List[Token]:
+        """Get active tokens with latest score above threshold for spam monitoring."""
+        from sqlalchemy import func
+        
+        # Subquery to get the latest score for each token
+        subq = (
+            self.db.query(
+                TokenScore.token_id.label("token_id"), 
+                func.max(TokenScore.created_at).label("max_created_at")
+            )
+            .group_by(TokenScore.token_id)
+            .subquery()
+        )
+        
+        # Join with latest scores and filter
+        q = (
+            self.db.query(Token)
+            .join(subq, subq.c.token_id == Token.id)
+            .join(
+                TokenScore,
+                (TokenScore.token_id == subq.c.token_id) & 
+                (TokenScore.created_at == subq.c.max_created_at)
+            )
+            .filter(Token.status == "active")
+            .filter(
+                (TokenScore.smoothed_score >= min_score) | 
+                (TokenScore.score >= min_score)
+            )
+            .order_by(
+                func.coalesce(TokenScore.smoothed_score, TokenScore.score).desc()
+            )
+            .limit(limit)
+        )
+        
+        return list(q.all())
+
+    def update_spam_metrics(self, token_id: int, spam_metrics: dict) -> None:
+        """Update spam metrics for the latest token score."""
+        from datetime import datetime, timezone
+        
+        # Get the latest score record
+        latest_score = self.get_latest_snapshot(token_id)
+        
+        if latest_score:
+            # Update existing record
+            latest_score.spam_metrics = spam_metrics
+            self.db.add(latest_score)
+            self.db.commit()
+            
+            logging.getLogger("tokens_repo").info(
+                "spam_metrics_updated", 
+                extra={
+                    "extra": {
+                        "token_id": token_id, 
+                        "spam_percentage": spam_metrics.get("spam_percentage", 0),
+                        "risk_level": spam_metrics.get("risk_level", "unknown")
+                    }
+                }
+            )
+        else:
+            # Create new score record with just spam metrics
+            snap = TokenScore(
+                token_id=token_id,
+                spam_metrics=spam_metrics,
+                created_at=datetime.now(tz=timezone.utc)
+            )
+            self.db.add(snap)
+            self.db.commit()
+            
+            logging.getLogger("tokens_repo").info(
+                "spam_metrics_created", 
+                extra={
+                    "extra": {
+                        "token_id": token_id, 
+                        "spam_percentage": spam_metrics.get("spam_percentage", 0),
+                        "risk_level": spam_metrics.get("risk_level", "unknown")
+                    }
+                }
+            )

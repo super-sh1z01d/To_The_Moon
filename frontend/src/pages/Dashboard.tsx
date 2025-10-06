@@ -7,6 +7,7 @@ import AgeCell from '../components/AgeCell'
 import ArbitragePanel from '../components/ArbitragePanel'
 import SystemMonitor from '../components/SystemMonitor'
 import EnhancedScoreCell from '../components/EnhancedScoreCell'
+import SpamCell from '../components/SpamCell'
 import { formatCalcTime } from '../lib/scoring-utils'
 
 export default function Dashboard(){
@@ -178,7 +179,7 @@ export default function Dashboard(){
             <th>Статус</th>
             <th title="Ссылки на Solscan пулов SOL/WSOL">Пулы (WSOL)</th>
             <th title="Ссылки на Solscan пулов USDC">Пулы (USDC)</th>
-            <th title="Ссылки на Solscan пулов USD1">Пулы (USD1)</th>
+            <th title="Процент спам-активности на основе ComputeBudget инструкций">Спам</th>
             <th title="Время последней обработки токена планировщиком">Обработан</th>
             <th>Solscan</th>
           </tr>
@@ -223,12 +224,7 @@ export default function Dashboard(){
                 </div>
               </td>
               <td>
-                <div className="pools" style={{marginTop: 4}}>
-                  {(pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='USD1').map(p=> (
-                    <span key={(p.address||'')+ (p.dex||'')+ 'usd1'} className="pool">{renderDexPill(p)}</span>
-                  ))}
-                  {(!pools[it.mint_address] || (pools[it.mint_address]||[]).filter(p=> (p.quote||'').toUpperCase()==='USD1').length===0) && (pLoading[it.mint_address] ? <span className="muted">Загрузка...</span> : <span className="muted">—</span>)}
-                </div>
+                <SpamCell spamMetrics={it.spam_metrics} compact={compactMode} />
               </td>
               <td title={`Последний расчет скора: ${formatCalcTime(it.scored_at)}`}>
                 {formatCalcTime(it.last_processed_at || it.scored_at)}

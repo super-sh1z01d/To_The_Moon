@@ -1,0 +1,222 @@
+{
+  "total_transactions": 20,
+  "time_range": {
+    "earliest": "2025-10-06T19:00:42",
+    "latest": "2025-10-06T19:00:42",
+    "span_hours": 0.0
+  },
+  "wallet_patterns": {
+    "total_unique_wallets": 1,
+    "high_frequency_wallets": [],
+    "repetitive_wallets": [],
+    "new_wallet_activity": 0,
+    "wallet_frequency_distribution": {
+      "mean": 4,
+      "median": 4,
+      "max": 4,
+      "wallets_with_1_tx": 0,
+      "wallets_with_5plus_tx": 0
+    }
+  },
+  "amount_patterns": {
+    "error": "No amounts to analyze"
+  },
+  "timing_patterns": {
+    "total_intervals": 19,
+    "interval_distribution": {
+      "min_seconds": 0,
+      "max_seconds": 0,
+      "mean_seconds": 0,
+      "median_seconds": 0,
+      "std_dev": 0.0
+    },
+    "regular_intervals": [
+      {
+        "interval_seconds": 0,
+        "occurrences": 19,
+        "percentage": 100.0
+      }
+    ],
+    "burst_periods": [
+      {
+        "burst_transactions": 19,
+        "total_transactions": 19,
+        "burst_rate": 100.0
+      }
+    ],
+    "suspicious_timing": false
+  },
+  "spam_indicators": {
+    "repetitive_amounts": 0,
+    "high_frequency_wallets": 0.0,
+    "regular_timing": 0.5,
+    "round_numbers": 0.0,
+    "wallet_clustering": 0.0,
+    "compute_budget_spam": 0.0,
+    "program_patterns": 0.0,
+    "synchronous_activity": 0.9
+  },
+  "spam_score": 12.0,
+  "content_analysis": {
+    "instruction_patterns": {
+      "transfer": 4
+    },
+    "program_usage": {
+      "ComputeBudget111111111111111111111111111111": 60,
+      "HVi6VyyLvTtFTA8f8atavxVjUKi8WjmnydfKgoZKzt7H": 5,
+      "NA247a7YE9S3p9CdKmMyETx8TTwbSdVbVYHHxpnHTUV": 2,
+      "FsU1rcaEC361jBr9JE5wm7bpWRSTYeAMN4R2MCs11rNF": 3,
+      "MEViEnscUm6tsQRoGd9h6nLQaQspKj7DB2M5FwM3Xvz": 5,
+      "11111111111111111111111111111111": 4,
+      "4x2hufoQLrhbPBcCEFcYwe7xja9EyNUB92XVxtD1Wpdr": 4,
+      "DDsnwb7dxKSjzTYDFjU8F6rpYNZa1sp7Fmfb2nGDAMEo": 1
+    },
+    "account_patterns": {
+      "So11111111111111111111111111111111111111112": 229,
+      "7E2iF4WFs5biCtkAVFCBPEdnpg7t2D19VzxjxEPvpump": 58,
+      "J4UBm5kvMSHeUwbNgZW4ySpCHBvS7LXknZ7rqQR9pump": 56,
+      "5TfqNKZbn9AnNtzq8bbkyhKgcPGTfNDc9wNzFrTBpump": 20,
+      "EkqrcmLhvh7VcRQ11d8dqcAWh3T43gPvb92iFU2pump": 9,
+      "48yjoFSJ8m6jgDorrYvwfxoLCPAuML9sGz975ZAJtbBY": 8,
+      "HJPwEJcCH9dgA9j3tVjFHEgdRbSyc7EwGFMmozVvpump": 8,
+      "4NGbC4RRrUjS78ooSN53Up7gSg4dGrj6F6dxpMWHbonk": 3
+    },
+    "transaction_details": [
+      {
+        "index": 9,
+        "signature": "2EcWWVByqhTc1Udf...",
+        "block_time": "19:00:42",
+        "instructions": [
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "4x2hufoQ...",
+            "type": "unknown"
+          }
+        ],
+        "token_transfers": [],
+        "accounts_involved": 64,
+        "compute_units": 27836,
+        "fee": 5079
+      },
+      {
+        "index": 10,
+        "signature": "4UVc2iboAa8Nx9Xu...",
+        "block_time": "19:00:42",
+        "instructions": [
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "4x2hufoQ...",
+            "type": "unknown"
+          }
+        ],
+        "token_transfers": [],
+        "accounts_involved": 64,
+        "compute_units": 27836,
+        "fee": 5117
+      },
+      {
+        "index": 12,
+        "signature": "2579aVfRmbRXtToi...",
+        "block_time": "19:00:42",
+        "instructions": [
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "4x2hufoQ...",
+            "type": "unknown"
+          }
+        ],
+        "token_transfers": [],
+        "accounts_involved": 64,
+        "compute_units": 27836,
+        "fee": 10921
+      },
+      {
+        "index": 15,
+        "signature": "4saMmvuzeyk4SAL4...",
+        "block_time": "19:00:42",
+        "instructions": [
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "DDsnwb7d...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          }
+        ],
+        "token_transfers": [],
+        "accounts_involved": 59,
+        "compute_units": 72924,
+        "fee": 7298
+      },
+      {
+        "index": 17,
+        "signature": "4NWPZG7VXm1dGB7i...",
+        "block_time": "19:00:42",
+        "instructions": [
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "ComputeB...",
+            "type": "unknown"
+          },
+          {
+            "program": "4x2hufoQ...",
+            "type": "unknown"
+          }
+        ],
+        "token_transfers": [],
+        "accounts_involved": 64,
+        "compute_units": 27836,
+        "fee": 6388
+      }
+    ]
+  }
+}

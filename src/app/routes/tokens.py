@@ -22,6 +22,14 @@ class ComponentBreakdown(BaseModel):
     orderflow_imbalance: float
 
 
+class SpamMetrics(BaseModel):
+    spam_percentage: float
+    risk_level: str
+    total_instructions: int
+    compute_budget_count: int
+    analyzed_at: Optional[str] = None
+
+
 class TokenItem(BaseModel):
     mint_address: str
     name: Optional[str] = None
@@ -41,6 +49,7 @@ class TokenItem(BaseModel):
     smoothed_components: Optional[ComponentBreakdown] = None
     scoring_model: Optional[str] = None
     created_at: Optional[str] = None
+    spam_metrics: Optional[SpamMetrics] = None
 
 
 class TokensMeta(BaseModel):
@@ -128,6 +137,21 @@ async def list_tokens(
             except (ValueError, TypeError):
                 smoothed_components = None
 
+        # Extract spam metrics if available
+        spam_metrics = None
+        if snap and snap.spam_metrics:
+            try:
+                spam_data = snap.spam_metrics if isinstance(snap.spam_metrics, dict) else {}
+                spam_metrics = SpamMetrics(
+                    spam_percentage=float(spam_data.get("spam_percentage", 0)),
+                    risk_level=str(spam_data.get("risk_level", "unknown")),
+                    total_instructions=int(spam_data.get("total_instructions", 0)),
+                    compute_budget_count=int(spam_data.get("compute_budget_count", 0)),
+                    analyzed_at=str(spam_data.get("analyzed_at")) if spam_data.get("analyzed_at") else None
+                )
+            except (ValueError, TypeError, KeyError):
+                spam_metrics = None
+
         items.append(
             TokenItem(
                 mint_address=token.mint_address,
@@ -150,6 +174,7 @@ async def list_tokens(
                 smoothed_components=smoothed_components,
                 scoring_model=snap.scoring_model if snap else None,
                 created_at=token.created_at.replace(tzinfo=timezone.utc).isoformat() if token.created_at else None,
+                spam_metrics=spam_metrics,
             )
         )
 

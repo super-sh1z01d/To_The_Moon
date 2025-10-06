@@ -60,6 +60,9 @@ class TokenScore(Base):
     smoothed_components: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     scoring_model: Mapped[str] = mapped_column(String(50), default="hybrid_momentum", nullable=False)
     
+    # Spam detection metrics
+    spam_metrics: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False)
 
     token: Mapped[Token] = relationship(back_populates="scores")

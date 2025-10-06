@@ -8,6 +8,7 @@ from typing import Any
 from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.settings.service import SettingsService
+from src.monitoring.spam_detector import SpamDetector
 
 
 log = logging.getLogger("archiver")
@@ -424,3 +425,93 @@ def optimize_performance_once() -> None:
         
     except Exception as e:
         log.error(f"Error in performance optimization: {e}", exc_info=True)
+
+
+async def monitor_spam_once() -> None:
+    """Monitor spam levels for top tokens."""
+    try:
+        with SessionLocal() as sess:
+            repo = TokensRepository(sess)
+            settings = SettingsService(sess)
+            
+            # Get minimum score threshold for monitoring
+            min_score = float(settings.get("min_score") or 50.0)
+            
+            # Get active tokens above threshold
+            tokens = repo.get_active_tokens_above_score(min_score)
+            
+            if not tokens:
+                log.info("spam_monitor", extra={"extra": {"message": "No tokens to monitor"}})
+                return
+            
+            log.info("spam_monitor_start", extra={"extra": {"token_count": len(tokens)}})
+            
+            async with SpamDetector() as detector:
+                spam_results = []
+                
+                for token in tokens[:10]:  # Limit to top 10 for performance
+                    try:
+                        result = await detector.analyze_token_spam(token.mint_address)
+                        
+                        if "error" not in result:
+                            spam_metrics = result.get("spam_metrics", {})
+                            spam_pct = spam_metrics.get("spam_percentage", 0)
+                            risk_level = spam_metrics.get("risk_level", "unknown")
+                            
+                            # Save spam metrics to database
+                            try:
+                                from datetime import datetime, timezone
+                                spam_data = {
+                                    "spam_percentage": spam_pct,
+                                    "risk_level": risk_level,
+                                    "total_instructions": spam_metrics.get("total_instructions", 0),
+                                    "compute_budget_count": spam_metrics.get("compute_budget_count", 0),
+                                    "analyzed_at": datetime.now(tz=timezone.utc).isoformat()
+                                }
+                                repo.update_spam_metrics(token.id, spam_data)
+                            except Exception as e:
+                                log.error(f"Failed to save spam metrics for {token.mint_address}: {e}")
+                            
+                            spam_results.append({
+                                "mint_address": token.mint_address,
+                                "spam_percentage": spam_pct,
+                                "risk_level": risk_level
+                            })
+                            
+                            # Log high spam tokens
+                            if risk_level in ["high", "medium"]:
+                                log.warning("high_spam_detected", extra={
+                                    "extra": {
+                                        "mint_address": token.mint_address,
+                                        "spam_percentage": spam_pct,
+                                        "risk_level": risk_level
+                                    }
+                                })
+                        
+                    except Exception as e:
+                        log.error(f"Error analyzing spam for {token.mint_address}: {e}")
+                        continue
+                
+                # Log summary
+                if spam_results:
+                    high_spam_count = sum(1 for r in spam_results if r["risk_level"] in ["high", "medium"])
+                    avg_spam = sum(r["spam_percentage"] for r in spam_results) / len(spam_results)
+                    
+                    log.info("spam_monitor_complete", extra={
+                        "extra": {
+                            "tokens_analyzed": len(spam_results),
+                            "high_spam_count": high_spam_count,
+                            "average_spam_percentage": round(avg_spam, 1)
+                        }
+                    })
+                
+    except Exception as e:
+        log.error(f"Spam monitoring failed: {e}")
+
+
+def run_spam_monitor() -> None:
+    """Sync wrapper for spam monitoring."""
+    try:
+        asyncio.run(monitor_spam_once())
+    except Exception as e:
+        log.error(f"Failed to run spam monitor: {e}")
