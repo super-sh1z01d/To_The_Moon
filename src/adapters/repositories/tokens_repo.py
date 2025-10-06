@@ -29,6 +29,20 @@ class TokensRepository:
                 "token_inserted",
                 extra={"extra": {"mint": mint, "name": name, "symbol": symbol, "status": "monitoring"}},
             )
+            
+            # Record status transition for monitoring
+            try:
+                from src.monitoring.token_monitor import get_token_monitor
+                token_monitor = get_token_monitor()
+                token_monitor.record_status_transition(
+                    mint_address=mint,
+                    from_status="new",
+                    to_status="monitoring",
+                    reason="initial_processing"
+                )
+            except Exception as e:
+                self._log.warning(f"Failed to record token creation transition: {e}")
+            
             return True
         except IntegrityError:
             self.db.rollback()
@@ -79,18 +93,46 @@ class TokensRepository:
     def set_active(self, token: Token) -> None:
         from datetime import datetime, timezone
 
+        old_status = token.status
         token.status = "active"
         token.last_updated_at = datetime.now(tz=timezone.utc)
         self.db.add(token)
         self.db.commit()
+        
+        # Record status transition for monitoring
+        try:
+            from src.monitoring.token_monitor import get_token_monitor
+            token_monitor = get_token_monitor()
+            token_monitor.record_status_transition(
+                mint_address=token.mint_address,
+                from_status=old_status,
+                to_status="active",
+                reason="activation_successful"
+            )
+        except Exception as e:
+            self._log.warning(f"Failed to record token activation transition: {e}")
 
     def set_monitoring(self, token: Token) -> None:
         from datetime import datetime, timezone
 
+        old_status = token.status
         token.status = "monitoring"
         token.last_updated_at = datetime.now(tz=timezone.utc)
         self.db.add(token)
         self.db.commit()
+        
+        # Record status transition for monitoring
+        try:
+            from src.monitoring.token_monitor import get_token_monitor
+            token_monitor = get_token_monitor()
+            token_monitor.record_status_transition(
+                mint_address=token.mint_address,
+                from_status=old_status,
+                to_status="monitoring",
+                reason="status_change"
+            )
+        except Exception as e:
+            self._log.warning(f"Failed to record token monitoring transition: {e}")
 
     def update_token_fields(self, token: Token, name: Optional[str] = None, symbol: Optional[str] = None) -> None:
         updated = False
@@ -267,6 +309,7 @@ class TokensRepository:
     def archive_token(self, token: Token, reason: str) -> None:
         from datetime import datetime, timezone
 
+        old_status = token.status
         token.status = "archived"
         token.last_updated_at = datetime.now(tz=timezone.utc)
         self.db.add(token)
@@ -274,6 +317,19 @@ class TokensRepository:
         logging.getLogger("tokens_repo").info(
             "token_archived", extra={"extra": {"token_id": token.id, "mint": token.mint_address, "reason": reason}}
         )
+        
+        # Record status transition for monitoring
+        try:
+            from src.monitoring.token_monitor import get_token_monitor
+            token_monitor = get_token_monitor()
+            token_monitor.record_status_transition(
+                mint_address=token.mint_address,
+                from_status=old_status,
+                to_status="archived",
+                reason=reason
+            )
+        except Exception as e:
+            self._log.warning(f"Failed to record token archive transition: {e}")
 
     def list_monitoring_older_than_hours(self, hours: int, limit: int = 500) -> list[Token]:
         from datetime import datetime, timedelta, timezone
@@ -392,4 +448,14 @@ class TokensRepository:
             .filter(TokenScore.token_id == token_id)
             .order_by(TokenScore.created_at.desc(), TokenScore.id.desc())
             .first()
+        )
+    
+    def get_tokens_by_status(self, status: str, limit: int = 100) -> List[Token]:
+        """Get tokens by status for monitoring and analysis."""
+        return (
+            self.db.query(Token)
+            .filter(Token.status == status)
+            .order_by(Token.created_at.desc())
+            .limit(limit)
+            .all()
         )

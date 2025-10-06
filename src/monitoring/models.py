@@ -185,9 +185,9 @@ class MonitoringConfig:
     performance_check_interval: int = 120  # seconds
     alert_cooldown: int = 300  # seconds
     
-    # Resource thresholds
-    memory_warning_threshold: float = 1400.0  # MB
-    memory_critical_threshold: float = 1600.0  # MB
+    # Resource thresholds (updated for servers with large memory)
+    memory_warning_threshold: float = 8000.0  # MB (~12.7% of 62.7GB)
+    memory_critical_threshold: float = 12000.0  # MB (~19% of 62.7GB)
     cpu_warning_threshold: float = 70.0  # percentage
     cpu_critical_threshold: float = 80.0  # percentage
     disk_warning_threshold: float = 80.0  # percentage

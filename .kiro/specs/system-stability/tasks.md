@@ -1,221 +1,217 @@
 # Implementation Plan
 
-- [ ] 1. Set up core monitoring infrastructure
-  - Create base monitoring classes and interfaces
-  - Implement health metrics data models
-  - Set up monitoring configuration management
-  - _Requirements: 1.1, 5.1_
+- [x] 1. Implement intelligent memory management and optimization
+  - Create memory monitoring with dynamic threshold adjustment
+  - Implement automatic garbage collection and cleanup procedures
+  - Add memory leak detection and targeted cleanup
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-- [x] 1.1 Create health monitoring data models
-  - Implement SchedulerHealth, ResourceHealth, and APIHealth dataclasses
-  - Create PerformanceMetrics and HealthAlert models
-  - Add SystemHealth composite model with status aggregation
-  - _Requirements: 1.1, 1.2, 4.4_
+- [x] 1.1 Create intelligent memory threshold management
+  - Implement dynamic memory threshold adjustment based on system capacity
+  - Add memory usage pattern analysis to prevent false alerts
+  - Create memory threshold auto-tuning when system has >50% available memory
+  - _Requirements: 1.2, 1.3, 1.6_
 
-- [x] 1.2 Implement basic health monitor class
-  - Create HealthMonitor class with metric collection methods
-  - Implement monitor_scheduler_health() method
-  - Add monitor_resource_usage() and monitor_api_health() methods
-  - Write unit tests for health monitoring logic
-  - _Requirements: 1.1, 1.2, 1.5_
+- [x] 1.2 Implement automatic memory cleanup and optimization
+  - Create automatic garbage collection triggers before alerting
+  - Implement memory leak detection with component-level analysis
+  - Add targeted cleanup procedures for different memory usage patterns
+  - _Requirements: 1.1, 1.4, 1.5_
 
-- [x] 1.3 Create monitoring configuration system
-  - Implement MonitoringConfig, RecoveryConfig, and CircuitBreakerConfig dataclasses
-  - Add configuration loading from environment variables and settings
-  - Create configuration validation and hot-reload capabilities
-  - _Requirements: 8.1, 8.2, 8.6_
+- [x] 1.3 Add memory usage monitoring and reporting
+  - Implement detailed memory usage logging with recovery actions
+  - Create memory optimization reporting with before/after metrics
+  - Add memory usage trend analysis for proactive management
+  - _Requirements: 1.5, 1.6_
 
-- [ ] 2. Implement circuit breaker pattern for API resilience
-  - Create CircuitBreaker class with state management
-  - Implement failure tracking and recovery logic
-  - Add exponential backoff and retry mechanisms
-  - _Requirements: 3.1, 3.2, 3.3_
+- [x] 2. Implement Telegram notifications and alerting system
+  - Create Telegram bot integration for system alerts
+  - Implement critical error notifications with detailed context
+  - Add performance degradation alerts with metrics summary
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-- [x] 2.1 Create circuit breaker core implementation
-  - Implement CircuitBreaker class with CLOSED/OPEN/HALF_OPEN states
-  - Add failure counting and threshold detection
-  - Implement recovery timeout and state transition logic
-  - Write comprehensive unit tests for all state transitions
-  - _Requirements: 3.3, 3.4_
-
-- [x] 2.2 Implement retry manager with exponential backoff
-  - Create RetryManager class with configurable retry policies
-  - Implement exponential backoff with jitter
-  - Add maximum retry limits and timeout handling
-  - _Requirements: 3.1, 3.2_
-
-- [x] 2.3 Create resilient DexScreener API client
-  - Implement ResilientDexScreenerClient wrapping existing client
-  - Integrate circuit breaker and retry manager
-  - Add API response caching for fallback scenarios
-  - Write integration tests with simulated API failures
-  - _Requirements: 3.1, 3.2, 3.3, 3.4_
-
-- [ ] 3. Build self-healing scheduler system
-  - Implement scheduler health monitoring
-  - Create automatic restart and recovery mechanisms
-  - Add graceful degradation under load
-  - _Requirements: 2.1, 2.2, 7.1_
-
-- [x] 3.1 Implement scheduler health detection
-  - Create scheduler job monitoring with execution tracking
-  - Implement stuck job detection with timeout logic
-  - Add scheduler group health assessment (hot/cold groups)
-  - _Requirements: 1.2, 2.2_
-
-- [x] 3.2 Create self-healing scheduler wrapper
-  - Implement SelfHealingScheduler class wrapping APScheduler
-  - Add graceful restart functionality with job preservation
-  - Implement emergency restart for critical failures
-  - Write tests for restart scenarios and job continuity
+- [x] 2.1 Create Telegram bot integration
+  - Implement Telegram bot client with message sending capabilities
+  - Add configuration for bot token and chat IDs
+  - Create message formatting for different alert types
   - _Requirements: 2.1, 2.2, 2.3_
 
-- [x] 3.3 Add scheduler configuration hot-reloading
-  - Implement configuration change detection
-  - Add scheduler restart with new settings within 30 seconds
-  - Ensure in-flight jobs complete before restart
-  - _Requirements: 8.1, 2.1_
+- [x] 2.2 Implement critical system alerts via Telegram
+  - Add Telegram notifications for memory usage alerts
+  - Implement token processing stoppage notifications
+  - Create API circuit breaker status alerts
+  - _Requirements: 2.2, 2.3, 2.4_
 
-- [ ] 4. Create performance monitoring and optimization
-  - Implement performance metrics collection
-  - Add automatic performance optimization
-  - Create performance degradation detection
-  - _Requirements: 4.1, 4.2, 4.3_
+- [x] 2.3 Add performance degradation Telegram alerts
+  - Implement system performance summary notifications
+  - Add retry mechanism for failed Telegram message delivery
+  - Create alert grouping to prevent notification spam
+  - _Requirements: 2.5, 2.6_
 
-- [x] 4.1 Implement performance tracker
-  - Create PerformanceTracker class with metrics collection
-  - Add API call timing and success rate tracking
-  - Implement processing time monitoring for scheduler groups
-  - _Requirements: 4.1, 4.4_
+- [x] 3. Build comprehensive token processing performance monitoring
+  - Create token status transition tracking and analysis
+  - Implement processing lag detection and reporting
+  - Add token activation bottleneck identification
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [x] 4.2 Add automatic performance optimization
-  - Implement adaptive batch size adjustment based on performance
-  - Add automatic parallelism scaling for processing queues
-  - Create memory usage optimization with automatic cleanup
-  - _Requirements: 4.2, 4.5, 7.3_
+- [x] 3.1 Implement token status transition monitoring
+  - Create tracking for tokens stuck in monitoring status >3 minutes
+  - Add detailed logging of activation check results and failure reasons
+  - Implement token activation success rate monitoring
+  - _Requirements: 3.1, 3.4_
 
-- [x] 4.3 Create performance degradation detection
-  - Implement trend analysis for performance metrics
-  - Add predictive alerting for potential issues
-  - Create performance threshold monitoring with alerts
-  - _Requirements: 4.1, 4.4, 5.5_
+- [x] 3.2 Create token processing performance metrics
+  - Implement processing lag tracking by token status and score range
+  - Add tokens processed per minute metrics by status
+  - Create processing backlog detection and alerting
+  - _Requirements: 3.2, 3.5, 3.6_
 
-- [ ] 5. Build comprehensive alerting system
-  - Create alert manager with multiple channels
-  - Implement structured logging with correlation IDs
-  - Add intelligent alert filtering and escalation
-  - _Requirements: 5.1, 5.2, 5.3_
+- [x] 3.3 Add token processing bottleneck detection
+  - Implement stalled processing detection with component identification
+  - Create processing queue analysis and bottleneck reporting
+  - Add time-to-activation tracking for eligible tokens
+  - _Requirements: 3.3, 3.4_
 
-- [x] 5.1 Implement alert manager core
-  - Create AlertManager class with configurable alert channels
-  - Implement alert severity levels (INFO, WARNING, ERROR, CRITICAL)
-  - Add alert cooldown and deduplication logic
-  - _Requirements: 5.2, 5.3_
+- [ ] 4. Implement automated performance optimization
+  - Create adaptive timeout and caching for slow API responses
+  - Implement dynamic parallelism adjustment based on queue size
+  - Add automatic load reduction during high CPU usage
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
 
-- [x] 5.2 Add structured logging with correlation
-  - Enhance existing logging with correlation IDs
-  - Implement contextual logging for all system components
-  - Add log rotation and compression for high-volume scenarios
-  - _Requirements: 5.1, 5.4, 5.6_
+- [x] 4.1 Implement adaptive API timeout and caching
+  - Create automatic timeout adjustment when API response times exceed 2 seconds
+  - Implement intelligent caching increase during API slowdowns
+  - Add API performance monitoring with automatic optimization triggers
+  - _Requirements: 4.1_
 
-- [x] 5.3 Create intelligent alerting rules
-  - Implement threshold-based alerting with hysteresis
-  - Add trend-based predictive alerting
-  - Create alert escalation for repeated failures
-  - _Requirements: 5.2, 5.5_
+- [x] 4.2 Create dynamic processing optimization
+  - Implement automatic parallelism increase when queues exceed 100 tokens
+  - Add batch size adjustment based on processing performance
+  - Create processing aggressiveness scaling during low system load
+  - _Requirements: 4.2, 4.6_
 
-- [ ] 6. Implement external monitoring integration
-  - Create external health check endpoints
-  - Build external monitoring script
-  - Integrate with systemd watchdog
-  - _Requirements: 6.1, 6.2, 6.6_
+- [x] 4.3 Add system resource optimization
+  - Implement automatic load reduction when CPU exceeds 80% for >2 minutes
+  - Create database query performance monitoring with optimization suggestions
+  - Add memory leak detection with automatic cleanup triggers
+  - _Requirements: 4.3, 4.4, 4.5_
 
-- [x] 6.1 Create comprehensive health endpoints
-  - Implement /health/scheduler endpoint with detailed diagnostics
-  - Add /health/resources endpoint for system resource status
-  - Create /health/apis endpoint for external API health
-  - _Requirements: 1.1, 6.1_
+- [ ] 5. Create enhanced monitoring dashboard and metrics
+  - Build real-time token processing dashboard
+  - Implement comprehensive system health visualization
+  - Add historical performance tracking and trend analysis
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-- [ ] 6.2 Build external monitoring script
-  - Create standalone monitoring script for independent health checks
-  - Implement service restart logic when main application fails
-  - Add stale data detection and recovery triggers
-  - _Requirements: 6.1, 6.2, 6.3_
+- [ ] 5.1 Create real-time token processing dashboard
+  - Implement dashboard showing token counts by status with processing rates
+  - Add real-time metrics for tokens processed per minute and backlogs
+  - Create token flow visualization with activation success rates
+  - _Requirements: 5.1, 5.4_
 
-- [ ] 6.3 Integrate systemd watchdog
-  - Configure systemd service with watchdog functionality
-  - Implement watchdog notification in main application
-  - Add automatic service restart on watchdog timeout
-  - _Requirements: 2.6, 6.1_
+- [ ] 5.2 Build comprehensive system health visualization
+  - Create dashboard displaying memory, CPU, API health, and circuit breaker states
+  - Implement recent errors and failed activations display
+  - Add processing bottleneck identification and visualization
+  - _Requirements: 5.2, 5.3, 5.5_
 
-- [ ] 7. Add graceful degradation capabilities
-  - Implement load-based processing adjustment
-  - Create priority-based token processing
-  - Add fallback mechanisms for external dependencies
-  - _Requirements: 7.1, 7.2, 7.6_
+- [ ] 5.3 Add historical performance tracking
+  - Implement historical performance graphs and trend analysis
+  - Create predictive alerts for potential issues based on trends
+  - Add time-to-activation metrics and activation success rate tracking
+  - _Requirements: 5.4, 5.6_
 
-- [x] 7.1 Implement load-based processing adjustment
-  - Create system load monitoring with CPU and memory thresholds
-  - Implement automatic processing reduction when load exceeds 80%
-  - Add non-essential feature disabling under high load
-  - _Requirements: 7.1, 7.3_
+- [ ] 6. Implement intelligent alert management system
+  - Create alert grouping and summary notifications
+  - Implement alert resolution tracking and notifications
+  - Add alert escalation and threshold adjustment suggestions
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-- [x] 7.2 Create priority-based token processing
-  - Implement token priority scoring based on value and activity
-  - Add priority queue for high-value tokens during load spikes
-  - Create deferred processing for low-priority tokens
-  - _Requirements: 7.5_
+- [ ] 6.1 Create alert grouping and summary system
+  - Implement similar alert grouping to prevent notification spam
+  - Add alert summary notifications instead of individual alerts
+  - Create alert frequency analysis with escalation triggers
+  - _Requirements: 6.1, 6.3_
 
-- [x] 7.3 Add fallback mechanisms for external dependencies
-  - Implement cached data fallback when APIs are unavailable
-  - Create degraded mode operation with limited functionality
-  - Add automatic recovery when dependencies become available
-  - _Requirements: 7.6, 3.3_
+- [ ] 6.2 Implement alert resolution tracking
+  - Add alert resolution notifications with duration and details
+  - Create maintenance mode with temporary threshold adjustments
+  - Implement alert acknowledgment and escalation system
+  - _Requirements: 6.2, 6.4, 6.6_
 
-- [ ] 8. Create comprehensive testing suite
-  - Write unit tests for all monitoring components
-  - Create integration tests for recovery scenarios
-  - Implement chaos engineering tests
-  - _Requirements: All requirements validation_
+- [ ] 6.3 Add intelligent threshold management
+  - Create suggestions for permanent threshold adjustments based on patterns
+  - Implement automatic threshold tuning for consistently triggered alerts
+  - Add multi-channel escalation for unacknowledged critical alerts
+  - _Requirements: 6.5, 6.6_
 
-- [ ] 8.1 Write unit tests for monitoring components
-  - Test health monitor with various system states
-  - Test circuit breaker state transitions and failure handling
-  - Test performance tracker metrics collection and analysis
-  - _Requirements: 1.1, 3.3, 4.1_
+- [ ] 7. Build token activation monitoring and debugging system
+  - Create detailed activation process monitoring
+  - Implement activation failure analysis and reporting
+  - Add activation queue bottleneck detection
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
-- [ ] 8.2 Create integration tests for recovery scenarios
-  - Test end-to-end scheduler failure and recovery
-  - Test API failure scenarios with circuit breaker behavior
-  - Test resource exhaustion and automatic cleanup
-  - _Requirements: 2.1, 2.2, 3.3_
+- [ ] 7.1 Implement detailed activation process monitoring
+  - Create logging for tokens stuck in monitoring status >3 minutes with detailed reasons
+  - Add activation condition verification and failure reason logging
+  - Implement activation success rate monitoring with trend analysis
+  - _Requirements: 7.1, 7.6_
 
-- [ ] 8.3 Implement chaos engineering tests
-  - Create failure injection for scheduler components
-  - Implement network partition simulation for API calls
-  - Add resource exhaustion simulation and recovery testing
-  - _Requirements: All requirements under stress conditions_
+- [ ] 7.2 Create activation failure analysis system
+  - Implement pool data accuracy verification for activation failures
+  - Add detailed error logging for activation logic failures with token context
+  - Create activation condition debugging with step-by-step validation
+  - _Requirements: 7.2, 7.3, 7.4_
 
-- [ ] 9. Deploy and configure production monitoring
-  - Deploy monitoring components to production
-  - Configure alerting channels and thresholds
-  - Set up external monitoring and systemd integration
-  - _Requirements: 6.1, 6.6, 5.2_
+- [ ] 7.3 Add activation queue bottleneck detection
+  - Implement activation workflow bottleneck detection and reporting
+  - Create activation queue processing monitoring with performance metrics
+  - Add activation failure investigation tools with statistics and recommendations
+  - _Requirements: 7.5, 7.6_
 
-- [x] 9.1 Deploy core monitoring to production
-  - Deploy health monitoring endpoints and background monitoring
-  - Configure monitoring intervals and alert thresholds
-  - Enable structured logging with correlation IDs
-  - _Requirements: 1.1, 5.1, 5.4_
+- [ ] 8. Implement system health auto-recovery mechanisms
+  - Create automatic memory management and cleanup procedures
+  - Implement API configuration auto-adjustment based on performance
+  - Add automatic system optimization and recovery actions
+  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
 
-- [ ] 9.2 Configure external monitoring and alerting
-  - Set up external monitoring script as systemd service
-  - Configure systemd watchdog for main application
-  - Set up alert channels (logs, potential future integrations)
-  - _Requirements: 6.1, 6.6, 5.2_
+- [ ] 8.1 Create automatic memory management system
+  - Implement automatic garbage collection when memory becomes critical
+  - Add unnecessary cache clearing during memory pressure
+  - Create memory usage optimization with automatic threshold adjustment
+  - _Requirements: 8.1_
 
-- [x] 9.3 Enable self-healing and circuit breaker in production
-  - Deploy resilient API client with circuit breaker
-  - Enable self-healing scheduler with automatic restart
-  - Configure graceful degradation thresholds
-  - _Requirements: 2.1, 3.3, 7.1_
+- [ ] 8.2 Implement API configuration auto-adjustment
+  - Create automatic timeout and retry setting optimization based on performance
+  - Add circuit breaker parameter tuning for improved reliability
+  - Implement connection pooling optimization for database connections
+  - _Requirements: 8.2, 8.4_
+
+- [ ] 8.3 Add automatic system recovery and optimization
+  - Implement automatic scheduler job restart for stuck processes
+  - Create system configuration optimization suggestions and auto-application
+  - Add automatic processing parameter adjustment for optimal throughput
+  - _Requirements: 8.3, 8.5, 8.6_
+
+- [ ] 9. Deploy and configure enhanced monitoring in production
+  - Deploy Telegram notification system
+  - Configure memory management and optimization
+  - Enable token processing performance monitoring
+  - _Requirements: All requirements deployment_
+
+- [ ] 9.1 Deploy Telegram notification system
+  - Configure Telegram bot with proper credentials and chat IDs
+  - Deploy critical system alerts and performance notifications
+  - Test notification delivery and implement fallback mechanisms
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+
+- [ ] 9.2 Configure memory management in production
+  - Deploy intelligent memory threshold management
+  - Enable automatic memory cleanup and optimization
+  - Configure memory usage monitoring and reporting
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
+
+- [ ] 9.3 Enable token processing monitoring
+  - Deploy token status transition tracking
+  - Configure activation monitoring and debugging
+  - Enable processing performance metrics and bottleneck detection
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_

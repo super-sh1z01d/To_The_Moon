@@ -1281,3 +1281,1129 @@ async def health_priority():
     except Exception as e:
         log.error(f"Priority processing health check failed: {e}")
         raise HTTPException(status_code=500, detail="Priority processing health check failed")
+
+
+@router.get("/memory")
+async def get_memory_health():
+    """
+    Get intelligent memory management status and statistics.
+    
+    Provides detailed memory usage, optimization history, and threshold information.
+    """
+    try:
+        from src.monitoring.memory_manager import get_memory_manager
+        
+        memory_manager = get_memory_manager()
+        memory_stats = memory_manager.get_memory_statistics()
+        
+        # Get current memory health status
+        needs_alert, alerts = memory_manager.check_memory_and_optimize()
+        
+        # Convert alerts to dict format
+        alerts_data = [
+            {
+                "level": alert.level.value,
+                "message": alert.message,
+                "component": alert.component,
+                "timestamp": alert.timestamp.isoformat()
+            }
+            for alert in alerts
+        ]
+        
+        # Determine overall status
+        if any(alert.level.value == "critical" for alert in alerts):
+            status = "critical"
+        elif any(alert.level.value == "warning" for alert in alerts):
+            status = "warning"
+        else:
+            status = "healthy"
+        
+        return {
+            "status": status,
+            "memory_statistics": memory_stats,
+            "alerts": alerts_data,
+            "needs_alert": needs_alert,
+            "last_check": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error getting memory health: {e}")
+        raise HTTPException(status_code=500, detail="Memory health check failed")
+
+
+@router.post("/memory/optimize")
+async def trigger_memory_optimization(component: Optional[str] = Query(None, description="Component to optimize (api_cache, metrics, all, or none for basic GC)")):
+    """
+    Manually trigger memory optimization (garbage collection and cleanup).
+    
+    Performs immediate memory optimization and returns results.
+    Can target specific components or perform comprehensive cleanup.
+    """
+    try:
+        from src.monitoring.memory_manager import get_memory_manager
+        
+        memory_manager = get_memory_manager()
+        
+        if component:
+            # Use targeted cleanup
+            optimization_result = memory_manager.perform_targeted_cleanup(component)
+        else:
+            # Use basic garbage collection
+            optimization_result = memory_manager.perform_garbage_collection()
+        
+        return {
+            "success": optimization_result.success,
+            "before_mb": optimization_result.before_mb,
+            "after_mb": optimization_result.after_mb,
+            "recovered_mb": optimization_result.recovered_mb,
+            "actions_taken": optimization_result.actions_taken,
+            "component": component or "basic_gc",
+            "timestamp": optimization_result.timestamp.isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error triggering memory optimization: {e}")
+        raise HTTPException(status_code=500, detail="Memory optimization failed")
+
+
+@router.post("/memory/update-thresholds")
+async def update_memory_thresholds():
+    """
+    Manually trigger memory threshold recalculation and update.
+    
+    Forces recalculation of memory thresholds based on current system capacity.
+    """
+    try:
+        from src.monitoring.memory_manager import get_memory_manager
+        
+        memory_manager = get_memory_manager()
+        
+        # Force threshold update by clearing the last update time
+        memory_manager._last_threshold_update = None
+        
+        # Trigger threshold update
+        updated = memory_manager.update_thresholds_if_needed()
+        
+        if updated:
+            # Get new thresholds
+            warning_mb, critical_mb = memory_manager.calculate_dynamic_thresholds()
+            
+            return {
+                "updated": True,
+                "new_warning_threshold_mb": warning_mb,
+                "new_critical_threshold_mb": critical_mb,
+                "message": "Memory thresholds updated successfully",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        else:
+            return {
+                "updated": False,
+                "message": "No threshold update needed",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        
+    except Exception as e:
+        log.error(f"Error updating memory thresholds: {e}")
+        raise HTTPException(status_code=500, detail="Memory threshold update failed")
+
+
+@router.get("/memory/report")
+async def get_memory_report(hours: float = Query(24.0, description="Number of hours to analyze", ge=0.1, le=168.0)):
+    """
+    Get comprehensive memory usage report and analysis.
+    
+    Provides detailed memory usage trends, optimization history, and recommendations.
+    """
+    try:
+        from src.monitoring.memory_reporter import get_memory_reporter
+        
+        memory_reporter = get_memory_reporter()
+        report = memory_reporter.generate_report(hours)
+        
+        return {
+            "report": {
+                "timestamp": report.timestamp.isoformat(),
+                "period_hours": report.report_period_hours,
+                "current_status": {
+                    "usage_mb": report.current_usage_mb,
+                    "usage_percent": report.current_usage_percent,
+                    "available_mb": report.current_available_mb
+                },
+                "thresholds": {
+                    "warning_mb": report.warning_threshold_mb,
+                    "critical_mb": report.critical_threshold_mb
+                },
+                "trends": {
+                    "average_usage_mb": report.average_usage_mb,
+                    "peak_usage_mb": report.peak_usage_mb,
+                    "min_usage_mb": report.min_usage_mb,
+                    "trend_direction": report.usage_trend
+                },
+                "optimization_activity": {
+                    "optimizations_count": report.optimizations_count,
+                    "total_recovered_mb": report.total_memory_recovered_mb,
+                    "most_effective": report.most_effective_optimization
+                },
+                "issues": {
+                    "leak_detections": report.leak_detections,
+                    "threshold_violations": report.threshold_violations,
+                    "auto_adjustments": report.auto_adjustments
+                },
+                "recommendations": report.recommendations,
+                "data_quality": {
+                    "usage_samples": report.usage_samples,
+                    "optimization_records": len(report.optimization_history)
+                }
+            }
+        }
+        
+    except Exception as e:
+        log.error(f"Error generating memory report: {e}")
+        raise HTTPException(status_code=500, detail="Memory report generation failed")
+
+
+@router.post("/memory/log-report")
+async def trigger_memory_report_logging(hours: float = Query(1.0, description="Number of hours to analyze", ge=0.1, le=24.0)):
+    """
+    Trigger memory report logging to system logs.
+    
+    Generates and logs a memory usage report for monitoring and analysis.
+    """
+    try:
+        from src.monitoring.memory_reporter import get_memory_reporter
+        
+        memory_reporter = get_memory_reporter()
+        memory_reporter.log_memory_report(hours)
+        
+        return {
+            "message": f"Memory report logged for {hours} hours period",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error logging memory report: {e}")
+        raise HTTPException(status_code=500, detail="Memory report logging failed")
+
+
+@router.post("/telegram/test")
+async def test_telegram_notification(
+    level: str = Query("info", description="Alert level: info, warning, error, critical"),
+    message: str = Query("Test notification from To The Moon monitoring system", description="Test message to send")
+):
+    """
+    Send a test notification to Telegram to verify integration.
+    
+    Useful for testing Telegram bot configuration and connectivity.
+    """
+    try:
+        from src.monitoring.alert_manager import get_alert_manager
+        from src.monitoring.models import HealthAlert, AlertLevel
+        
+        # Validate level
+        level_map = {
+            "info": AlertLevel.INFO,
+            "warning": AlertLevel.WARNING,
+            "error": AlertLevel.ERROR,
+            "critical": AlertLevel.CRITICAL
+        }
+        
+        if level.lower() not in level_map:
+            raise HTTPException(status_code=400, detail=f"Invalid level. Must be one of: {list(level_map.keys())}")
+        
+        alert_level = level_map[level.lower()]
+        
+        # Create test alert
+        test_alert = HealthAlert(
+            level=alert_level,
+            message=message,
+            component="telegram.test",
+            timestamp=datetime.utcnow()
+        )
+        
+        # Send alert
+        alert_manager = get_alert_manager()
+        success = alert_manager.send_alert(test_alert)
+        
+        return {
+            "success": success,
+            "level": level,
+            "message": message,
+            "alert_id": test_alert.correlation_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error sending test Telegram notification: {e}")
+        raise HTTPException(status_code=500, detail="Telegram test failed")
+
+
+@router.post("/telegram/test-memory")
+async def test_memory_telegram_notification(
+    alert_type: str = Query("critical", description="Memory alert type: critical, warning, optimized, leak_detected")
+):
+    """
+    Send a test memory notification to Telegram with rich formatting.
+    
+    Tests the enhanced memory notification system.
+    """
+    try:
+        from src.monitoring.telegram_notifier import get_telegram_notifier
+        
+        telegram_notifier = get_telegram_notifier()
+        
+        if not telegram_notifier.is_configured():
+            raise HTTPException(status_code=400, detail="Telegram not configured")
+        
+        # Test data
+        test_data = {
+            "current_usage_mb": 1500.0,
+            "threshold_mb": 1400.0,
+            "total_memory_gb": 62.7,
+            "recovered_mb": 25.5,
+            "actions_taken": ["gc_collect", "cache_clear", "history_trim"]
+        }
+        
+        success = telegram_notifier.send_memory_alert(
+            alert_type=alert_type,
+            **test_data
+        )
+        
+        return {
+            "success": success,
+            "alert_type": alert_type,
+            "test_data": test_data,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error sending test memory Telegram notification: {e}")
+        raise HTTPException(status_code=500, detail="Memory Telegram test failed")
+
+
+@router.post("/telegram/test-performance")
+async def test_performance_telegram_notification():
+    """
+    Send a test performance notification to Telegram.
+    
+    Tests the performance notification system.
+    """
+    try:
+        from src.monitoring.telegram_notifier import get_telegram_notifier
+        
+        telegram_notifier = get_telegram_notifier()
+        
+        if not telegram_notifier.is_configured():
+            raise HTTPException(status_code=400, detail="Telegram not configured")
+        
+        # Test performance data
+        test_metrics = {
+            "response_time": 2.5,
+            "throughput": 45.2,
+            "error_rate": 12.3,
+            "cpu_usage": 78.5
+        }
+        
+        test_recommendations = [
+            "Increase API timeout settings",
+            "Scale processing workers",
+            "Optimize database queries"
+        ]
+        
+        success = telegram_notifier.send_performance_alert(
+            alert_type="degradation",
+            component="api.dexscreener",
+            metrics=test_metrics,
+            recommendations=test_recommendations
+        )
+        
+        return {
+            "success": success,
+            "alert_type": "degradation",
+            "component": "api.dexscreener",
+            "metrics": test_metrics,
+            "recommendations": test_recommendations,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error sending test performance Telegram notification: {e}")
+        raise HTTPException(status_code=500, detail="Performance Telegram test failed")
+
+
+@router.post("/telegram/test-tokens")
+async def test_token_processing_telegram_notification():
+    """
+    Send a test token processing notification to Telegram.
+    
+    Tests the token processing notification system.
+    """
+    try:
+        from src.monitoring.telegram_notifier import get_telegram_notifier
+        
+        telegram_notifier = get_telegram_notifier()
+        
+        if not telegram_notifier.is_configured():
+            raise HTTPException(status_code=400, detail="Telegram not configured")
+        
+        success = telegram_notifier.send_token_processing_alert(
+            alert_type="stuck_tokens",
+            tokens_stuck=15,
+            processing_rate=2.3,
+            backlog_size=45,
+            avg_activation_time=125.5
+        )
+        
+        return {
+            "success": success,
+            "alert_type": "stuck_tokens",
+            "tokens_stuck": 15,
+            "processing_rate": 2.3,
+            "backlog_size": 45,
+            "avg_activation_time": 125.5,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error sending test token processing Telegram notification: {e}")
+        raise HTTPException(status_code=500, detail="Token processing Telegram test failed")
+
+
+@router.get("/tokens/monitoring")
+async def get_token_processing_metrics():
+    """
+    Get comprehensive token processing performance metrics.
+    
+    Provides detailed metrics on token status transitions, processing rates,
+    and activation performance.
+    """
+    try:
+        from src.monitoring.token_monitor import get_token_monitor
+        
+        token_monitor = get_token_monitor()
+        performance_summary = token_monitor.get_performance_summary()
+        
+        return {
+            "status": "success",
+            "metrics": performance_summary,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error getting token processing metrics: {e}")
+        raise HTTPException(status_code=500, detail="Token processing metrics failed")
+
+
+@router.get("/tokens/stuck")
+async def get_stuck_tokens_analysis(limit: int = Query(20, description="Maximum number of stuck tokens to analyze", ge=1, le=100)):
+    """
+    Get detailed analysis of tokens stuck in monitoring status.
+    
+    Provides analysis of why tokens haven't activated and potential blocking conditions.
+    """
+    try:
+        from src.monitoring.token_monitor import get_token_monitor
+        
+        token_monitor = get_token_monitor()
+        stuck_analysis = token_monitor.analyze_stuck_tokens(limit)
+        
+        # Convert to serializable format
+        analysis_data = []
+        for analysis in stuck_analysis:
+            analysis_data.append({
+                "mint_address": analysis.mint_address,
+                "status": analysis.status,
+                "created_at": analysis.created_at.isoformat(),
+                "last_processed_at": analysis.last_processed_at.isoformat(),
+                "time_in_monitoring_hours": analysis.time_in_monitoring_hours,
+                "time_since_last_process_minutes": analysis.time_since_last_process_minutes,
+                "meets_activation_criteria": analysis.meets_activation_criteria,
+                "blocking_conditions": analysis.blocking_conditions,
+                "pool_count": analysis.pool_count,
+                "total_liquidity_usd": analysis.total_liquidity_usd,
+                "external_pools_with_liquidity": analysis.external_pools_with_liquidity
+            })
+        
+        return {
+            "status": "success",
+            "stuck_tokens_count": len(analysis_data),
+            "analysis": analysis_data,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error analyzing stuck tokens: {e}")
+        raise HTTPException(status_code=500, detail="Stuck tokens analysis failed")
+
+
+@router.post("/tokens/record-transition")
+async def record_token_transition(
+    mint_address: str = Query(..., description="Token mint address"),
+    from_status: str = Query(..., description="Previous status"),
+    to_status: str = Query(..., description="New status"),
+    processing_time_seconds: Optional[float] = Query(None, description="Processing time in seconds"),
+    reason: Optional[str] = Query(None, description="Reason for transition")
+):
+    """
+    Record a token status transition for monitoring.
+    
+    Used by the system to track token processing performance and identify bottlenecks.
+    """
+    try:
+        from src.monitoring.token_monitor import get_token_monitor
+        
+        token_monitor = get_token_monitor()
+        token_monitor.record_status_transition(
+            mint_address=mint_address,
+            from_status=from_status,
+            to_status=to_status,
+            processing_time_seconds=processing_time_seconds,
+            reason=reason
+        )
+        
+        return {
+            "status": "success",
+            "message": "Transition recorded",
+            "mint_address": mint_address,
+            "from_status": from_status,
+            "to_status": to_status,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error recording token transition: {e}")
+        raise HTTPException(status_code=500, detail="Token transition recording failed")
+
+
+@router.get("/alerts/config")
+async def get_alert_configuration():
+    """
+    Get current alert configuration and rules summary.
+    
+    Shows which components are monitored and alert thresholds.
+    """
+    try:
+        from src.monitoring.alert_config import get_alert_rule_summary
+        from src.monitoring.alert_manager import get_alert_manager
+        
+        # Get configuration summary
+        config_summary = get_alert_rule_summary()
+        
+        # Get current alert manager status
+        alert_manager = get_alert_manager()
+        manager_stats = alert_manager.get_alert_statistics()
+        
+        return {
+            "configuration": config_summary,
+            "current_status": {
+                "active_rules": manager_stats.get("active_rules", 0),
+                "total_rules": manager_stats.get("total_rules", 0),
+                "recent_alerts": manager_stats.get("recent_alerts_last_hour", 0),
+                "available_channels": manager_stats.get("available_channels", [])
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error getting alert configuration: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get alert configuration")
+
+
+@router.post("/alerts/reload")
+async def reload_alert_configuration():
+    """
+    Reload alert configuration with enhanced rules.
+    
+    Applies the latest alert rules and returns the new configuration.
+    """
+    try:
+        from src.monitoring.alert_manager import get_alert_manager
+        from src.monitoring.alert_config import apply_enhanced_alert_rules, get_alert_rule_summary
+        
+        alert_manager = get_alert_manager()
+        
+        # Apply enhanced rules
+        rules_applied = apply_enhanced_alert_rules(alert_manager)
+        
+        # Get new configuration
+        config_summary = get_alert_rule_summary()
+        
+        return {
+            "success": True,
+            "rules_applied": rules_applied,
+            "configuration": config_summary,
+            "message": "Alert configuration reloaded successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error reloading alert configuration: {e}")
+        raise HTTPException(status_code=500, detail="Failed to reload alert configuration")
+@router.get("/performance/optimizer")
+async def get_performance_optimizer_status():
+    """
+    Get current performance optimizer status and settings.
+    
+    Shows current optimization settings, recent actions, and performance metrics.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        
+        # Get recent optimization history
+        recent_actions = optimizer.optimization_history[-10:]  # Last 10 actions
+        
+        # Get current metrics
+        current_metrics = optimizer.collect_current_metrics()
+        
+        return {
+            "status": "success",
+            "current_settings": optimizer.current_settings,
+            "thresholds": optimizer.thresholds,
+            "current_metrics": {
+                "avg_response_time": current_metrics.avg_response_time,
+                "cpu_usage": current_metrics.cpu_usage,
+                "queue_size": current_metrics.queue_size,
+                "processing_rate": current_metrics.processing_rate,
+                "error_rate": current_metrics.error_rate,
+                "timeout_rate": current_metrics.timeout_rate
+            },
+            "recent_optimizations": [
+                {
+                    "timestamp": action.timestamp.isoformat(),
+                    "component": action.component,
+                    "action_type": action.action_type,
+                    "old_value": action.old_value,
+                    "new_value": action.new_value,
+                    "reason": action.reason,
+                    "success": action.success
+                }
+                for action in recent_actions
+            ],
+            "cooldown_status": {
+                "api_timeout": optimizer._is_in_cooldown("api_timeout"),
+                "parallelism": optimizer._is_in_cooldown("parallelism"),
+                "load_reduction": optimizer._is_in_cooldown("load_reduction")
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error getting performance optimizer status: {e}")
+        raise HTTPException(status_code=500, detail="Performance optimizer status retrieval failed")
+
+
+@router.post("/performance/optimizer/run")
+async def run_performance_optimization():
+    """
+    Manually trigger a performance optimization cycle.
+    
+    Runs immediate performance analysis and applies optimizations if needed.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        result = optimizer.run_optimization_cycle()
+        
+        return {
+            "status": "success",
+            "optimization_result": result
+        }
+        
+    except Exception as e:
+        log.error(f"Error running performance optimization: {e}")
+        raise HTTPException(status_code=500, detail="Performance optimization failed")
+
+
+@router.put("/performance/optimizer/settings")
+async def update_optimizer_settings(
+    api_timeout: Optional[float] = Query(None, description="API timeout in seconds (5-30)"),
+    max_parallel_requests: Optional[int] = Query(None, description="Max parallel requests (2-20)"),
+    batch_size: Optional[int] = Query(None, description="Batch size (10-100)"),
+    processing_interval: Optional[float] = Query(None, description="Processing interval in seconds (5-30)")
+):
+    """
+    Update performance optimizer settings.
+    
+    Allows manual adjustment of optimization parameters and thresholds.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        
+        # Validate and update settings
+        updates = {}
+        
+        if api_timeout is not None:
+            if not 5.0 <= api_timeout <= 30.0:
+                raise HTTPException(status_code=400, detail="api_timeout must be between 5 and 30 seconds")
+            optimizer.current_settings["api_timeout"] = api_timeout
+            updates["api_timeout"] = api_timeout
+        
+        if max_parallel_requests is not None:
+            if not 2 <= max_parallel_requests <= 20:
+                raise HTTPException(status_code=400, detail="max_parallel_requests must be between 2 and 20")
+            optimizer.current_settings["max_parallel_requests"] = max_parallel_requests
+            updates["max_parallel_requests"] = max_parallel_requests
+        
+        if batch_size is not None:
+            if not 10 <= batch_size <= 100:
+                raise HTTPException(status_code=400, detail="batch_size must be between 10 and 100")
+            optimizer.current_settings["batch_size"] = batch_size
+            updates["batch_size"] = batch_size
+        
+        if processing_interval is not None:
+            if not 5.0 <= processing_interval <= 30.0:
+                raise HTTPException(status_code=400, detail="processing_interval must be between 5 and 30 seconds")
+            optimizer.current_settings["processing_interval"] = processing_interval
+            updates["processing_interval"] = processing_interval
+        
+        if not updates:
+            raise HTTPException(status_code=400, detail="No valid settings provided for update")
+        
+        log.info(
+            "performance_optimizer_settings_updated",
+            extra={
+                "updates": updates,
+                "new_settings": optimizer.current_settings
+            }
+        )
+        
+        return {
+            "status": "success",
+            "message": "Performance optimizer settings updated",
+            "updated_settings": updates,
+            "current_settings": optimizer.current_settings,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error updating optimizer settings: {e}")
+        raise HTTPException(status_code=500, detail="Performance optimizer settings update failed")
+
+
+@router.put("/performance/optimizer/thresholds")
+async def update_optimizer_thresholds(
+    slow_response_time: Optional[float] = Query(None, description="Slow response time threshold in seconds"),
+    high_error_rate: Optional[float] = Query(None, description="High error rate threshold in percent"),
+    high_cpu_usage: Optional[float] = Query(None, description="High CPU usage threshold in percent"),
+    large_queue_size: Optional[int] = Query(None, description="Large queue size threshold"),
+    low_processing_rate: Optional[float] = Query(None, description="Low processing rate threshold")
+):
+    """
+    Update performance optimizer thresholds.
+    
+    Allows fine-tuning of the thresholds that trigger optimizations.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        
+        # Validate and update thresholds
+        updates = {}
+        
+        if slow_response_time is not None:
+            if not 0.5 <= slow_response_time <= 10.0:
+                raise HTTPException(status_code=400, detail="slow_response_time must be between 0.5 and 10 seconds")
+            optimizer.thresholds["slow_response_time"] = slow_response_time
+            updates["slow_response_time"] = slow_response_time
+        
+        if high_error_rate is not None:
+            if not 1.0 <= high_error_rate <= 50.0:
+                raise HTTPException(status_code=400, detail="high_error_rate must be between 1 and 50 percent")
+            optimizer.thresholds["high_error_rate"] = high_error_rate
+            updates["high_error_rate"] = high_error_rate
+        
+        if high_cpu_usage is not None:
+            if not 50.0 <= high_cpu_usage <= 95.0:
+                raise HTTPException(status_code=400, detail="high_cpu_usage must be between 50 and 95 percent")
+            optimizer.thresholds["high_cpu_usage"] = high_cpu_usage
+            updates["high_cpu_usage"] = high_cpu_usage
+        
+        if large_queue_size is not None:
+            if not 10 <= large_queue_size <= 1000:
+                raise HTTPException(status_code=400, detail="large_queue_size must be between 10 and 1000")
+            optimizer.thresholds["large_queue_size"] = large_queue_size
+            updates["large_queue_size"] = large_queue_size
+        
+        if low_processing_rate is not None:
+            if not 0.1 <= low_processing_rate <= 10.0:
+                raise HTTPException(status_code=400, detail="low_processing_rate must be between 0.1 and 10")
+            optimizer.thresholds["low_processing_rate"] = low_processing_rate
+            updates["low_processing_rate"] = low_processing_rate
+        
+        if not updates:
+            raise HTTPException(status_code=400, detail="No valid thresholds provided for update")
+        
+        log.info(
+            "performance_optimizer_thresholds_updated",
+            extra={
+                "updates": updates,
+                "new_thresholds": optimizer.thresholds
+            }
+        )
+        
+        return {
+            "status": "success",
+            "message": "Performance optimizer thresholds updated",
+            "updated_thresholds": updates,
+            "current_thresholds": optimizer.thresholds,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error updating optimizer thresholds: {e}")
+        raise HTTPException(status_code=500, detail="Performance optimizer thresholds update failed")
+
+
+@router.delete("/performance/optimizer/history")
+async def clear_optimization_history():
+    """
+    Clear performance optimization history.
+    
+    Removes all stored optimization actions and resets statistics.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        
+        # Clear history
+        history_count = len(optimizer.optimization_history)
+        optimizer.optimization_history.clear()
+        optimizer.metrics_history.clear()
+        
+        # Reset cooldowns
+        for key in optimizer.last_optimizations:
+            optimizer.last_optimizations[key] = None
+        
+        log.info(
+            "performance_optimizer_history_cleared",
+            extra={
+                "cleared_actions": history_count
+            }
+        )
+        
+        return {
+            "status": "success",
+            "message": "Performance optimization history cleared",
+            "cleared_actions": history_count,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error clearing optimization history: {e}")
+        raise HTTPException(status_code=500, detail="Performance optimization history clearing failed")
+
+@router.get("/performance/optimizer/database")
+async def get_database_performance():
+    """
+    Get database performance metrics and optimization suggestions.
+    
+    Provides detailed database performance analysis and recommendations.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        
+        # Get database metrics
+        db_metrics = optimizer._get_database_performance_metrics()
+        
+        if not db_metrics:
+            raise HTTPException(status_code=503, detail="Database metrics unavailable")
+        
+        # Analyze for optimization opportunities
+        recommendations = optimizer._analyze_slow_queries(db_metrics)
+        
+        # Determine status
+        avg_query_time = db_metrics.get("avg_query_time", 0)
+        status = "healthy"
+        if avg_query_time > 5.0:
+            status = "critical"
+        elif avg_query_time > 2.0:
+            status = "warning"
+        
+        return {
+            "status": status,
+            "database_metrics": db_metrics,
+            "recommendations": recommendations,
+            "performance_analysis": {
+                "query_performance": "slow" if avg_query_time > 2.0 else "good",
+                "connection_usage": f"{db_metrics.get('active_connections', 0)}/{db_metrics.get('max_connections', 0)}",
+                "needs_optimization": len(recommendations) > 0
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Error getting database performance: {e}")
+        raise HTTPException(status_code=500, detail="Database performance retrieval failed")
+
+
+@router.get("/performance/optimizer/memory")
+async def get_memory_analysis():
+    """
+    Get memory usage analysis and leak detection results.
+    
+    Provides memory trend analysis and potential leak detection.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        
+        # Get current metrics
+        current_metrics = optimizer.collect_current_metrics()
+        
+        # Analyze memory trends if we have history
+        memory_analysis = {
+            "current_usage_mb": current_metrics.memory_usage_mb,
+            "current_usage_gb": round(current_metrics.memory_usage_mb / 1024, 2),
+            "trend_analysis": None,
+            "leak_detected": False,
+            "growth_rate_percent": 0.0
+        }
+        
+        if len(optimizer.metrics_history) >= 10:
+            # Analyze memory trend
+            recent_memory = [m.memory_usage_mb for m in list(optimizer.metrics_history)[-10:]]
+            
+            if len(recent_memory) >= 5:
+                early_avg = sum(recent_memory[:5]) / 5
+                late_avg = sum(recent_memory[-5:]) / 5
+                growth_rate = (late_avg - early_avg) / early_avg * 100
+                
+                memory_analysis.update({
+                    "trend_analysis": {
+                        "early_avg_mb": round(early_avg, 1),
+                        "late_avg_mb": round(late_avg, 1),
+                        "trend": "increasing" if growth_rate > 5 else "decreasing" if growth_rate < -5 else "stable"
+                    },
+                    "leak_detected": growth_rate > 10.0 and late_avg > 1000,
+                    "growth_rate_percent": round(growth_rate, 2)
+                })
+        
+        # Determine status
+        status = "healthy"
+        if current_metrics.memory_usage_mb > 10000:  # >10GB
+            status = "critical"
+        elif current_metrics.memory_usage_mb > 8000:  # >8GB
+            status = "warning"
+        
+        return {
+            "status": status,
+            "memory_analysis": memory_analysis,
+            "recommendations": [
+                "Monitor memory usage trends regularly",
+                "Consider memory cleanup if growth rate exceeds 10%",
+                "Check for memory leaks in long-running processes"
+            ] if memory_analysis["leak_detected"] else [],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error getting memory analysis: {e}")
+        raise HTTPException(status_code=500, detail="Memory analysis failed")
+
+
+@router.post("/performance/optimizer/memory/cleanup")
+async def trigger_memory_cleanup():
+    """
+    Manually trigger memory cleanup operations.
+    
+    Forces garbage collection and memory optimization.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        
+        # Get memory usage before cleanup
+        before_metrics = optimizer.collect_current_metrics()
+        before_memory = before_metrics.memory_usage_mb
+        
+        # Trigger cleanup
+        cleanup_success = optimizer._trigger_memory_cleanup()
+        
+        # Wait a moment and check memory again
+        import time
+        time.sleep(2)
+        
+        after_metrics = optimizer.collect_current_metrics()
+        after_memory = after_metrics.memory_usage_mb
+        
+        memory_freed = before_memory - after_memory
+        
+        return {
+            "status": "success" if cleanup_success else "partial",
+            "cleanup_result": {
+                "memory_before_mb": round(before_memory, 1),
+                "memory_after_mb": round(after_memory, 1),
+                "memory_freed_mb": round(memory_freed, 1),
+                "cleanup_success": cleanup_success
+            },
+            "message": f"Memory cleanup completed, freed {memory_freed:.1f}MB" if memory_freed > 0 else "Memory cleanup completed",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error triggering memory cleanup: {e}")
+        raise HTTPException(status_code=500, detail="Memory cleanup failed")
+
+
+@router.get("/performance/optimizer/resources")
+async def get_system_resource_status():
+    """
+    Get comprehensive system resource status and optimization recommendations.
+    
+    Provides CPU, memory, database, and overall system health analysis.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        
+        # Get current metrics
+        current_metrics = optimizer.collect_current_metrics()
+        
+        # Analyze CPU trends
+        cpu_analysis = {
+            "current_usage": current_metrics.cpu_usage,
+            "status": "healthy",
+            "sustained_high": False
+        }
+        
+        if current_metrics.cpu_usage > 90:
+            cpu_analysis["status"] = "critical"
+        elif current_metrics.cpu_usage > 80:
+            cpu_analysis["status"] = "warning"
+        
+        # Check for sustained high CPU
+        if len(optimizer.metrics_history) >= 3:
+            recent_cpu = [m.cpu_usage for m in list(optimizer.metrics_history)[-3:]]
+            cpu_analysis["sustained_high"] = all(cpu > 80.0 for cpu in recent_cpu)
+        
+        # Get database metrics
+        db_metrics = optimizer._get_database_performance_metrics()
+        db_status = "healthy"
+        if db_metrics:
+            if db_metrics.get("avg_query_time", 0) > 5.0:
+                db_status = "critical"
+            elif db_metrics.get("avg_query_time", 0) > 2.0:
+                db_status = "warning"
+        
+        # Overall system status
+        statuses = [cpu_analysis["status"], db_status]
+        if current_metrics.memory_usage_mb > 10000:
+            statuses.append("critical")
+        elif current_metrics.memory_usage_mb > 8000:
+            statuses.append("warning")
+        else:
+            statuses.append("healthy")
+        
+        overall_status = "critical" if "critical" in statuses else "warning" if "warning" in statuses else "healthy"
+        
+        # Generate recommendations
+        recommendations = []
+        if cpu_analysis["sustained_high"]:
+            recommendations.append("CPU usage has been high for multiple measurements - consider load reduction")
+        if current_metrics.memory_usage_mb > 8000:
+            recommendations.append("Memory usage is high - consider cleanup or optimization")
+        if db_metrics and db_metrics.get("avg_query_time", 0) > 2.0:
+            recommendations.append("Database queries are slow - consider optimization")
+        if current_metrics.queue_size > 100:
+            recommendations.append("Processing queue is large - consider increasing parallelism")
+        
+        return {
+            "overall_status": overall_status,
+            "resource_analysis": {
+                "cpu": cpu_analysis,
+                "memory": {
+                    "usage_mb": current_metrics.memory_usage_mb,
+                    "usage_gb": round(current_metrics.memory_usage_mb / 1024, 2),
+                    "status": "critical" if current_metrics.memory_usage_mb > 10000 else "warning" if current_metrics.memory_usage_mb > 8000 else "healthy"
+                },
+                "database": {
+                    "status": db_status,
+                    "metrics": db_metrics
+                },
+                "processing": {
+                    "queue_size": current_metrics.queue_size,
+                    "processing_rate": current_metrics.processing_rate,
+                    "status": "warning" if current_metrics.queue_size > 100 else "healthy"
+                }
+            },
+            "recommendations": recommendations,
+            "optimization_opportunities": len(recommendations),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error getting system resource status: {e}")
+        raise HTTPException(status_code=500, detail="System resource status retrieval failed")
+
+
+@router.get("/performance/optimizer")
+async def get_performance_optimizer_status():
+    """
+    Get current performance optimizer status.
+    
+    Shows basic performance metrics and optimization recommendations.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        result = optimizer.run_optimization_cycle()
+        
+        return {
+            "status": "success",
+            "optimizer_result": result,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        log.error(f"Error getting performance optimizer status: {e}")
+        raise HTTPException(status_code=500, detail="Performance optimizer status retrieval failed")
+
+
+@router.post("/performance/optimizer/run")
+async def run_performance_optimization():
+    """
+    Manually trigger a performance optimization cycle.
+    
+    Runs immediate performance analysis and provides recommendations.
+    """
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        result = optimizer.run_optimization_cycle()
+        
+        return {
+            "status": "success",
+            "optimization_result": result,
+            "message": "Performance optimization cycle completed"
+        }
+        
+    except Exception as e:
+        log.error(f"Error running performance optimization: {e}")
+        raise HTTPException(status_code=500, detail="Performance optimization failed")

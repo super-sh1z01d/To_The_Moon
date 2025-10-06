@@ -25,11 +25,18 @@ class MetricsCollector:
         self._start_time = time.time()
     
     def collect_resource_metrics(self) -> ResourceHealth:
-        """Collect current system resource metrics."""
-        # Memory metrics
-        memory = psutil.virtual_memory()
-        memory_mb = memory.used / (1024 * 1024)
-        memory_percent = memory.percent
+        """Collect current system resource metrics with intelligent memory management."""
+        # Use intelligent memory manager for memory metrics and optimization
+        from .memory_manager import get_memory_manager
+        memory_manager = get_memory_manager()
+        
+        # Check memory and perform optimization if needed
+        memory_needs_alert, memory_alerts = memory_manager.check_memory_and_optimize()
+        
+        # Get current memory snapshot after any optimization
+        memory_snapshot = memory_manager.get_current_memory_snapshot()
+        memory_mb = memory_snapshot.used_mb
+        memory_percent = memory_snapshot.percent_used
         
         # CPU metrics (non-blocking)
         cpu_percent = psutil.cpu_percent(interval=0)
@@ -51,15 +58,17 @@ class MetricsCollector:
         db_connections = 0
         max_db_connections = 100
         
-        # Determine overall status
-        status = self._determine_resource_status(
-            memory_mb, cpu_percent, disk_percent
+        # Determine overall status (memory status now comes from memory manager)
+        status = self._determine_resource_status_with_memory_manager(
+            memory_needs_alert, cpu_percent, disk_percent
         )
         
-        # Generate alerts
-        alerts = self._generate_resource_alerts(
-            memory_mb, cpu_percent, disk_percent
-        )
+        # Combine memory alerts with other resource alerts
+        all_alerts = list(memory_alerts)  # Start with intelligent memory alerts
+        
+        # Add CPU and disk alerts
+        cpu_disk_alerts = self._generate_cpu_disk_alerts(cpu_percent, disk_percent)
+        all_alerts.extend(cpu_disk_alerts)
         
         return ResourceHealth(
             memory_usage_mb=memory_mb,
@@ -71,13 +80,32 @@ class MetricsCollector:
             open_file_descriptors=open_fds,
             max_file_descriptors=max_fds,
             status=status,
-            alerts=alerts
+            alerts=all_alerts
         )
+    
+    def _determine_resource_status_with_memory_manager(
+        self, memory_needs_alert: bool, cpu_percent: float, disk_percent: float
+    ) -> HealthStatus:
+        """Determine overall resource health status with intelligent memory management."""
+        # Check CPU and disk against thresholds
+        cpu_critical = cpu_percent >= self.config.cpu_critical_threshold
+        cpu_warning = cpu_percent >= self.config.cpu_warning_threshold
+        disk_critical = disk_percent >= self.config.disk_critical_threshold
+        disk_warning = disk_percent >= self.config.disk_warning_threshold
+        
+        # Memory status is determined by the intelligent memory manager
+        if memory_needs_alert or cpu_critical or disk_critical:
+            return HealthStatus.CRITICAL
+        
+        if cpu_warning or disk_warning:
+            return HealthStatus.DEGRADED
+        
+        return HealthStatus.HEALTHY
     
     def _determine_resource_status(
         self, memory_mb: float, cpu_percent: float, disk_percent: float
     ) -> HealthStatus:
-        """Determine overall resource health status."""
+        """Determine overall resource health status (legacy method)."""
         if (memory_mb >= self.config.memory_critical_threshold or
             cpu_percent >= self.config.cpu_critical_threshold or
             disk_percent >= self.config.disk_critical_threshold):
@@ -90,28 +118,12 @@ class MetricsCollector:
         
         return HealthStatus.HEALTHY
     
-    def _generate_resource_alerts(
-        self, memory_mb: float, cpu_percent: float, disk_percent: float
+    def _generate_cpu_disk_alerts(
+        self, cpu_percent: float, disk_percent: float
     ) -> List[HealthAlert]:
-        """Generate alerts based on resource usage."""
+        """Generate alerts for CPU and disk usage (memory handled by memory manager)."""
         alerts = []
         now = datetime.utcnow()
-        
-        # Memory alerts
-        if memory_mb >= self.config.memory_critical_threshold:
-            alerts.append(HealthAlert(
-                level=AlertLevel.CRITICAL,
-                message=f"Memory usage critical: {memory_mb:.1f}MB (threshold: {self.config.memory_critical_threshold}MB)",
-                component="system.memory",
-                timestamp=now
-            ))
-        elif memory_mb >= self.config.memory_warning_threshold:
-            alerts.append(HealthAlert(
-                level=AlertLevel.WARNING,
-                message=f"Memory usage high: {memory_mb:.1f}MB (threshold: {self.config.memory_warning_threshold}MB)",
-                component="system.memory",
-                timestamp=now
-            ))
         
         # CPU alerts
         if cpu_percent >= self.config.cpu_critical_threshold:

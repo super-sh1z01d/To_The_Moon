@@ -436,6 +436,26 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     # Архивация раз в час
     scheduler.add_job(archive_once, IntervalTrigger(hours=1), id="archiver_hourly", max_instances=1)
     
+    # Мониторинг обработки токенов каждые 5 минут
+    from src.scheduler.tasks import monitor_token_processing_once
+    scheduler.add_job(
+        monitor_token_processing_once, 
+        IntervalTrigger(minutes=5), 
+        id="token_processing_monitor", 
+        max_instances=1
+    )
+    
+    # Memory monitoring is now handled by the performance optimizer (every 3 minutes)
+    
+    # Сводка здоровья системы каждый час
+    from src.scheduler.tasks import send_system_health_summary_once
+    scheduler.add_job(
+        send_system_health_summary_once, 
+        IntervalTrigger(hours=1), 
+        id="health_summary", 
+        max_instances=1
+    )
+    
     # Обработка deferred queue каждые 5 минут при низкой нагрузке
     def process_deferred_queue_task():
         """Process deferred tokens when system load is acceptable."""
@@ -475,6 +495,15 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         id="notarb_pools_updater", 
         max_instances=1,  # Prevent concurrent execution
         coalesce=True     # Skip if previous execution is still running
+    )
+    
+    # Оптимизация производительности каждые 3 минуты
+    from src.scheduler.tasks import optimize_performance_once
+    scheduler.add_job(
+        optimize_performance_once, 
+        IntervalTrigger(minutes=3), 
+        id="performance_optimizer", 
+        max_instances=1
     )
     
     scheduler.start()

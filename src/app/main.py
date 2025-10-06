@@ -139,75 +139,26 @@ def create_app() -> FastAPI:
             app.state.config_reloader = config_reloader
             app.state.structured_logger = structured_logger
             
-            # Initialize alerts with Telegram validation
+            # Initialize alerts with enhanced configuration
             try:
-                import os
-                from src.monitoring.alert_manager import get_alert_manager, AlertRule, AlertLevel, AlertChannel
+                from src.monitoring.alert_manager import get_alert_manager
+                from src.monitoring.alert_config import apply_enhanced_alert_rules, get_alert_rule_summary
+                
                 alert_manager = get_alert_manager()
                 
-                # Clear any existing rules
-                alert_manager._alert_rules.clear()
+                # Apply enhanced alert rules
+                rules_applied = apply_enhanced_alert_rules(alert_manager)
                 
-                # Check Telegram configuration
-                telegram_available = bool(os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"))
-                
-                if telegram_available:
-                    structured_logger.info("Telegram configuration found - enabling Telegram alerts")
-                    # Use Telegram + fallback channels
-                    critical_channels = [AlertChannel.TELEGRAM, AlertChannel.LOG, AlertChannel.CONSOLE]
-                    error_channels = [AlertChannel.TELEGRAM, AlertChannel.LOG]
-                    warning_channels = [AlertChannel.TELEGRAM, AlertChannel.LOG]
-                else:
-                    structured_logger.warning("Telegram configuration missing - using LOG/CONSOLE only")
-                    # Fallback to LOG/CONSOLE only
-                    critical_channels = [AlertChannel.LOG, AlertChannel.CONSOLE]
-                    error_channels = [AlertChannel.LOG]
-                    warning_channels = [AlertChannel.LOG]
-                
-                production_rules = [
-                    AlertRule(
-                        component_pattern="*",
-                        min_level=AlertLevel.CRITICAL,
-                        cooldown_minutes=5,
-                        max_frequency_per_hour=12,
-                        channels=critical_channels
-                    ),
-                    AlertRule(
-                        component_pattern="dexscreener*",
-                        min_level=AlertLevel.ERROR,
-                        cooldown_minutes=10,
-                        max_frequency_per_hour=6,
-                        channels=error_channels
-                    ),
-                    AlertRule(
-                        component_pattern="scheduler*",
-                        min_level=AlertLevel.ERROR,
-                        cooldown_minutes=15,
-                        max_frequency_per_hour=4,
-                        channels=error_channels
-                    ),
-                    AlertRule(
-                        component_pattern="database*",
-                        min_level=AlertLevel.ERROR,
-                        cooldown_minutes=5,
-                        max_frequency_per_hour=8,
-                        channels=critical_channels  # Database issues are critical
-                    ),
-                    AlertRule(
-                        component_pattern="system*",
-                        min_level=AlertLevel.WARNING,
-                        cooldown_minutes=30,
-                        max_frequency_per_hour=2,
-                        channels=warning_channels
-                    )
-                ]
-                
-                for rule in production_rules:
-                    alert_manager.add_alert_rule(rule)
+                # Get configuration summary
+                config_summary = get_alert_rule_summary()
                 
                 structured_logger.info(
-                    f"Alert system initialized with {len(production_rules)} rules",
-                    extra={"telegram_enabled": telegram_available}
+                    f"Enhanced alert system initialized with {rules_applied} rules",
+                    extra={
+                        "telegram_enabled": config_summary["telegram_enabled"],
+                        "rules_applied": rules_applied,
+                        "components_covered": len(config_summary["components_covered"])
+                    }
                 )
                 
             except Exception as e:

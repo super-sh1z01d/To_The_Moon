@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This specification defines the implementation of a comprehensive system stability and monitoring solution for the To The Moon token scoring system. The goal is to ensure 99.9% uptime and automatic recovery from common failure scenarios through proactive monitoring, self-healing mechanisms, and robust error handling.
+This specification defines the implementation of enhanced monitoring and alerting for the To The Moon token scoring system. The focus is on fixing current monitoring gaps: external monitoring, Telegram notifications, performance tracking of token processing, and memory management. The goal is to ensure reliable monitoring and timely alerts for system administrators.
 
 ## Requirements
 

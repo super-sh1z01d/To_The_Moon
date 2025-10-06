@@ -28,6 +28,19 @@ def archive_once() -> None:
             if not repo.has_score_ge_since(t.id, min_score=min_score, since_dt=cutoff):
                 repo.archive_token(t, reason="low_score_timeout")
                 archived += 1
+                
+                # Record status transition for monitoring
+                try:
+                    from src.monitoring.token_monitor import get_token_monitor
+                    token_monitor = get_token_monitor()
+                    token_monitor.record_status_transition(
+                        mint_address=t.mint_address,
+                        from_status="active",
+                        to_status="archived",
+                        reason="low_score_timeout"
+                    )
+                except Exception as e:
+                    log.warning(f"Failed to record token transition: {e}")
         log.info("archiver_active", extra={"extra": {"archived": archived, "cutoff": cutoff.isoformat()}})
 
         mons = repo.list_monitoring_older_than_hours(monitoring_timeout_hours, limit=1000)
@@ -35,6 +48,19 @@ def archive_once() -> None:
         for t in mons:
             repo.archive_token(t, reason="monitoring_timeout")
             m_arch += 1
+            
+            # Record status transition for monitoring
+            try:
+                from src.monitoring.token_monitor import get_token_monitor
+                token_monitor = get_token_monitor()
+                token_monitor.record_status_transition(
+                    mint_address=t.mint_address,
+                    from_status="monitoring",
+                    to_status="archived",
+                    reason="monitoring_timeout"
+                )
+            except Exception as e:
+                log.warning(f"Failed to record token transition: {e}")
         log.info("archiver_monitoring", extra={"extra": {"archived": m_arch, "timeout_h": monitoring_timeout_hours}})
 
 
@@ -152,6 +178,20 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                     repo.update_token_fields(t, name=name, symbol=symbol)
                     repo.set_active(t)
                     promoted += 1
+                    
+                    # Record status transition for monitoring
+                    try:
+                        from src.monitoring.token_monitor import get_token_monitor
+                        token_monitor = get_token_monitor()
+                        token_monitor.record_status_transition(
+                            mint_address=t.mint_address,
+                            from_status="monitoring",
+                            to_status="active",
+                            reason="liquidity_threshold_met"
+                        )
+                    except Exception as e:
+                        logv.warning(f"Failed to record token transition: {e}")
+                    
                     logv.info(
                         "activated_by_liquidity",
                         extra={"extra": {"mint": t.mint_address, "threshold": threshold}},
@@ -177,6 +217,20 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                 if not check_activation_conditions(t.mint_address, pairs or [], threshold):
                     repo.set_monitoring(t)
                     demoted += 1
+                    
+                    # Record status transition for monitoring
+                    try:
+                        from src.monitoring.token_monitor import get_token_monitor
+                        token_monitor = get_token_monitor()
+                        token_monitor.record_status_transition(
+                            mint_address=t.mint_address,
+                            from_status="active",
+                            to_status="monitoring",
+                            reason="liquidity_threshold_not_met"
+                        )
+                    except Exception as e:
+                        logv.warning(f"Failed to record token transition: {e}")
+                    
                     logv.info(
                         "demoted_by_liquidity",
                         extra={"extra": {"mint": t.mint_address, "threshold": threshold}},
@@ -197,3 +251,176 @@ def enforce_activation_once(limit_monitoring: int = 50, limit_active: int = 50) 
         loop.create_task(
             enforce_activation_async(limit_monitoring=limit_monitoring, limit_active=limit_active)
         )
+
+
+def monitor_token_processing_once() -> None:
+    """Monitor token processing performance and send alerts if needed."""
+    try:
+        from src.monitoring.token_monitor import get_token_monitor
+        from src.monitoring.telegram_notifier import get_telegram_notifier
+        
+        token_monitor = get_token_monitor()
+        telegram_notifier = get_telegram_notifier()
+        
+        if not telegram_notifier.is_configured():
+            log.debug("Telegram not configured - skipping token processing monitoring")
+            return
+        
+        # Collect current metrics
+        metrics = token_monitor.collect_current_metrics()
+        
+        # Check for stuck tokens (>3 minutes in monitoring)
+        if metrics.tokens_stuck_over_3m > 5:  # Alert if more than 5 tokens stuck
+            telegram_notifier.send_token_processing_alert(
+                alert_type="stuck_tokens",
+                tokens_stuck=metrics.tokens_stuck_over_3m,
+                processing_rate=metrics.tokens_processed_per_minute,
+                backlog_size=metrics.processing_backlog,
+                avg_activation_time=metrics.avg_time_to_activation_minutes
+            )
+            log.info(
+                "stuck_tokens_alert_sent",
+                extra={"stuck_count": metrics.tokens_stuck_over_3m}
+            )
+        
+        # Check for slow processing (< 0.1 token per minute over 10+ minutes)
+        # Only alert if there are many tokens stuck for a long time
+        if (metrics.tokens_processed_per_minute < 0.1 and 
+            metrics.processing_backlog > 50 and 
+            metrics.tokens_stuck_over_3m > 10):  # Only if many tokens are actually stuck
+            telegram_notifier.send_token_processing_alert(
+                alert_type="slow_processing",
+                tokens_stuck=metrics.tokens_stuck_over_3m,
+                processing_rate=metrics.tokens_processed_per_minute,
+                backlog_size=metrics.processing_backlog,
+                avg_activation_time=metrics.avg_time_to_activation_minutes
+            )
+            log.info(
+                "slow_processing_alert_sent",
+                extra={
+                    "processing_rate": metrics.tokens_processed_per_minute,
+                    "backlog": metrics.processing_backlog
+                }
+            )
+        
+        # Check for growing backlog (>150 tokens in monitoring)
+        if metrics.processing_backlog > 150:
+            telegram_notifier.send_token_processing_alert(
+                alert_type="backlog_growing",
+                tokens_stuck=metrics.tokens_stuck_over_3m,
+                processing_rate=metrics.tokens_processed_per_minute,
+                backlog_size=metrics.processing_backlog,
+                avg_activation_time=metrics.avg_time_to_activation_minutes
+            )
+            log.info(
+                "backlog_growing_alert_sent",
+                extra={"backlog_size": metrics.processing_backlog}
+            )
+        
+        log.debug(
+            "token_processing_monitoring_completed",
+            extra={
+                "monitoring_count": metrics.monitoring_count,
+                "active_count": metrics.active_count,
+                "stuck_tokens": metrics.tokens_stuck_over_3m,
+                "processing_rate": metrics.tokens_processed_per_minute
+            }
+        )
+        
+    except Exception as e:
+        log.error(f"Error in token processing monitoring: {e}", exc_info=True)
+
+
+def send_system_health_summary_once() -> None:
+    """Send periodic system health summary to Telegram."""
+    try:
+        from src.monitoring.telegram_notifier import get_telegram_notifier
+        from src.monitoring.health_monitor import get_health_monitor
+        from src.monitoring.token_monitor import get_token_monitor
+        
+        telegram_notifier = get_telegram_notifier()
+        
+        if not telegram_notifier.is_configured():
+            log.debug("Telegram not configured - skipping health summary")
+            return
+        
+        # Get system health data
+        health_monitor = get_health_monitor()
+        token_monitor = get_token_monitor()
+        
+        # Get resource health
+        resource_health = health_monitor.metrics_collector.collect_resource_metrics()
+        
+        # Get token metrics
+        token_metrics = token_monitor.collect_current_metrics()
+        
+        # Determine memory status
+        memory_status = "healthy"
+        if resource_health.memory_usage_mb > 50000:  # >50GB
+            memory_status = "critical"
+        elif resource_health.memory_usage_mb > 40000:  # >40GB
+            memory_status = "warning"
+        
+        # Determine API status (simplified)
+        api_status = "healthy"  # Could be enhanced with actual API health checks
+        
+        # Calculate tokens processed in last hour (simplified)
+        tokens_processed_last_hour = int(token_metrics.tokens_processed_per_minute * 60)
+        
+        # Count active alerts (simplified)
+        active_alerts = len(resource_health.alerts)
+        
+        # Send summary
+        success = telegram_notifier.send_system_health_summary(
+            memory_status=memory_status,
+            cpu_usage=resource_health.cpu_usage_percent,
+            api_status=api_status,
+            tokens_processed_last_hour=tokens_processed_last_hour,
+            active_alerts=active_alerts
+        )
+        
+        if success:
+            log.info(
+                "system_health_summary_sent",
+                extra={
+                    "memory_status": memory_status,
+                    "cpu_usage": resource_health.cpu_usage_percent,
+                    "tokens_processed": tokens_processed_last_hour,
+                    "active_alerts": active_alerts
+                }
+            )
+        
+    except Exception as e:
+        log.error(f"Error sending system health summary: {e}", exc_info=True)
+
+
+# Memory monitoring is now handled by the performance optimizer
+
+def optimize_performance_once() -> None:
+    """Run performance optimization cycle."""
+    try:
+        from src.monitoring.performance_optimizer import get_performance_optimizer
+        
+        optimizer = get_performance_optimizer()
+        result = optimizer.run_optimization_cycle()
+        
+        if result.get("optimizations_applied", 0) > 0:
+            log.info(
+                "performance_optimizations_applied",
+                extra={
+                    "optimizations_count": result["optimizations_applied"],
+                    "actions": result.get("actions", []),
+                    "current_settings": result.get("current_settings", {})
+                }
+            )
+        else:
+            log.debug(
+                "performance_optimization_cycle_completed",
+                extra={
+                    "metrics": result.get("metrics", {}),
+                    "no_optimizations_needed": True
+                }
+            )
+        
+    except Exception as e:
+        log.error(f"Error in performance optimization: {e}", exc_info=True)
