@@ -450,8 +450,9 @@ async def monitor_spam_once() -> None:
             async with SpamDetector() as detector:
                 spam_results = []
                 
-                # Analyze all tokens above NotArb threshold (no limit)
-                for token in tokens:
+                # Analyze all tokens in parallel for better performance
+                async def analyze_and_save(token):
+                    """Analyze single token and save results."""
                     try:
                         result = await detector.analyze_token_spam(token.mint_address)
                         
@@ -474,12 +475,6 @@ async def monitor_spam_once() -> None:
                             except Exception as e:
                                 log.error(f"Failed to save spam metrics for {token.mint_address}: {e}")
                             
-                            spam_results.append({
-                                "mint_address": token.mint_address,
-                                "spam_percentage": spam_pct,
-                                "risk_level": risk_level
-                            })
-                            
                             # Log high spam tokens
                             if risk_level in ["high", "medium"]:
                                 log.warning("high_spam_detected", extra={
@@ -489,10 +484,23 @@ async def monitor_spam_once() -> None:
                                         "risk_level": risk_level
                                     }
                                 })
+                            
+                            return {
+                                "mint_address": token.mint_address,
+                                "spam_percentage": spam_pct,
+                                "risk_level": risk_level
+                            }
                         
                     except Exception as e:
                         log.error(f"Error analyzing spam for {token.mint_address}: {e}")
-                        continue
+                        return None
+                
+                # Process all tokens in parallel
+                tasks = [analyze_and_save(token) for token in tokens]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Collect successful results
+                spam_results = [r for r in results if r and not isinstance(r, Exception)]
                 
                 # Log summary
                 if spam_results:

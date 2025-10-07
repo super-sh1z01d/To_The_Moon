@@ -506,12 +506,12 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         max_instances=1
     )
     
-    # Спам-мониторинг каждые 30 секунд для топовых токенов
-    # Снижен интервал для уменьшения нагрузки на систему
+    # Спам-мониторинг каждые 5 секунд для топовых токенов
+    # Использует параллельную обработку для быстрого анализа
     from src.scheduler.tasks import run_spam_monitor
     scheduler.add_job(
         run_spam_monitor, 
-        IntervalTrigger(seconds=30), 
+        IntervalTrigger(seconds=5), 
         id="spam_monitor", 
         max_instances=1
     )
