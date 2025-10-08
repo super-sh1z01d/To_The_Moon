@@ -43,6 +43,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
     
     # NotArb bot integration
     "notarb_min_score": "0.5",              # Minimum score threshold for NotArb bot export
+    "notarb_max_spam_percentage": "50",     # Maximum spam percentage for NotArb bot export (0-100)
     
     # Component calculation parameters (previously hardcoded)
     "liquidity_factor_threshold": "100000.0",  # Liquidity threshold for volume momentum factor ($100k)

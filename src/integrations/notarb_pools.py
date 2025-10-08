@@ -37,6 +37,14 @@ class NotArbPoolsGenerator:
         except Exception:
             return 0.5
     
+    def get_notarb_max_spam_percentage(self) -> float:
+        """Get maximum spam percentage threshold for NotArb from settings"""
+        try:
+            max_spam = self.settings.get("notarb_max_spam_percentage")
+            return float(max_spam) if max_spam else 50.0
+        except Exception:
+            return 50.0
+    
     def get_top_tokens_with_pools(self, limit: int = 3) -> List[Dict[str, Any]]:
         """
         Get top tokens with their pool information
@@ -91,6 +99,8 @@ class NotArbPoolsGenerator:
             )
             
             result = []
+            max_spam_percentage = self.get_notarb_max_spam_percentage()
+            
             for token, latest_score, smoothed_score in tokens:
                 # Get pools for this token from latest snapshot
                 from src.adapters.repositories.tokens_repo import TokensRepository
@@ -98,6 +108,24 @@ class NotArbPoolsGenerator:
                 
                 repo = TokensRepository(self.db)
                 snap = repo.get_latest_snapshot(token.id)
+                
+                # Check spam metrics - skip tokens with high spam or no spam data
+                if snap and snap.spam_metrics:
+                    spam_pct = snap.spam_metrics.get("spam_percentage", 100)
+                    if spam_pct > max_spam_percentage:
+                        logger.info(
+                            f"Skipping token {token.symbol or token.mint_address[:8]} "
+                            f"due to high spam: {spam_pct:.1f}% > {max_spam_percentage}%"
+                        )
+                        continue
+                else:
+                    # No spam data - skip token as potentially suspicious
+                    logger.info(
+                        f"Skipping token {token.symbol or token.mint_address[:8]} "
+                        f"due to missing spam analysis data"
+                    )
+                    continue
+                
                 pools = []
                 
                 if snap and snap.metrics and isinstance(snap.metrics, dict) and "pools" in snap.metrics:
@@ -152,6 +180,7 @@ class NotArbPoolsGenerator:
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "generator": "ToTheMoon Scoring System",
                 "min_score_threshold": self.get_notarb_min_score(),
+                "max_spam_percentage": self.get_notarb_max_spam_percentage(),
                 "total_tokens": len(tokens_data)
             },
             "tokens": []
