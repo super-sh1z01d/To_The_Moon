@@ -7,7 +7,8 @@ const arbitrageKeys = [
   'min_score', 'activation_min_liquidity_usd', 'min_pool_liquidity_usd', 
   'hot_interval_sec', 'cold_interval_sec', 'archive_below_hours', 'monitoring_timeout_hours',
   'notarb_min_score', 'notarb_max_spam_percentage',
-  'backlog_warning_threshold', 'backlog_error_threshold', 'backlog_critical_threshold'
+  'backlog_warning_threshold', 'backlog_error_threshold', 'backlog_critical_threshold',
+  'spam_whitelist_wallets'
 ]
 
 export default function Settings() {
@@ -320,6 +321,29 @@ export default function Settings() {
                 Максимальный процент спама для экспорта в NotArb (0-100)
               </small>
             </div>
+          </div>
+          
+          <div style={{ marginTop: 16 }}>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              🤖 Whitelist кошельков (игнорировать в спам-анализе)
+            </label>
+            <textarea
+              value={vals['spam_whitelist_wallets'] || '8vNwSvT1S8P99c9XmjfXfV4DSGZLfUoNFx63zngCuh54'}
+              onChange={(e) => update('spam_whitelist_wallets', e.target.value)}
+              style={{ 
+                width: '100%', 
+                padding: 8, 
+                border: '1px solid #ccc', 
+                borderRadius: 4,
+                fontFamily: 'monospace',
+                fontSize: '12px',
+                minHeight: '60px'
+              }}
+              placeholder="Адреса кошельков через запятую"
+            />
+            <small style={{ color: '#666' }}>
+              Кошельки ботов и доверенных источников (через запятую). Их транзакции не учитываются при подсчете спама.
+            </small>
           </div>
         </div>
       </section>

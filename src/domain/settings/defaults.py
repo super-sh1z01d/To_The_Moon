@@ -50,6 +50,9 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "backlog_error_threshold": "100",       # Error threshold for backlog size
     "backlog_critical_threshold": "150",    # Critical threshold for backlog size
     
+    # Spam detection whitelist
+    "spam_whitelist_wallets": "8vNwSvT1S8P99c9XmjfXfV4DSGZLfUoNFx63zngCuh54",  # Comma-separated list of wallet addresses to ignore in spam detection
+    
     # Component calculation parameters (previously hardcoded)
     "liquidity_factor_threshold": "100000.0",  # Liquidity threshold for volume momentum factor ($100k)
     "orderflow_significance_threshold": "500.0",  # Volume threshold for orderflow significance ($500)

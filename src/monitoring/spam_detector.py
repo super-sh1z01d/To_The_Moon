@@ -25,10 +25,16 @@ logger = logging.getLogger(__name__)
 class SpamDetector:
     """Detects spam patterns in token transactions."""
     
-    def __init__(self):
+    # Default whitelist of wallets to ignore in spam detection (e.g., our own bots)
+    DEFAULT_WHITELISTED_WALLETS = {
+        "8vNwSvT1S8P99c9XmjfXfV4DSGZLfUoNFx63zngCuh54",  # NotArb bot wallet
+    }
+    
+    def __init__(self, whitelisted_wallets: Optional[set] = None):
         config = get_config()
         self.helius_rpc_url = f"https://mainnet.helius-rpc.com/?api-key={config.helius_api_key}"
         self.client = httpx.AsyncClient(timeout=30.0)
+        self.whitelisted_wallets = whitelisted_wallets or self.DEFAULT_WHITELISTED_WALLETS
         
     async def __aenter__(self):
         return self
@@ -133,6 +139,16 @@ class SpamDetector:
         """Analyze a single transaction for instruction patterns."""
         transaction = tx.get("transaction", {})
         message = transaction.get("message", {})
+        
+        # Check if transaction is from whitelisted wallet
+        account_keys = message.get("accountKeys", [])
+        for account in account_keys:
+            # Handle both string and dict formats
+            pubkey = account if isinstance(account, str) else account.get("pubkey", "")
+            if pubkey in self.whitelisted_wallets:
+                logger.debug(f"Skipping transaction from whitelisted wallet: {pubkey[:8]}...")
+                return  # Skip this transaction entirely
+        
         instructions = message.get("instructions", [])
         
         for instruction in instructions:
@@ -242,9 +258,27 @@ class SpamMonitoringService:
     """Service for continuous spam monitoring of top tokens."""
     
     def __init__(self):
-        self.detector = SpamDetector()
         self.monitoring_interval = 5  # seconds
         self.min_score_threshold = 50  # minimum score for monitoring
+        self.detector = None  # Will be initialized with settings
+    
+    def _get_whitelisted_wallets(self, db: Session) -> set:
+        """Get whitelisted wallets from settings."""
+        try:
+            from src.domain.settings.service import get_setting
+            whitelist_str = get_setting(db, "spam_whitelist_wallets", "")
+            
+            if not whitelist_str:
+                return SpamDetector.DEFAULT_WHITELISTED_WALLETS
+            
+            # Parse comma-separated list
+            wallets = {w.strip() for w in whitelist_str.split(",") if w.strip()}
+            logger.info(f"Loaded {len(wallets)} whitelisted wallets for spam detection")
+            return wallets
+            
+        except Exception as e:
+            logger.warning(f"Error loading whitelist, using defaults: {e}")
+            return SpamDetector.DEFAULT_WHITELISTED_WALLETS
         
     async def get_tokens_to_monitor(self, db: Session) -> List[str]:
         """Get list of token mint addresses that should be monitored."""
@@ -267,13 +301,16 @@ class SpamMonitoringService:
         """Continuously monitor spam for top tokens."""
         logger.info("Starting continuous spam monitoring...")
         
-        async with self.detector:
-            while True:
+        while True:
+            try:
+                # Get current database session
+                db = next(get_db())
+                
                 try:
-                    # Get current database session
-                    db = next(get_db())
+                    # Initialize detector with current whitelist settings
+                    whitelisted_wallets = self._get_whitelisted_wallets(db)
                     
-                    try:
+                    async with SpamDetector(whitelisted_wallets=whitelisted_wallets) as detector:
                         # Get tokens to monitor
                         mint_addresses = await self.get_tokens_to_monitor(db)
                         
@@ -286,7 +323,7 @@ class SpamMonitoringService:
                         spam_results = []
                         for mint_address in mint_addresses:
                             try:
-                                result = await self.detector.analyze_token_spam(mint_address)
+                                result = await detector.analyze_token_spam(mint_address)
                                 spam_results.append(result)
                                 
                                 # Store result in database (implement this)
@@ -305,11 +342,11 @@ class SpamMonitoringService:
                                        f"{len(spam_results)} tokens analyzed, "
                                        f"{high_spam_count} with high/medium spam risk")
                         
-                    finally:
-                        db.close()
-                    
-                    # Wait before next cycle
-                    await asyncio.sleep(self.monitoring_interval)
+                finally:
+                    db.close()
+                
+                # Wait before next cycle
+                await asyncio.sleep(self.monitoring_interval)
                     
                 except Exception as e:
                     logger.error(f"Error in spam monitoring cycle: {e}")
