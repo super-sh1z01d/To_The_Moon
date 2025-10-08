@@ -6,7 +6,8 @@ const arbitrageKeys = [
   'arbitrage_min_tx_5m', 'arbitrage_optimal_tx_5m', 'arbitrage_acceleration_weight',
   'min_score', 'activation_min_liquidity_usd', 'min_pool_liquidity_usd', 
   'hot_interval_sec', 'cold_interval_sec', 'archive_below_hours', 'monitoring_timeout_hours',
-  'notarb_min_score'
+  'notarb_min_score', 'notarb_max_spam_percentage',
+  'backlog_warning_threshold', 'backlog_error_threshold', 'backlog_critical_threshold'
 ]
 
 export default function Settings() {
@@ -300,6 +301,85 @@ export default function Settings() {
                 onChange={(e) => update('notarb_min_score', e.target.value)}
                 style={{ width: '100%', padding: 8, border: '1px solid #ccc', borderRadius: 4 }}
               />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                NotArb макс. спам %
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={vals['notarb_max_spam_percentage'] || '50'}
+                onChange={(e) => update('notarb_max_spam_percentage', e.target.value)}
+                style={{ width: '100%', padding: 8, border: '1px solid #ccc', borderRadius: 4 }}
+              />
+              <small style={{ color: '#666' }}>
+                Максимальный процент спама для экспорта в NotArb (0-100)
+              </small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section style={{ marginBottom: 24 }}>
+        <h3>🔍 Мониторинг backlog</h3>
+        <div style={{ background: 'white', padding: 16, borderRadius: 8, border: '1px solid #dee2e6' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                ⚠️ Порог предупреждения
+              </label>
+              <input
+                type="number"
+                step="5"
+                min="10"
+                max="500"
+                value={vals['backlog_warning_threshold'] || '75'}
+                onChange={(e) => update('backlog_warning_threshold', e.target.value)}
+                style={{ width: '100%', padding: 8, border: '1px solid #ccc', borderRadius: 4 }}
+              />
+              <small style={{ color: '#666' }}>
+                Размер backlog для предупреждения
+              </small>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                🚨 Порог ошибки
+              </label>
+              <input
+                type="number"
+                step="5"
+                min="20"
+                max="500"
+                value={vals['backlog_error_threshold'] || '100'}
+                onChange={(e) => update('backlog_error_threshold', e.target.value)}
+                style={{ width: '100%', padding: 8, border: '1px solid #ccc', borderRadius: 4 }}
+              />
+              <small style={{ color: '#666' }}>
+                Размер backlog для алерта об ошибке
+              </small>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                🔥 Критический порог
+              </label>
+              <input
+                type="number"
+                step="10"
+                min="50"
+                max="500"
+                value={vals['backlog_critical_threshold'] || '150'}
+                onChange={(e) => update('backlog_critical_threshold', e.target.value)}
+                style={{ width: '100%', padding: 8, border: '1px solid #ccc', borderRadius: 4 }}
+              />
+              <small style={{ color: '#666' }}>
+                Размер backlog для критического алерта
+              </small>
             </div>
           </div>
         </div>
