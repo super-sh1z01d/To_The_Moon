@@ -45,6 +45,11 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "notarb_min_score": "0.5",              # Minimum score threshold for NotArb bot export
     "notarb_max_spam_percentage": "50",     # Maximum spam percentage for NotArb bot export (0-100)
     
+    # Backlog monitoring
+    "backlog_warning_threshold": "75",      # Warning threshold for backlog size
+    "backlog_error_threshold": "100",       # Error threshold for backlog size
+    "backlog_critical_threshold": "150",    # Critical threshold for backlog size
+    
     # Component calculation parameters (previously hardcoded)
     "liquidity_factor_threshold": "100000.0",  # Liquidity threshold for volume momentum factor ($100k)
     "orderflow_significance_threshold": "500.0",  # Volume threshold for orderflow significance ($500)
