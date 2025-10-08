@@ -302,55 +302,55 @@ class SpamMonitoringService:
         logger.info("Starting continuous spam monitoring...")
         
         while True:
+            db = None
             try:
                 # Get current database session
                 db = next(get_db())
                 
-                try:
-                    # Initialize detector with current whitelist settings
-                    whitelisted_wallets = self._get_whitelisted_wallets(db)
+                # Initialize detector with current whitelist settings
+                whitelisted_wallets = self._get_whitelisted_wallets(db)
+                
+                async with SpamDetector(whitelisted_wallets=whitelisted_wallets) as detector:
+                    # Get tokens to monitor
+                    mint_addresses = await self.get_tokens_to_monitor(db)
                     
-                    async with SpamDetector(whitelisted_wallets=whitelisted_wallets) as detector:
-                        # Get tokens to monitor
-                        mint_addresses = await self.get_tokens_to_monitor(db)
-                        
-                        if not mint_addresses:
-                            logger.info("No tokens to monitor, waiting...")
-                            await asyncio.sleep(self.monitoring_interval)
-                            continue
-                        
-                        # Analyze spam for each token
-                        spam_results = []
-                        for mint_address in mint_addresses:
-                            try:
-                                result = await detector.analyze_token_spam(mint_address)
-                                spam_results.append(result)
-                                
-                                # Store result in database (implement this)
-                                await self._store_spam_result(db, result)
-                                
-                            except Exception as e:
-                                logger.error(f"Error analyzing {mint_address}: {e}")
-                                continue
-                        
-                        # Log summary
-                        if spam_results:
-                            high_spam_count = sum(1 for r in spam_results 
-                                                if r.get("spam_metrics", {}).get("risk_level") in ["high", "medium"])
+                    if not mint_addresses:
+                        logger.info("No tokens to monitor, waiting...")
+                        await asyncio.sleep(self.monitoring_interval)
+                        continue
+                    
+                    # Analyze spam for each token
+                    spam_results = []
+                    for mint_address in mint_addresses:
+                        try:
+                            result = await detector.analyze_token_spam(mint_address)
+                            spam_results.append(result)
                             
-                            logger.info(f"Spam monitoring cycle complete: "
-                                       f"{len(spam_results)} tokens analyzed, "
-                                       f"{high_spam_count} with high/medium spam risk")
+                            # Store result in database (implement this)
+                            await self._store_spam_result(db, result)
+                            
+                        except Exception as e:
+                            logger.error(f"Error analyzing {mint_address}: {e}")
+                            continue
+                    
+                    # Log summary
+                    if spam_results:
+                        high_spam_count = sum(1 for r in spam_results 
+                                            if r.get("spam_metrics", {}).get("risk_level") in ["high", "medium"])
                         
-                finally:
-                    db.close()
+                        logger.info(f"Spam monitoring cycle complete: "
+                                   f"{len(spam_results)} tokens analyzed, "
+                                   f"{high_spam_count} with high/medium spam risk")
                 
                 # Wait before next cycle
                 await asyncio.sleep(self.monitoring_interval)
-                    
-                except Exception as e:
-                    logger.error(f"Error in spam monitoring cycle: {e}")
-                    await asyncio.sleep(self.monitoring_interval)
+                
+            except Exception as e:
+                logger.error(f"Error in spam monitoring cycle: {e}")
+                await asyncio.sleep(self.monitoring_interval)
+            finally:
+                if db:
+                    db.close()
     
     async def _store_spam_result(self, db: Session, result: Dict) -> None:
         """Store spam analysis result in database."""
