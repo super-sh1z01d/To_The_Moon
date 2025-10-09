@@ -77,6 +77,38 @@ class PoolItem(BaseModel):
     solscan_url: Optional[str] = Field(default=None)
 
 
+class TokenStats(BaseModel):
+    total: int
+    active: int
+    monitoring: int
+    archived: int
+
+
+@router.get("/stats", response_model=TokenStats)
+async def get_token_stats(db: Session = Depends(get_db)) -> TokenStats:
+    """Get token count statistics by status."""
+    repo = TokensRepository(db)
+    
+    from sqlalchemy import func
+    from src.adapters.db.models import Token
+    
+    # Get counts by status
+    status_counts = db.query(
+        Token.status,
+        func.count(Token.id).label('count')
+    ).group_by(Token.status).all()
+    
+    counts = {status: count for status, count in status_counts}
+    total = sum(counts.values())
+    
+    return TokenStats(
+        total=total,
+        active=counts.get('active', 0),
+        monitoring=counts.get('monitoring', 0),
+        archived=counts.get('archived', 0)
+    )
+
+
 @router.get("", response_model=TokensResponse)
 @router.get("/", response_model=TokensResponse)
 async def list_tokens(
