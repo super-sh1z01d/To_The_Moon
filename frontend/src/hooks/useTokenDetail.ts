@@ -1,23 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
-import { Token } from '@/types/token'
-import { API_BASE_URL, REFRESH_INTERVALS } from '@/lib/constants'
+import type { Token } from '@/types/token'
 
-async function fetchTokenDetail(mintAddress: string): Promise<Token> {
-  const response = await fetch(`${API_BASE_URL}/tokens/${mintAddress}`)
-  
+async function fetchToken(mint: string): Promise<Token> {
+  const response = await fetch(`/tokens/${mint}`)
   if (!response.ok) {
-    throw new Error(`Failed to fetch token detail: ${response.statusText}`)
+    throw new Error('Failed to fetch token')
   }
-  
   return response.json()
 }
 
-export function useTokenDetail(mintAddress: string) {
+export function useTokenDetail(mint: string) {
   return useQuery({
-    queryKey: ['token', mintAddress],
-    queryFn: () => fetchTokenDetail(mintAddress),
-    staleTime: 3000,
-    refetchInterval: REFRESH_INTERVALS.TOKEN_DETAIL,
-    enabled: !!mintAddress,
+    queryKey: ['token', mint],
+    queryFn: () => fetchToken(mint),
+    refetchInterval: 5000, // Refresh every 5 seconds
+    enabled: !!mint,
   })
 }

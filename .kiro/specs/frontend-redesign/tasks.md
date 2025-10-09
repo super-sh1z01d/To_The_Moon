@@ -105,7 +105,7 @@
   - _Requirements: 3.6, 3.8, 2.5_
 
 - [ ] 5. Build comprehensive Token Detail page
-- [ ] 5.1 Create token detail layout
+- [x] 5.1 Create token detail layout
   - Create pages/TokenDetail.tsx with card-based layout
   - Create components/tokens/TokenMetrics.tsx for metrics display
   - Implement responsive grid layout
