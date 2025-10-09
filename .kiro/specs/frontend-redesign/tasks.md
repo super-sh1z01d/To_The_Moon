@@ -112,7 +112,7 @@
   - Add copy button for addresses
   - _Requirements: 4.1, 4.9, 9.1_
 
-- [ ] 5.2 Create price charts
+- [x] 5.2 Create price charts
   - Create components/charts/PriceChart.tsx using Recharts
   - Display 5m and 15m price deltas
   - Add interactive tooltips

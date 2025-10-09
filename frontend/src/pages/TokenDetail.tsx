@@ -1,6 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
 import { useTokenDetail } from '@/hooks/useTokenDetail'
 import { TokenMetrics } from '@/components/tokens/TokenMetrics'
+import { PriceChart } from '@/components/charts/PriceChart'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorDisplay } from '@/components/ui/error-display'
 import { Button } from '@/components/ui/button'
@@ -52,9 +54,20 @@ export default function TokenDetail() {
 
       <TokenMetrics token={token} />
 
-      {/* Placeholder for charts - will be added in next tasks */}
-      <div className="text-center py-12 text-muted-foreground">
-        <p>Charts and additional metrics coming soon...</p>
+      {/* Generate mock price history data for demonstration */}
+      {useMemo(() => {
+        const now = Date.now()
+        const mockData = Array.from({ length: 20 }, (_, i) => ({
+          timestamp: new Date(now - (19 - i) * 5 * 60 * 1000).toISOString(),
+          delta_5m: token.delta_p_5m + (Math.random() - 0.5) * 10,
+          delta_15m: token.delta_p_15m + (Math.random() - 0.5) * 15,
+        }))
+        return <PriceChart data={mockData} />
+      }, [token.delta_p_5m, token.delta_p_15m])}
+
+      {/* Placeholder for additional charts */}
+      <div className="text-center py-8 text-muted-foreground text-sm">
+        <p>Additional charts (liquidity, volume, score breakdown) coming soon...</p>
       </div>
     </div>
   )
