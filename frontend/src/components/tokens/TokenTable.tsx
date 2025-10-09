@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Token } from '@/types/token'
-import { formatCurrency, formatPercentage, formatRelativeTime, getScoreColor, getStatusColor } from '@/lib/utils'
+import { formatCurrency, formatPercentage, formatRelativeTime, getScoreColor } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { ArrowUpDown } from 'lucide-react'
@@ -102,7 +102,10 @@ export function TokenTable({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge className={getStatusColor(token.status)}>
+                  <Badge 
+                    variant={token.status === 'active' ? 'default' : token.status === 'monitoring' ? 'secondary' : 'outline'}
+                    className="text-xs"
+                  >
                     {token.status}
                   </Badge>
                 </TableCell>
