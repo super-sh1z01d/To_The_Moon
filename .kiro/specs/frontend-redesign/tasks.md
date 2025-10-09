@@ -148,7 +148,7 @@
   - _Requirements: 2.1, 4.8, 10.1_
 
 - [ ] 6. Redesign Settings page with all configurations
-- [-] 6.1 Create settings infrastructure
+- [x] 6.1 Create settings infrastructure
   - Create components/settings/SettingsGroup.tsx
   - Create components/settings/SettingField.tsx
   - Create components/settings/SettingsSearch.tsx
