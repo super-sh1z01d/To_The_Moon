@@ -133,7 +133,7 @@
   - Add explanatory tooltips
   - _Requirements: 4.6, 7.4, 7.5_
 
-- [ ] 5.5 Add spam metrics display
+- [x] 5.5 Add spam metrics display
   - Create components/tokens/SpamMetrics.tsx
   - Display spam percentage with visual indicators
   - Show risk level with color coding

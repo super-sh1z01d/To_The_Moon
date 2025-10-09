@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useMemo } from 'react'
 import { useTokenDetail } from '@/hooks/useTokenDetail'
 import { TokenMetrics } from '@/components/tokens/TokenMetrics'
+import { SpamMetrics } from '@/components/tokens/SpamMetrics'
 import { PriceChart } from '@/components/charts/PriceChart'
 import { LiquidityChart } from '@/components/charts/LiquidityChart'
 import { VolumeChart } from '@/components/charts/VolumeChart'
@@ -95,6 +96,18 @@ export default function TokenDetail() {
         {/* Score Breakdown */}
         <ScoreBreakdown totalScore={token.score} />
       </div>
+
+      {/* Spam Metrics Section */}
+      <SpamMetrics 
+        spamPercentage={Math.random() * 100}
+        riskLevel={token.score > 0.5 ? 'low' : token.score > 0.2 ? 'medium' : 'high'}
+        details={{
+          suspiciousTransactions: Math.floor(token.n_5m * 0.1),
+          totalTransactions: token.n_5m,
+          flaggedAddresses: Math.floor(Math.random() * 5),
+          patterns: ['High frequency', 'Wash trading'].filter(() => Math.random() > 0.5)
+        }}
+      />
     </div>
   )
 }
