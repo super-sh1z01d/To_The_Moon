@@ -222,8 +222,8 @@ def _get_token_statistics(db: Session) -> Dict[str, Any]:
         # Get tokens updated in last 5 minutes (active processing)
         five_min_ago = datetime.utcnow() - timedelta(minutes=5)
         recently_updated = db.query(func.count(Token.id)).filter(
-            Token.updated_at >= five_min_ago
-        ).scalar()
+            Token.last_updated_at >= five_min_ago
+        ).scalar() or 0
         
         return {
             "by_status": counts,
@@ -245,14 +245,14 @@ def _get_processing_rates(db: Session) -> Dict[str, Any]:
         # Get tokens processed in last minute
         one_min_ago = datetime.utcnow() - timedelta(minutes=1)
         last_minute = db.query(func.count(Token.id)).filter(
-            Token.updated_at >= one_min_ago
-        ).scalar()
+            Token.last_updated_at >= one_min_ago
+        ).scalar() or 0
         
         # Get tokens processed in last 5 minutes
         five_min_ago = datetime.utcnow() - timedelta(minutes=5)
         last_five_min = db.query(func.count(Token.id)).filter(
-            Token.updated_at >= five_min_ago
-        ).scalar()
+            Token.last_updated_at >= five_min_ago
+        ).scalar() or 0
         
         return {
             "tokens_per_minute": last_minute,
@@ -331,9 +331,9 @@ def _get_activation_metrics(db: Session) -> Dict[str, Any]:
         recent_activations = db.query(func.count(Token.id)).filter(
             and_(
                 Token.status == "active",
-                Token.updated_at >= one_hour_ago
+                Token.last_updated_at >= one_hour_ago
             )
-        ).scalar()
+        ).scalar() or 0
         
         return {
             "stuck_in_monitoring": stuck_monitoring,
