@@ -3,6 +3,8 @@ import { useMemo } from 'react'
 import { useTokenDetail } from '@/hooks/useTokenDetail'
 import { TokenMetrics } from '@/components/tokens/TokenMetrics'
 import { PriceChart } from '@/components/charts/PriceChart'
+import { LiquidityChart } from '@/components/charts/LiquidityChart'
+import { VolumeChart } from '@/components/charts/VolumeChart'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorDisplay } from '@/components/ui/error-display'
 import { Button } from '@/components/ui/button'
@@ -54,20 +56,45 @@ export default function TokenDetail() {
 
       <TokenMetrics token={token} />
 
-      {/* Generate mock price history data for demonstration */}
-      {useMemo(() => {
-        const now = Date.now()
-        const mockData = Array.from({ length: 20 }, (_, i) => ({
-          timestamp: new Date(now - (19 - i) * 5 * 60 * 1000).toISOString(),
-          delta_5m: token.delta_p_5m + (Math.random() - 0.5) * 10,
-          delta_15m: token.delta_p_15m + (Math.random() - 0.5) * 15,
-        }))
-        return <PriceChart data={mockData} />
-      }, [token.delta_p_5m, token.delta_p_15m])}
+      {/* Charts Section */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Price Chart */}
+        {useMemo(() => {
+          const now = Date.now()
+          const mockData = Array.from({ length: 20 }, (_, i) => ({
+            timestamp: new Date(now - (19 - i) * 5 * 60 * 1000).toISOString(),
+            delta_5m: token.delta_p_5m + (Math.random() - 0.5) * 10,
+            delta_15m: token.delta_p_15m + (Math.random() - 0.5) * 15,
+          }))
+          return <PriceChart data={mockData} />
+        }, [token.delta_p_5m, token.delta_p_15m])}
 
-      {/* Placeholder for additional charts */}
-      <div className="text-center py-8 text-muted-foreground text-sm">
-        <p>Additional charts (liquidity, volume, score breakdown) coming soon...</p>
+        {/* Liquidity Chart */}
+        {useMemo(() => {
+          const now = Date.now()
+          const baseLiquidity = token.liquidity_usd
+          const mockData = Array.from({ length: 20 }, (_, i) => ({
+            timestamp: new Date(now - (19 - i) * 5 * 60 * 1000).toISOString(),
+            liquidity: baseLiquidity * (1 + (Math.random() - 0.5) * 0.2),
+          }))
+          return <LiquidityChart data={mockData} />
+        }, [token.liquidity_usd])}
+
+        {/* Volume Chart */}
+        {useMemo(() => {
+          const now = Date.now()
+          const baseVolume = token.n_5m
+          const mockData = Array.from({ length: 20 }, (_, i) => ({
+            timestamp: new Date(now - (19 - i) * 5 * 60 * 1000).toISOString(),
+            transactions: Math.max(0, Math.floor(baseVolume * (0.5 + Math.random()))),
+          }))
+          return <VolumeChart data={mockData} />
+        }, [token.n_5m])}
+
+        {/* Placeholder for Score Breakdown */}
+        <div className="border rounded-lg p-6 flex items-center justify-center text-muted-foreground">
+          <p className="text-sm">Score breakdown chart coming soon...</p>
+        </div>
       </div>
     </div>
   )
