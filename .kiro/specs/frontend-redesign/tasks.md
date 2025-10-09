@@ -63,27 +63,27 @@
   - Create components/layout/MainLayout.tsx
   - _Requirements: 1.1, 9.6_
 
-- [ ] 3.2 Implement navigation
+- [x] 3.2 Implement navigation
   - Add navigation links with active state
   - Implement mobile hamburger menu
   - Add theme toggle to header
   - _Requirements: 1.1, 9.6_
 
-- [ ] 3.3 Create loading and error components
+- [x] 3.3 Create loading and error components
   - Create components/ui/skeleton.tsx for loading states
   - Create components/ui/error-display.tsx for errors
   - Create components/ui/toast.tsx for notifications
   - _Requirements: 10.1, 10.2, 10.6_
 
 - [ ] 4. Implement Dashboard page with optimizations
-- [ ] 4.1 Create token table with virtualization
+- [x] 4.1 Create token table with virtualization
   - Create components/tokens/TokenTable.tsx with TanStack Virtual
   - Implement sortable columns
   - Add row click navigation to detail page
   - Implement responsive card layout for mobile
   - _Requirements: 3.1, 3.4, 3.7, 9.2_
 
-- [ ] 4.2 Create token filters component
+- [x] 4.2 Create token filters component
   - Create components/tokens/TokenFilters.tsx
   - Implement debounced search input
   - Add status filter dropdown
@@ -91,14 +91,14 @@
   - Add spam percentage filter
   - _Requirements: 3.2, 2.3_
 
-- [ ] 4.3 Integrate Dashboard with React Query
+- [x] 4.3 Integrate Dashboard with React Query
   - Update pages/Dashboard.tsx to use useTokens hook
   - Implement auto-refresh every 10 seconds
   - Add loading skeletons
   - Add error handling with retry
   - _Requirements: 2.1, 2.4, 3.3, 10.1_
 
-- [ ] 4.4 Add dashboard enhancements
+- [x] 4.4 Add dashboard enhancements
   - Add hover tooltips for metrics
   - Add smooth animations for new tokens
   - Optimize rendering with useMemo
