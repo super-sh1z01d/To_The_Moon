@@ -32,8 +32,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        <div className="flex h-14 items-center justify-between border-b px-4 lg:justify-center">
-          <span className="text-lg font-semibold">To The Moon 🚀</span>
+        <div className="flex h-12 items-center justify-between border-b px-4 lg:justify-center">
+          <span className="text-base font-semibold">To The Moon 🚀</span>
           <Button
             variant="ghost"
             size="icon"

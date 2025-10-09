@@ -11,7 +11,7 @@ interface HeaderProps {
 export function Header({ title, onMenuClick, actions }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
+      <div className="flex h-12 items-center px-4">
         <div className="mr-4 flex lg:hidden">
           <Button
             variant="ghost"
@@ -23,9 +23,13 @@ export function Header({ title, onMenuClick, actions }: HeaderProps) {
           </Button>
         </div>
         
-        <div className="flex flex-1 items-center justify-end space-x-2">
-          {actions}
-          <ThemeToggle />
+        <div className="flex flex-1 items-center justify-between">
+          <h1 className="text-base font-semibold lg:hidden">{title}</h1>
+          
+          <div className="flex items-center space-x-2 ml-auto">
+            {actions}
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </header>
