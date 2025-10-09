@@ -25,14 +25,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Token Dashboard</h2>
-        <p className="text-muted-foreground">
-          Monitor and analyze Solana tokens
-        </p>
-      </div>
-
+    <div className="space-y-3">
       <TokenFilters filters={filters} onFilterChange={setFilters} />
 
       {isLoading ? (
