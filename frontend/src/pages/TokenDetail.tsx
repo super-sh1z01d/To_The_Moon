@@ -5,6 +5,7 @@ import { TokenMetrics } from '@/components/tokens/TokenMetrics'
 import { PriceChart } from '@/components/charts/PriceChart'
 import { LiquidityChart } from '@/components/charts/LiquidityChart'
 import { VolumeChart } from '@/components/charts/VolumeChart'
+import { ScoreBreakdown } from '@/components/charts/ScoreBreakdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorDisplay } from '@/components/ui/error-display'
 import { Button } from '@/components/ui/button'
@@ -91,10 +92,8 @@ export default function TokenDetail() {
           return <VolumeChart data={mockData} />
         }, [token.n_5m])}
 
-        {/* Placeholder for Score Breakdown */}
-        <div className="border rounded-lg p-6 flex items-center justify-center text-muted-foreground">
-          <p className="text-sm">Score breakdown chart coming soon...</p>
-        </div>
+        {/* Score Breakdown */}
+        <ScoreBreakdown totalScore={token.score} />
       </div>
     </div>
   )
