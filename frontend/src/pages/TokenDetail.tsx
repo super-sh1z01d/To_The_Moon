@@ -20,12 +20,32 @@ export default function TokenDetail() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-10 w-32" />
+        {/* Header Skeleton */}
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+
+        {/* Metrics Cards Skeleton */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Skeleton className="h-48" />
           <Skeleton className="h-48" />
           <Skeleton className="h-48" />
         </div>
+
+        {/* Charts Skeleton */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-80" />
+          <Skeleton className="h-80" />
+          <Skeleton className="h-80" />
+          <Skeleton className="h-80" />
+        </div>
+
+        {/* Spam Metrics Skeleton */}
+        <Skeleton className="h-64" />
       </div>
     )
   }
@@ -42,18 +62,29 @@ export default function TokenDetail() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/')}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold">{token.symbol || 'Unknown Token'}</h1>
-          <p className="text-sm text-muted-foreground">Token Details</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/')}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">{token.symbol || 'Unknown Token'}</h1>
+            <p className="text-sm text-muted-foreground">
+              Token Details • Auto-refreshing every 5s
+            </p>
+          </div>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+        >
+          Refresh Now
+        </Button>
       </div>
 
       <TokenMetrics token={token} />

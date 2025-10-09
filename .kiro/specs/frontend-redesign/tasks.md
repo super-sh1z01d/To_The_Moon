@@ -104,7 +104,7 @@
   - Optimize rendering with useMemo
   - _Requirements: 3.6, 3.8, 2.5_
 
-- [ ] 5. Build comprehensive Token Detail page
+- [x] 5. Build comprehensive Token Detail page
 - [x] 5.1 Create token detail layout
   - Create pages/TokenDetail.tsx with card-based layout
   - Create components/tokens/TokenMetrics.tsx for metrics display
@@ -140,7 +140,7 @@
   - Add detailed breakdown
   - _Requirements: 4.5_
 
-- [ ] 5.6 Integrate detail page with React Query
+- [x] 5.6 Integrate detail page with React Query
   - Use useTokenDetail hook for data fetching
   - Implement auto-refresh every 5 seconds
   - Add loading states for all sections
