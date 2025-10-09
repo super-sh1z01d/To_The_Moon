@@ -9,7 +9,7 @@ export interface TokenStats {
 }
 
 async function fetchTokenStats(): Promise<TokenStats> {
-  const response = await fetch(`${API_BASE_URL}/tokens/stats`)
+  const response = await fetch(`/tokens/stats`)
   
   if (!response.ok) {
     throw new Error(`Failed to fetch token stats: ${response.statusText}`)
