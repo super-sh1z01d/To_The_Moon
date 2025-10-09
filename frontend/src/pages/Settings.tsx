@@ -114,6 +114,36 @@ export default function Settings() {
             description="Update interval for cold tokens"
           />
         </SettingsGroup>
+
+        {/* Data Filtering */}
+        <SettingsGroup 
+          title="Data Filtering" 
+          description="Liquidity and pool requirements"
+        >
+          <SettingField
+            label="Minimum Pool Liquidity"
+            value={getValue('min_pool_liquidity_usd', '500')}
+            onChange={(v) => handleChange('min_pool_liquidity_usd', v)}
+            type="number"
+            unit="USD"
+            description="Minimum liquidity per pool"
+          />
+        </SettingsGroup>
+
+        {/* Spam Detection */}
+        <SettingsGroup 
+          title="Spam Detection" 
+          description="Configure spam detection parameters"
+        >
+          <SettingField
+            label="Max Spam Percentage"
+            value={getValue('notarb_max_spam_percentage', '50')}
+            onChange={(v) => handleChange('notarb_max_spam_percentage', v)}
+            type="number"
+            unit="%"
+            description="Maximum spam percentage threshold"
+          />
+        </SettingsGroup>
       </div>
 
       <div className="flex gap-4 pt-4 border-t">
