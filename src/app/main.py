@@ -23,6 +23,7 @@ from .routes.admin import router as admin_router
 from .routes.logs import router as logs_router
 from .routes.notarb import router as notarb_router
 from .routes.health import router as health_router
+from .routes.monitoring import router as monitoring_router
 from .logs_buffer import attach_buffer_handler
 
 
@@ -250,6 +251,7 @@ def create_app() -> FastAPI:
     app.include_router(logs_router)
     app.include_router(notarb_router)
     app.include_router(health_router)
+    app.include_router(monitoring_router)
 
     # Static SPA (if built)
     mount_spa(app)
