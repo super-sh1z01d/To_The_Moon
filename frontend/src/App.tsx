@@ -1,4 +1,8 @@
-import { NavLink, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClient } from './lib/queryClient'
+import { ThemeProvider } from './components/layout/ThemeProvider'
+import { MainLayout } from './components/layout/MainLayout'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
 import TokenDetail from './pages/TokenDetail'
@@ -6,24 +10,18 @@ import Logs from './pages/Logs'
 
 export default function App(){
   return (
-    <div className="container">
-      <header>
-        <h1>To The Moon</h1>
-        <nav>
-          <NavLink to="/" end className={({isActive})=> isActive ? 'active' : ''}>Дашборд</NavLink>
-          <NavLink to="/settings" className={({isActive})=> isActive ? 'active' : ''}>Настройки</NavLink>
-          <NavLink to="/logs" className={({isActive})=> isActive ? 'active' : ''}>Логи</NavLink>
-        </nav>
-      </header>
-      <main>
-        <Routes>
-          <Route path="/" element={<Dashboard/>} />
-          <Route path="/settings" element={<Settings/>} />
-          <Route path="/logs" element={<Logs/>} />
-          <Route path="/token/:mint" element={<TokenDetail/>} />
-          <Route path="*" element={<div>Страница не найдена</div>} />
-        </Routes>
-      </main>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="system">
+        <MainLayout>
+          <Routes>
+            <Route path="/" element={<Dashboard/>} />
+            <Route path="/settings" element={<Settings/>} />
+            <Route path="/logs" element={<Logs/>} />
+            <Route path="/token/:mint" element={<TokenDetail/>} />
+            <Route path="*" element={<div className="text-center py-12">Страница не найдена</div>} />
+          </Routes>
+        </MainLayout>
+      </ThemeProvider>
+    </QueryClientProvider>
   )
 }

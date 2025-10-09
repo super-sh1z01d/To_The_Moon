@@ -1,0 +1,37 @@
+import { Menu } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ThemeToggle } from './ThemeToggle'
+
+interface HeaderProps {
+  title: string
+  onMenuClick?: () => void
+  actions?: React.ReactNode
+}
+
+export function Header({ title, onMenuClick, actions }: HeaderProps) {
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <div className="mr-4 flex md:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onMenuClick}
+            aria-label="Toggle menu"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        </div>
+        
+        <div className="flex flex-1 items-center justify-between space-x-2">
+          <h1 className="text-lg font-semibold">{title}</h1>
+          
+          <div className="flex items-center space-x-2">
+            {actions}
+            <ThemeToggle />
+          </div>
+        </div>
+      </div>
+    </header>
+  )
+}

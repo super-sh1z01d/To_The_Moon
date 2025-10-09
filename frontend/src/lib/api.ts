@@ -1,46 +1,7 @@
-export type ComponentBreakdown = {
-  tx_accel: number
-  vol_momentum: number
-  token_freshness: number
-  orderflow_imbalance: number
-}
-
-export type SpamMetrics = {
-  spam_percentage: number
-  risk_level: 'clean' | 'low' | 'medium' | 'high'
-  total_instructions: number
-  compute_budget_count: number
-  analyzed_at?: string
-}
-
-export type TokenItem = {
-  mint_address: string
-  name?: string
-  symbol?: string
-  score?: number
-  liquidity_usd?: number
-  delta_p_5m?: number
-  delta_p_15m?: number
-  n_5m?: number
-  primary_dex?: string
-  fetched_at?: string
-  scored_at?: string
-  last_processed_at?: string
-  solscan_url: string
-  raw_components?: ComponentBreakdown
-  smoothed_components?: ComponentBreakdown
-  scoring_model?: string
-  created_at?: string
-  status?: string
-  spam_metrics?: SpamMetrics
-}
-
-export type TokensResponse = {
-  total: number
-  items: TokenItem[]
-}
-
-export type SettingsMap = Record<string, string>
+// Re-export types from types folder for backward compatibility
+export type { Token as TokenItem, TokensResponse, ScoreComponents as ComponentBreakdown, SpamMetrics } from '@/types/token'
+export type { SettingsMap } from '@/types/settings'
+export type { LogEntry } from '@/types/api'
 
 export type PoolItem = {
   address?: string
@@ -97,14 +58,6 @@ export async function recalc(): Promise<void>{
 }
 
 // Logs
-export type LogEntry = {
-  ts: string
-  level: string
-  logger: string
-  msg: string
-  [k: string]: any
-}
-
 export type LogsMeta = { loggers: string[] }
 
 export async function getLogs(params: {limit?: number, levels?: string[], loggers?: string[], contains?: string, since?: string} = {}): Promise<LogEntry[]> {

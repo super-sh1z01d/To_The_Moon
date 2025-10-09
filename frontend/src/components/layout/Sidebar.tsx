@@ -1,0 +1,70 @@
+import { NavLink } from 'react-router-dom'
+import { Home, Settings, FileText, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+
+interface SidebarProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+const navigation = [
+  { name: 'Dashboard', href: '/', icon: Home },
+  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Logs', href: '/logs', icon: FileText },
+]
+
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  return (
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm md:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 w-64 transform border-r bg-background transition-transform duration-200 ease-in-out md:relative md:translate-x-0',
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="flex h-14 items-center justify-between border-b px-4 md:justify-center">
+          <span className="text-lg font-semibold">To The Moon 🚀</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="md:hidden"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+        
+        <nav className="space-y-1 p-4">
+          {navigation.map((item) => (
+            <NavLink
+              key={item.name}
+              to={item.href}
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                )
+              }
+            >
+              <item.icon className="h-5 w-5" />
+              <span>{item.name}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </aside>
+    </>
+  )
+}
