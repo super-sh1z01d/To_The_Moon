@@ -25,7 +25,10 @@ export function TokenFilters({ filters, onFilterChange }: TokenFiltersProps) {
   const { data: stats } = useTokenStats()
 
   useEffect(() => {
-    onFilterChange({ ...filters, search: debouncedSearch })
+    if (debouncedSearch !== filters.search) {
+      onFilterChange({ ...filters, search: debouncedSearch })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch])
 
   const handleStatusChange = (status: string) => {
