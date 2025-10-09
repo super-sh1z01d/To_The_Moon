@@ -8,7 +8,6 @@ import { ErrorDisplay } from '@/components/ui/error-display'
 
 export default function Dashboard() {
   const [filters, setFilters] = useState<Filters>({
-    status: 'active',
     limit: 50,
   })
 
