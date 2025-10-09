@@ -1,7 +1,6 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { TokenFilters as Filters } from '@/types/token'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useTokenStats } from '@/hooks/useTokenStats'
@@ -58,13 +57,14 @@ export function TokenFilters({ filters, onFilterChange }: TokenFiltersProps) {
               onClick={() => handleStatusChange(option.value)}
               className="gap-2"
             >
-              {option.label}
-              <Badge
-                variant={isActive ? 'secondary' : 'outline'}
-                className="ml-1"
-              >
+              <span>{option.label}</span>
+              <span className={`ml-1 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                isActive 
+                  ? 'border-transparent bg-secondary text-secondary-foreground' 
+                  : 'border-current'
+              }`}>
                 {count}
-              </Badge>
+              </span>
             </Button>
           )
         })}
