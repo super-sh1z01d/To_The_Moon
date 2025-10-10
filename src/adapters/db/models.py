@@ -64,7 +64,7 @@ class TokenScore(Base):
     metrics: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
     raw_components: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
     smoothed_components: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
-    spam_metrics: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    # spam_metrics removed - not in PostgreSQL schema yet
     
     scoring_model: Mapped[str] = mapped_column(String(50), default="hybrid_momentum", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False, index=True)
