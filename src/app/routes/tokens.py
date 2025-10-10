@@ -171,19 +171,20 @@ async def list_tokens(
                 smoothed_components = None
 
         # Extract spam metrics if available
+        # TODO: Re-enable spam_metrics after PostgreSQL migration adds spam_metrics column
         spam_metrics = None
-        if snap and snap.spam_metrics:
-            try:
-                spam_data = snap.spam_metrics if isinstance(snap.spam_metrics, dict) else {}
-                spam_metrics = SpamMetrics(
-                    spam_percentage=float(spam_data.get("spam_percentage", 0)),
-                    risk_level=str(spam_data.get("risk_level", "unknown")),
-                    total_instructions=int(spam_data.get("total_instructions", 0)),
-                    compute_budget_count=int(spam_data.get("compute_budget_count", 0)),
-                    analyzed_at=str(spam_data.get("analyzed_at")) if spam_data.get("analyzed_at") else None
-                )
-            except (ValueError, TypeError, KeyError):
-                spam_metrics = None
+        # if snap and snap.spam_metrics:
+        #     try:
+        #         spam_data = snap.spam_metrics if isinstance(snap.spam_metrics, dict) else {}
+        #         spam_metrics = SpamMetrics(
+        #             spam_percentage=float(spam_data.get("spam_percentage", 0)),
+        #             risk_level=str(spam_data.get("risk_level", "unknown")),
+        #             total_instructions=int(spam_data.get("total_instructions", 0)),
+        #             compute_budget_count=int(spam_data.get("compute_budget_count", 0)),
+        #             analyzed_at=str(spam_data.get("analyzed_at")) if spam_data.get("analyzed_at") else None
+        #         )
+        #     except (ValueError, TypeError, KeyError):
+        #         spam_metrics = None
 
         # Extract pools data
         pools = None
