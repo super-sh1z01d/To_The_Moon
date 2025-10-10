@@ -167,14 +167,15 @@ class TokensRepository:
         except Exception:
             pass
 
+        # TODO: Re-enable spam_metrics after PostgreSQL migration adds spam_metrics column
         # Preserve spam_metrics from previous snapshot
-        previous_spam_metrics = None
-        try:
-            latest = self.get_latest_snapshot(token_id)
-            if latest and latest.spam_metrics:
-                previous_spam_metrics = latest.spam_metrics
-        except Exception:
-            pass
+        # previous_spam_metrics = None
+        # try:
+        #     latest = self.get_latest_snapshot(token_id)
+        #     if latest and latest.spam_metrics:
+        #         previous_spam_metrics = latest.spam_metrics
+        # except Exception:
+        #     pass
 
         snap = TokenScore(
             token_id=token_id, 
@@ -184,7 +185,7 @@ class TokensRepository:
             raw_components=raw_components,
             smoothed_components=smoothed_components,
             scoring_model=scoring_model,
-            spam_metrics=previous_spam_metrics,  # Preserve spam metrics
+            # spam_metrics=previous_spam_metrics,  # Preserve spam metrics - disabled for PostgreSQL migration
             created_at=datetime.now(tz=timezone.utc)
         )
         self.db.add(snap)
@@ -506,45 +507,62 @@ class TokensRepository:
         return list(q.all())
 
     def update_spam_metrics(self, token_id: int, spam_metrics: dict) -> None:
-        """Update spam metrics for the latest token score."""
+        """Update spam metrics for the latest token score.
+        
+        TODO: Re-enable after PostgreSQL migration adds spam_metrics column.
+        For now, just log the metrics without storing them.
+        """
         from datetime import datetime, timezone
         
-        # Get the latest score record
-        latest_score = self.get_latest_snapshot(token_id)
+        # Temporarily disabled - spam_metrics column not in PostgreSQL schema yet
+        logging.getLogger("tokens_repo").info(
+            "spam_metrics_skipped_postgresql_migration", 
+            extra={
+                "extra": {
+                    "token_id": token_id, 
+                    "spam_percentage": spam_metrics.get("spam_percentage", 0),
+                    "risk_level": spam_metrics.get("risk_level", "unknown")
+                }
+            }
+        )
+        return
         
-        if latest_score:
-            # Update existing record
-            latest_score.spam_metrics = spam_metrics
-            self.db.add(latest_score)
-            self.db.commit()
-            
-            logging.getLogger("tokens_repo").info(
-                "spam_metrics_updated", 
-                extra={
-                    "extra": {
-                        "token_id": token_id, 
-                        "spam_percentage": spam_metrics.get("spam_percentage", 0),
-                        "risk_level": spam_metrics.get("risk_level", "unknown")
-                    }
-                }
-            )
-        else:
-            # Create new score record with just spam metrics
-            snap = TokenScore(
-                token_id=token_id,
-                spam_metrics=spam_metrics,
-                created_at=datetime.now(tz=timezone.utc)
-            )
-            self.db.add(snap)
-            self.db.commit()
-            
-            logging.getLogger("tokens_repo").info(
-                "spam_metrics_created", 
-                extra={
-                    "extra": {
-                        "token_id": token_id, 
-                        "spam_percentage": spam_metrics.get("spam_percentage", 0),
-                        "risk_level": spam_metrics.get("risk_level", "unknown")
-                    }
-                }
-            )
+        # # Get the latest score record
+        # latest_score = self.get_latest_snapshot(token_id)
+        # 
+        # if latest_score:
+        #     # Update existing record
+        #     latest_score.spam_metrics = spam_metrics
+        #     self.db.add(latest_score)
+        #     self.db.commit()
+        #     
+        #     logging.getLogger("tokens_repo").info(
+        #         "spam_metrics_updated", 
+        #         extra={
+        #             "extra": {
+        #                 "token_id": token_id, 
+        #                 "spam_percentage": spam_metrics.get("spam_percentage", 0),
+        #                 "risk_level": spam_metrics.get("risk_level", "unknown")
+        #             }
+        #         }
+        #     )
+        # else:
+        #     # Create new score record with just spam metrics
+        #     snap = TokenScore(
+        #         token_id=token_id,
+        #         spam_metrics=spam_metrics,
+        #         created_at=datetime.now(tz=timezone.utc)
+        #     )
+        #     self.db.add(snap)
+        #     self.db.commit()
+        #     
+        #     logging.getLogger("tokens_repo").info(
+        #         "spam_metrics_created", 
+        #         extra={
+        #             "extra": {
+        #                 "token_id": token_id, 
+        #                 "spam_percentage": spam_metrics.get("spam_percentage", 0),
+        #                 "risk_level": spam_metrics.get("risk_level", "unknown")
+        #             }
+        #         }
+        #     )

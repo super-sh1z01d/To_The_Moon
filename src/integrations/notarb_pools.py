@@ -109,22 +109,23 @@ class NotArbPoolsGenerator:
                 repo = TokensRepository(self.db)
                 snap = repo.get_latest_snapshot(token.id)
                 
+                # TODO: Re-enable spam metrics check after PostgreSQL migration adds spam_metrics column
                 # Check spam metrics - skip tokens with high spam or no spam data
-                if snap and snap.spam_metrics:
-                    spam_pct = snap.spam_metrics.get("spam_percentage", 100)
-                    if spam_pct > max_spam_percentage:
-                        logger.info(
-                            f"Skipping token {token.symbol or token.mint_address[:8]} "
-                            f"due to high spam: {spam_pct:.1f}% > {max_spam_percentage}%"
-                        )
-                        continue
-                else:
-                    # No spam data - skip token as potentially suspicious
-                    logger.info(
-                        f"Skipping token {token.symbol or token.mint_address[:8]} "
-                        f"due to missing spam analysis data"
-                    )
-                    continue
+                # if snap and snap.spam_metrics:
+                #     spam_pct = snap.spam_metrics.get("spam_percentage", 100)
+                #     if spam_pct > max_spam_percentage:
+                #         logger.info(
+                #             f"Skipping token {token.symbol or token.mint_address[:8]} "
+                #             f"due to high spam: {spam_pct:.1f}% > {max_spam_percentage}%"
+                #         )
+                #         continue
+                # else:
+                #     # No spam data - skip token as potentially suspicious
+                #     logger.info(
+                #         f"Skipping token {token.symbol or token.mint_address[:8]} "
+                #         f"due to missing spam analysis data"
+                #     )
+                #     continue
                 
                 pools = []
                 

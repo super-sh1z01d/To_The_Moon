@@ -23,7 +23,7 @@
   - Install on server
   - _Requirements: 5.1_
 
-- [x] 1.5 Backup current SQLite database
+- [ ] 1.5 Backup current SQLite database
   - Create /srv/tothemoon/backups/ directory
   - Copy dev.db to backup with timestamp
   - Verify backup integrity
