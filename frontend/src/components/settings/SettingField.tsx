@@ -1,15 +1,23 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+interface SelectOption {
+  value: string
+  label: string
+}
 
 interface SettingFieldProps {
   label: string
   value: string | number
   onChange: (value: string) => void
   description?: string
-  type?: 'text' | 'number'
+  type?: 'text' | 'number' | 'select'
   unit?: string
   disabled?: boolean
+  step?: string
+  options?: SelectOption[]
 }
 
 export function SettingField({ 
@@ -19,7 +27,9 @@ export function SettingField({
   description, 
   type = 'text',
   unit,
-  disabled = false
+  disabled = false,
+  step,
+  options = []
 }: SettingFieldProps) {
   return (
     <div className="space-y-2">
@@ -36,14 +46,30 @@ export function SettingField({
       {description && (
         <p className="text-xs text-muted-foreground">{description}</p>
       )}
-      <Input
-        id={label}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        className="max-w-md"
-      />
+      {type === 'select' ? (
+        <Select value={String(value)} onValueChange={onChange} disabled={disabled}>
+          <SelectTrigger className="max-w-md">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <Input
+          id={label}
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          step={step}
+          className="max-w-md"
+        />
+      )}
     </div>
   )
 }

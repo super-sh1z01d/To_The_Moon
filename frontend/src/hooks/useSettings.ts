@@ -71,3 +71,22 @@ export function useUpdateSetting() {
     },
   })
 }
+
+export function useSaveSettings() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (settings: Record<string, string>) => {
+      // Update all settings in parallel
+      const promises = Object.entries(settings).map(([key, value]) =>
+        updateSetting(key, value)
+      )
+      return Promise.all(promises)
+    },
+    onSuccess: () => {
+      // Invalidate all settings queries
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: ['setting'] })
+    },
+  })
+}
