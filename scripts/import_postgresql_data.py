@@ -95,13 +95,13 @@ def import_token_scores(conn, import_dir):
                 metrics = json.loads(row['metrics']) if row['metrics'] else None
                 raw_components = json.loads(row['raw_components']) if row['raw_components'] else None
                 smoothed_components = json.loads(row['smoothed_components']) if row['smoothed_components'] else None
-                spam_metrics = json.loads(row['spam_metrics']) if row['spam_metrics'] else None
+                # Skip spam_metrics - not in PostgreSQL schema yet
                 
                 cursor.execute("""
                     INSERT INTO token_scores 
                     (id, token_id, score, smoothed_score, metrics, raw_components, 
-                     smoothed_components, scoring_model, spam_metrics, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     smoothed_components, scoring_model, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     row['id'],
                     row['token_id'],
@@ -111,7 +111,6 @@ def import_token_scores(conn, import_dir):
                     json.dumps(raw_components) if raw_components else None,
                     json.dumps(smoothed_components) if smoothed_components else None,
                     row['scoring_model'],
-                    json.dumps(spam_metrics) if spam_metrics else None,
                     row['created_at']
                 ))
                 batch_count += 1
