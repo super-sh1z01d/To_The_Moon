@@ -3,19 +3,15 @@ import { Setting, SettingsMap } from '@/types/settings'
 import { API_BASE_URL, REFRESH_INTERVALS } from '@/lib/constants'
 
 async function fetchAllSettings(): Promise<SettingsMap> {
-  const response = await fetch(`${API_BASE_URL}/settings`)
+  const response = await fetch(`${API_BASE_URL}/settings/`)
   
   if (!response.ok) {
     throw new Error(`Failed to fetch settings: ${response.statusText}`)
   }
   
-  const settings: Setting[] = await response.json()
-  
-  // Convert array to map
-  return settings.reduce((acc, setting) => {
-    acc[setting.key] = setting.value
-    return acc
-  }, {} as SettingsMap)
+  // API returns object directly, not array
+  const settings: SettingsMap = await response.json()
+  return settings
 }
 
 async function fetchSetting(key: string): Promise<Setting> {
