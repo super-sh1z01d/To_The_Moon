@@ -41,6 +41,7 @@ class TokenItem(BaseModel):
     delta_p_15m: Optional[float] = None
     n_5m: Optional[int] = None
     primary_dex: Optional[str] = None
+    pools: Optional[list[PoolItem]] = Field(default=None, description="List of DEX pools")
     fetched_at: Optional[str] = Field(default=None, description="Last time token data was fetched from external APIs")
     scored_at: Optional[str] = Field(default=None, description="Last time token score was calculated and saved")
     last_processed_at: Optional[str] = Field(default=None, description="Last time token was processed by scheduler")
@@ -184,6 +185,24 @@ async def list_tokens(
             except (ValueError, TypeError, KeyError):
                 spam_metrics = None
 
+        # Extract pools data
+        pools = None
+        if metrics and metrics.get("pools"):
+            try:
+                pools_data = metrics.get("pools", [])
+                if isinstance(pools_data, list):
+                    pools = [
+                        PoolItem(
+                            address=pool.get("address"),
+                            dex=pool.get("dex"),
+                            quote=pool.get("quote"),
+                            solscan_url=f"https://solscan.io/account/{pool.get('address')}" if pool.get("address") else None
+                        )
+                        for pool in pools_data
+                    ]
+            except (ValueError, TypeError, KeyError):
+                pools = None
+
         items.append(
             TokenItem(
                 mint_address=token.mint_address,
@@ -198,6 +217,7 @@ async def list_tokens(
                 ),
                 n_5m=(int(metrics.get("n_5m")) if metrics and metrics.get("n_5m") is not None else None),
                 primary_dex=(str(metrics.get("primary_dex")) if metrics and metrics.get("primary_dex") else None),
+                pools=pools,
                 fetched_at=(str(metrics.get("fetched_at")) if metrics and metrics.get("fetched_at") else None),
                 scored_at=(snap.created_at.replace(tzinfo=timezone.utc).isoformat() if snap and snap.created_at else None),
                 last_processed_at=(token.last_updated_at.replace(tzinfo=timezone.utc).isoformat() if token.last_updated_at else None),

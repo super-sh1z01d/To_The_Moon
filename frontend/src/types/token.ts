@@ -1,22 +1,8 @@
-export interface Token {
-  mint_address: string
-  name: string | null
-  symbol: string | null
-  status: 'active' | 'monitoring' | 'archived'
-  score: number
-  liquidity_usd: number
-  delta_p_5m: number
-  delta_p_15m: number
-  n_5m: number
-  primary_dex: string
-  fetched_at: string
-  scored_at: string
-  last_processed_at: string
-  solscan_url: string
-  raw_components: ScoreComponents
-  spam_metrics?: SpamMetrics
-  created_at?: string
-  updated_at?: string
+export interface Pool {
+  address?: string
+  dex?: string
+  quote?: string
+  solscan_url?: string
 }
 
 export interface ScoreComponents {
@@ -34,6 +20,28 @@ export interface SpamMetrics {
   timestamp?: string
 }
 
+export interface Token {
+  mint_address: string
+  name: string | null
+  symbol: string | null
+  status: 'active' | 'monitoring' | 'archived'
+  score: number
+  liquidity_usd: number
+  delta_p_5m: number
+  delta_p_15m: number
+  n_5m: number
+  primary_dex: string
+  pools?: Pool[]
+  fetched_at: string
+  scored_at: string
+  last_processed_at: string
+  solscan_url: string
+  raw_components: ScoreComponents
+  spam_metrics?: SpamMetrics
+  created_at?: string
+  updated_at?: string
+}
+
 export interface TokensResponse {
   total: number
   items: Token[]
@@ -49,17 +57,7 @@ export interface TokenFilters {
 }
 
 export interface TokenDetailResponse extends Token {
-  pools?: Pool[]
   history?: TokenHistory[]
-}
-
-export interface Pool {
-  dex: string
-  pair: string
-  liquidity_usd: number
-  volume_24h: number
-  price_usd: number
-  url: string
 }
 
 export interface TokenHistory {

@@ -40,6 +40,23 @@ function isFresh(dateString: string): boolean {
   return diffHours <= FRESHNESS_THRESHOLD_HOURS
 }
 
+// Aggregate pools by DEX (e.g., "meteora (2), orca (5)")
+function formatDexPools(pools: any[] | undefined): string {
+  if (!pools || pools.length === 0) {
+    return 'N/A'
+  }
+  
+  const dexCounts: Record<string, number> = {}
+  pools.forEach(pool => {
+    const dex = pool.dex || 'unknown'
+    dexCounts[dex] = (dexCounts[dex] || 0) + 1
+  })
+  
+  return Object.entries(dexCounts)
+    .map(([dex, count]) => `${dex} (${count})`)
+    .join(', ')
+}
+
 export function TokenTable({ 
   tokens, 
   isLoading,
@@ -144,10 +161,8 @@ export function TokenTable({
                   </TableCell>
                   <TableCell className="text-right">{formatCurrency(token.liquidity_usd)}</TableCell>
                   <TableCell className="text-right">{token.n_5m || 0}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs">
-                      {token.primary_dex || 'N/A'}
-                    </Badge>
+                  <TableCell className="text-xs">
+                    {formatDexPools(token.pools)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatRelativeTime(token.last_processed_at || token.fetched_at)}
