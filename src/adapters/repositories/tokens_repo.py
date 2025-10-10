@@ -57,7 +57,13 @@ class TokensRepository:
             """
         )
         try:
-            self.db.execute(drop_view_sql)
+            try:
+                self.db.execute(drop_view_sql)
+            except ProgrammingError as exc:
+                # Если latest_token_scores уже таблица, DROP MATERIALIZED VIEW упадёт — игнорируем
+                self.db.rollback()
+                if "is not a materialized view" not in str(exc.orig).lower():  # type: ignore[attr-defined]
+                    raise
             self.db.execute(ddl)
             self.db.execute(index_sql)
             self.db.commit()
@@ -267,7 +273,18 @@ class TokensRepository:
             delta_p_15m = _as_float(metrics.get("delta_p_15m"))
             n_5m = _as_float(metrics.get("n_5m"))
             primary_dex = metrics.get("primary_dex")
-            fetched_at = metrics.get("fetched_at")
+            fetched_at_raw = metrics.get("fetched_at")
+            fetched_at = None
+            if fetched_at_raw:
+                try:
+                    if isinstance(fetched_at_raw, str):
+                        fetched_at = datetime.fromisoformat(
+                            fetched_at_raw.replace("Z", "+00:00")
+                        )
+                    else:
+                        fetched_at = fetched_at_raw
+                except Exception:
+                    fetched_at = None
 
             pools_metric = metrics.get("pools")
             if isinstance(pools_metric, list):
@@ -306,8 +323,8 @@ class TokensRepository:
                 :delta_p_15m,
                 :n_5m,
                 :primary_dex,
-                :pool_counts::jsonb,
-                :fetched_at::timestamptz,
+                :pool_counts,
+                :fetched_at,
                 :scoring_model,
                 :created_at
             )
@@ -513,11 +530,10 @@ class TokensRepository:
         try:
             # Используем materialized view для быстрого доступа к последним scores
             latest_scores_table = text("""
-                SELECT id, token_id, score, smoothed_score, liquidity_usd, delta_p_5m, delta_p_15m,
+                SELECT token_id, score, smoothed_score, liquidity_usd, delta_p_5m, delta_p_15m,
                        n_5m, primary_dex, pool_counts, fetched_at, scoring_model, created_at
                 FROM latest_token_scores
             """).columns(
-                id=Integer(),
                 token_id=Integer(),
                 score=Numeric(),
                 smoothed_score=Numeric(),
