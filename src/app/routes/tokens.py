@@ -77,6 +77,7 @@ class PoolItem(BaseModel):
     dex: Optional[str] = Field(default=None)
     quote: Optional[str] = Field(default=None)
     solscan_url: Optional[str] = Field(default=None)
+    count: Optional[int] = Field(default=None)
 
 
 class TokenStats(BaseModel):
@@ -146,33 +147,21 @@ async def list_tokens(
         latest_data = latest or SimpleNamespace()
 
         raw_components = None
-        rc_value = getattr(latest_data, "raw_components", None)
-        if isinstance(rc_value, dict):
-            try:
-                raw_components = ComponentBreakdown.model_construct(**rc_value)
-            except Exception:
-                raw_components = None
-
         smoothed_components = None
-        sc_value = getattr(latest_data, "smoothed_components", None)
-        if isinstance(sc_value, dict):
-            try:
-                smoothed_components = ComponentBreakdown.model_construct(**sc_value)
-            except Exception:
-                smoothed_components = None
 
         pools = None
-        pools_data = getattr(latest_data, "pools", None)
-        if isinstance(pools_data, list):
+        pool_counts = getattr(latest_data, "pool_counts", None)
+        if isinstance(pool_counts, dict):
             try:
                 pools = [
                     PoolItem.model_construct(
-                        address=p.get("address"),
-                        dex=p.get("dex"),
-                        quote=p.get("quote"),
-                        solscan_url=f"https://solscan.io/account/{p['address']}" if p.get("address") else None
+                        address=None,
+                        dex=dex,
+                        quote=None,
+                        solscan_url=None,
+                        count=int(count) if count is not None else None,
                     )
-                    for p in pools_data
+                    for dex, count in pool_counts.items()
                 ]
             except Exception:
                 pools = None

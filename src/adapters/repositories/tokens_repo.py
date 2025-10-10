@@ -369,8 +369,7 @@ class TokensRepository:
             # Используем materialized view для быстрого доступа к последним scores
             latest_scores_table = text("""
                 SELECT id, token_id, score, smoothed_score, liquidity_usd, delta_p_5m, delta_p_15m,
-                       n_5m, primary_dex, pools, fetched_at, raw_components, smoothed_components,
-                       scoring_model, created_at
+                       n_5m, primary_dex, pool_counts, fetched_at, scoring_model, created_at
                 FROM latest_token_scores
             """).columns(
                 id=Integer(),
@@ -382,10 +381,8 @@ class TokensRepository:
                 delta_p_15m=Numeric(),
                 n_5m=Numeric(),
                 primary_dex=String(),
-                pools=JSON().with_variant(JSONB, "postgresql"),
+                pool_counts=JSON().with_variant(JSONB, "postgresql"),
                 fetched_at=DateTime(timezone=True),
-                raw_components=JSON().with_variant(JSONB, "postgresql"),
-                smoothed_components=JSON().with_variant(JSONB, "postgresql"),
                 scoring_model=String(),
                 created_at=DateTime(timezone=True),
             ).alias("latest_scores")
@@ -503,6 +500,16 @@ class TokensRepository:
                 continue
 
             metrics = score_row.metrics if isinstance(score_row.metrics, dict) else {}
+            pool_counts = None
+            pools_metric = metrics.get("pools") if isinstance(metrics, dict) else None
+            if isinstance(pools_metric, list):
+                counts: dict[str, int] = {}
+                for item in pools_metric:
+                    if not isinstance(item, dict):
+                        continue
+                    dex_key = str(item.get("dex")) if item.get("dex") is not None else "unknown"
+                    counts[dex_key] = counts.get(dex_key, 0) + 1
+                pool_counts = counts
             latest = SimpleNamespace(
                 id=score_row.id,
                 token_id=score_row.token_id,
@@ -513,10 +520,8 @@ class TokensRepository:
                 delta_p_15m=metrics.get("delta_p_15m"),
                 n_5m=metrics.get("n_5m"),
                 primary_dex=metrics.get("primary_dex"),
-                pools=metrics.get("pools"),
+                pool_counts=pool_counts,
                 fetched_at=metrics.get("fetched_at"),
-                raw_components=score_row.raw_components if isinstance(score_row.raw_components, dict) else None,
-                smoothed_components=score_row.smoothed_components if isinstance(score_row.smoothed_components, dict) else None,
                 scoring_model=score_row.scoring_model,
                 created_at=score_row.created_at,
             )

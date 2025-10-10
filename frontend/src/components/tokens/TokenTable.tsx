@@ -49,7 +49,8 @@ function getDexCounts(pools: any[] | undefined): Record<string, number> {
   const dexCounts: Record<string, number> = {}
   pools.forEach(pool => {
     const dex = pool.dex || 'unknown'
-    dexCounts[dex] = (dexCounts[dex] || 0) + 1
+    const poolCount = typeof pool.count === 'number' ? pool.count : 1
+    dexCounts[dex] = (dexCounts[dex] || 0) + poolCount
   })
   
   return dexCounts

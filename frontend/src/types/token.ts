@@ -3,6 +3,7 @@ export interface Pool {
   dex?: string
   quote?: string
   solscan_url?: string
+  count?: number
 }
 
 export interface ScoreComponents {
