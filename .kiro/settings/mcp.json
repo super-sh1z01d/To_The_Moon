@@ -25,7 +25,8 @@
         "list_network_requests",
         "get_network_request",
         "evaluate_script",
-        "wait_for"
+        "wait_for",
+        "take_screenshot"
       ]
     }
   }
