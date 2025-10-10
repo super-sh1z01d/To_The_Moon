@@ -6,7 +6,7 @@ import { Pagination } from '@/components/ui/pagination'
 import { TokenFilters as Filters } from '@/types/token'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorDisplay } from '@/components/ui/error-display'
-import { API_BASE_URL } from '@/lib/constants'
+import { useTokenStats } from '@/hooks/useTokenStats'
 
 const STORAGE_KEY = 'dashboard_page_size'
 
@@ -21,50 +21,13 @@ export default function Dashboard() {
     page: 1,
   })
 
-  const [statusCounts, setStatusCounts] = useState<{
-    active: number
-    monitoring: number
-    archived: number
-  }>({ active: 0, monitoring: 0, archived: 0 })
-
   // Save page size to localStorage when it changes
   useEffect(() => {
     if (filters.limit) {
       localStorage.setItem(STORAGE_KEY, filters.limit.toString())
     }
   }, [filters.limit])
-
-  // Fetch status counts
-  useEffect(() => {
-    const fetchCounts = async () => {
-      try {
-        const [activeRes, monitoringRes, archivedRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/tokens?status=active&limit=1`),
-          fetch(`${API_BASE_URL}/tokens?status=monitoring&limit=1`),
-          fetch(`${API_BASE_URL}/tokens?status=archived&limit=1`),
-        ])
-
-        const [activeData, monitoringData, archivedData] = await Promise.all([
-          activeRes.json(),
-          monitoringRes.json(),
-          archivedRes.json(),
-        ])
-
-        setStatusCounts({
-          active: activeData.total || 0,
-          monitoring: monitoringData.total || 0,
-          archived: archivedData.total || 0,
-        })
-      } catch (error) {
-        console.error('Failed to fetch status counts:', error)
-      }
-    }
-
-    fetchCounts()
-    // Refresh counts every 30 seconds
-    const interval = setInterval(fetchCounts, 30000)
-    return () => clearInterval(interval)
-  }, [])
+  const { data: statsData } = useTokenStats()
 
   const { data, isLoading, error, refetch } = useTokens(filters)
 
@@ -91,7 +54,15 @@ export default function Dashboard() {
       <TokenFilters 
         filters={filters} 
         onFilterChange={setFilters}
-        statusCounts={statusCounts}
+        statusCounts={
+          statsData
+            ? {
+                active: statsData.active,
+                monitoring: statsData.monitoring,
+                archived: statsData.archived,
+              }
+            : undefined
+        }
       />
 
       {isLoading ? (
