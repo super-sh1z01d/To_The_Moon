@@ -436,6 +436,15 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     # Архивация раз в час
     scheduler.add_job(archive_once, IntervalTrigger(hours=1), id="archiver_hourly", max_instances=1)
     
+    # Обновление materialized views каждые 2 минуты для быстрых запросов
+    from src.scheduler.refresh_views import refresh_materialized_views
+    scheduler.add_job(
+        refresh_materialized_views,
+        IntervalTrigger(minutes=2),
+        id="refresh_views",
+        max_instances=1
+    )
+    
     # Мониторинг обработки токенов каждые 5 минут
     from src.scheduler.tasks import monitor_token_processing_once
     scheduler.add_job(

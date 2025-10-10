@@ -363,16 +363,9 @@ class TokensRepository:
         offset: int = 0,
         sort: str = "score_desc",
     ) -> List[Tuple[Token, Optional[TokenScore]]]:
-        # Используем оптимизированный подзапрос с DISTINCT ON
-        from sqlalchemy import text
-        
-        # Подзапрос для получения последних scores с DISTINCT ON
-        latest_scores_cte = text("""
-            SELECT DISTINCT ON (token_id) 
-                id, token_id, score, smoothed_score, metrics, 
-                raw_components, smoothed_components, scoring_model, created_at
-            FROM token_scores
-            ORDER BY token_id, created_at DESC
+        # Используем materialized view для быстрого доступа к последним scores
+        latest_scores_table = text("""
+            SELECT * FROM latest_token_scores
         """).columns(
             id=TokenScore.id,
             token_id=TokenScore.token_id,
@@ -383,18 +376,18 @@ class TokensRepository:
             smoothed_components=TokenScore.smoothed_components,
             scoring_model=TokenScore.scoring_model,
             created_at=TokenScore.created_at
-        ).cte("latest_scores")
+        ).alias("latest_scores")
         
-        # Основной запрос с JOIN к CTE
+        # Основной запрос с JOIN к materialized view
         q = (
             self.db.query(Token, TokenScore)
             .outerjoin(
-                latest_scores_cte,
-                Token.id == latest_scores_cte.c.token_id
+                latest_scores_table,
+                Token.id == latest_scores_table.c.token_id
             )
             .outerjoin(
                 TokenScore,
-                TokenScore.id == latest_scores_cte.c.id
+                TokenScore.id == latest_scores_table.c.id
             )
         )
         
@@ -441,25 +434,24 @@ class TokensRepository:
                 q = q.filter(Token.status.in_(statuses))
             return int(q.scalar() or 0)
         
-        # Если min_score задан, нужен JOIN с scores
-        from sqlalchemy import literal
-        
-        latest_score_subq = (
-            self.db.query(TokenScore)
-            .filter(TokenScore.token_id == Token.id)
-            .order_by(TokenScore.created_at.desc())
-            .limit(1)
-            .correlate(Token)
-            .subquery()
-            .lateral("latest_score")
-        )
+        # Если min_score задан, используем materialized view
+        latest_scores_table = text("""
+            SELECT * FROM latest_token_scores
+        """).columns(
+            id=TokenScore.id,
+            token_id=TokenScore.token_id,
+            score=TokenScore.score
+        ).alias("latest_scores")
         
         q = (
             self.db.query(func.count(Token.id))
-            .outerjoin(latest_score_subq, literal(True))
+            .outerjoin(
+                latest_scores_table,
+                Token.id == latest_scores_table.c.token_id
+            )
             .outerjoin(
                 TokenScore,
-                (TokenScore.id == latest_score_subq.c.id)
+                TokenScore.id == latest_scores_table.c.id
             )
         )
         
@@ -472,7 +464,6 @@ class TokensRepository:
         if statuses and len(statuses) == 1 and statuses[0] == "active":
             pass  # Не фильтруем активные токены по скору
         else:
-            # Для смешанных запросов или токенов в мониторинге применяем фильтр
             q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
         
         return int(q.scalar() or 0)
