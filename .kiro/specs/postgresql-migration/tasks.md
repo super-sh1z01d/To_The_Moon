@@ -29,47 +29,47 @@
   - Verify backup integrity
   - _Requirements: 7.1, 7.4_
 
-- [-] 2. Schema Migration and Optimization
+- [x] 2. Schema Migration and Optimization
 - [x] 2.1 Create Alembic migration for PostgreSQL schema
   - Update models.py to use JSONB instead of JSON
   - Add extracted fields (liquidity_usd, primary_dex) to tokens table
   - Create migration script
   - _Requirements: 2.2, 2.3, 8.2_
 
-- [ ] 2.2 Add optimized indexes
+- [x] 2.2 Add optimized indexes
   - Create composite index on (token_id, created_at DESC)
   - Create index on tokens.status
   - Create index on smoothed_score
   - Create GIN indexes on JSONB columns
   - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-- [ ] 2.3 Implement table partitioning for token_scores
+- [x] 2.3 Implement table partitioning for token_scores
   - Create partitioned table structure
   - Create current and next month partitions
   - Add indexes to each partition
   - _Requirements: 8.3, 10.2_
 
-- [ ] 2.4 Create materialized view for latest scores
+- [x] 2.4 Create materialized view for latest scores
   - Create latest_token_scores materialized view
   - Add indexes to materialized view
   - _Requirements: 6.1, 4.5_
 
-- [ ] 3. Data Migration Scripts
-- [ ] 3.1 Create data export script from SQLite
+- [x] 3. Data Migration Scripts
+- [x] 3.1 Create data export script from SQLite
   - Export tokens table to CSV
   - Export token_scores in batches to CSV
   - Export app_settings to CSV
   - Verify export completeness
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 3.2 Create data import script for PostgreSQL
+- [x] 3.2 Create data import script for PostgreSQL
   - Import tokens using COPY command
   - Import token_scores in batches (10K rows)
   - Import app_settings
   - Handle JSONB conversion
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 3.3 Create data validation script
+- [x] 3.3 Create data validation script
   - Compare row counts between SQLite and PostgreSQL
   - Verify sample queries return identical results
   - Check data integrity with checksums
