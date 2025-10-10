@@ -83,49 +83,35 @@ CREATE INDEX IF NOT EXISTS idx_tokens_status_liquidity
 -- DROP TABLE token_scores_old;
 
 -- ============================================================================
--- PART 3: Materialized View for Latest Scores
+-- PART 3: Latest Token Scores Table (upserted on snapshot)
 -- ============================================================================
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS latest_token_scores AS
-SELECT DISTINCT ON (token_id)
-    token_id,
-    score,
-    smoothed_score,
-    metrics,
-    raw_components,
-    smoothed_components,
-    spam_metrics,
-    scoring_model,
-    created_at
-FROM token_scores
-ORDER BY token_id, created_at DESC;
-
--- Indexes on materialized view
-CREATE UNIQUE INDEX IF NOT EXISTS idx_latest_scores_token 
-    ON latest_token_scores(token_id);
+CREATE TABLE IF NOT EXISTS latest_token_scores (
+    token_id INTEGER PRIMARY KEY REFERENCES tokens(id) ON DELETE CASCADE,
+    score NUMERIC(10, 4),
+    smoothed_score NUMERIC(10, 4),
+    liquidity_usd NUMERIC(20, 2),
+    delta_p_5m NUMERIC(10, 4),
+    delta_p_15m NUMERIC(10, 4),
+    n_5m NUMERIC(20, 2),
+    primary_dex TEXT,
+    pool_counts JSONB,
+    fetched_at TIMESTAMPTZ,
+    scoring_model VARCHAR(50),
+    created_at TIMESTAMPTZ
+);
 
 CREATE INDEX IF NOT EXISTS idx_latest_scores_smoothed 
-    ON latest_token_scores(smoothed_score DESC) 
-    WHERE smoothed_score IS NOT NULL;
+    ON latest_token_scores (smoothed_score DESC NULLS LAST);
 
 CREATE INDEX IF NOT EXISTS idx_latest_scores_score 
-    ON latest_token_scores(score DESC) 
-    WHERE score IS NOT NULL;
+    ON latest_token_scores (score DESC NULLS LAST);
 
 -- ============================================================================
 -- PART 4: Performance Monitoring
 -- ============================================================================
 
--- Enable pg_stat_statements for query monitoring
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-
--- Create function to refresh materialized view
-CREATE OR REPLACE FUNCTION refresh_latest_scores()
-RETURNS void AS $$
-BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY latest_token_scores;
-END;
-$$ LANGUAGE plpgsql;
 
 -- ============================================================================
 -- PART 5: Maintenance Functions

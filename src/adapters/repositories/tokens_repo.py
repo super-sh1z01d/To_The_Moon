@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 from sqlalchemy.exc import IntegrityError, ProgrammingError
@@ -9,17 +10,62 @@ from src.adapters.db.models import Token
 from src.adapters.db.models import TokenScore
 from sqlalchemy import select, func, text, Integer, Numeric, DateTime, String, JSON
 from sqlalchemy.dialects.postgresql import JSONB
-from types import SimpleNamespace
 from typing import Optional, Tuple, List, Any
 
 
 class TokensRepository:
+    _latest_table_ready: bool = False
+
     def __init__(self, db: Session):
         self.db = db
         self._log = logging.getLogger("tokens_repo")
+        self._ensure_latest_scores_table()
 
     def get_by_mint(self, mint: str) -> Optional[Token]:
         return self.db.query(Token).filter(Token.mint_address == mint).first()
+
+    def _ensure_latest_scores_table(self) -> None:
+        """Создаёт вспомогательную таблицу latest_token_scores, если её нет."""
+        if type(self)._latest_table_ready:
+            return
+
+        drop_view_sql = text("DROP MATERIALIZED VIEW IF EXISTS latest_token_scores;")
+        ddl = text(
+            """
+            CREATE TABLE IF NOT EXISTS latest_token_scores (
+                token_id INTEGER PRIMARY KEY REFERENCES tokens(id) ON DELETE CASCADE,
+                score NUMERIC(10, 4),
+                smoothed_score NUMERIC(10, 4),
+                liquidity_usd NUMERIC(20, 2),
+                delta_p_5m NUMERIC(10, 4),
+                delta_p_15m NUMERIC(10, 4),
+                n_5m NUMERIC(20, 2),
+                primary_dex TEXT,
+                pool_counts JSONB,
+                fetched_at TIMESTAMPTZ,
+                scoring_model VARCHAR(50),
+                created_at TIMESTAMPTZ
+            );
+            """
+        )
+        index_sql = text(
+            """
+            CREATE INDEX IF NOT EXISTS idx_latest_scores_smoothed
+                ON latest_token_scores (smoothed_score DESC NULLS LAST);
+            CREATE INDEX IF NOT EXISTS idx_latest_scores_score
+                ON latest_token_scores (score DESC NULLS LAST);
+            """
+        )
+        try:
+            self.db.execute(drop_view_sql)
+            self.db.execute(ddl)
+            self.db.execute(index_sql)
+            self.db.commit()
+        except Exception as exc:
+            self._log.error("failed_to_prepare_latest_token_scores_table", exc_info=exc)
+            self.db.rollback()
+        else:
+            type(self)._latest_table_ready = True
 
     def insert_monitoring(self, mint: str, name: Optional[str], symbol: Optional[str]) -> bool:
         """Попытаться добавить токен со статусом monitoring. Возвращает True, если добавлен."""
@@ -160,11 +206,13 @@ class TokensRepository:
     ) -> int:
         from datetime import datetime, timezone
 
+        now = datetime.now(tz=timezone.utc)
+
         # Add scored_at timestamp to metrics for UI display
         try:
             if isinstance(metrics, dict):
                 metrics_with_timestamp = dict(metrics)
-                metrics_with_timestamp["scored_at"] = datetime.now(tz=timezone.utc).isoformat()
+                metrics_with_timestamp["scored_at"] = now.isoformat()
                 metrics = metrics_with_timestamp
         except Exception:
             pass
@@ -188,15 +236,112 @@ class TokensRepository:
             smoothed_components=smoothed_components,
             scoring_model=scoring_model,
             # spam_metrics=previous_spam_metrics,  # Preserve spam metrics - disabled for PostgreSQL migration
-            created_at=datetime.now(tz=timezone.utc)
+            created_at=now
         )
         self.db.add(snap)
         
         # Update token's last_updated_at timestamp
         token = self.db.query(Token).filter(Token.id == token_id).first()
         if token:
-            token.last_updated_at = datetime.now(tz=timezone.utc)
+            token.last_updated_at = now
             self.db.add(token)
+
+        # Prepare aggregated values for latest_token_scores
+        liquidity_usd = None
+        delta_p_5m = None
+        delta_p_15m = None
+        n_5m = None
+        primary_dex = None
+        fetched_at = None
+        pool_counts_json = None
+
+        if isinstance(metrics, dict):
+            def _as_float(value: Optional[float]) -> Optional[float]:
+                try:
+                    return float(value) if value is not None else None
+                except Exception:
+                    return None
+
+            liquidity_usd = _as_float(metrics.get("L_tot"))
+            delta_p_5m = _as_float(metrics.get("delta_p_5m"))
+            delta_p_15m = _as_float(metrics.get("delta_p_15m"))
+            n_5m = _as_float(metrics.get("n_5m"))
+            primary_dex = metrics.get("primary_dex")
+            fetched_at = metrics.get("fetched_at")
+
+            pools_metric = metrics.get("pools")
+            if isinstance(pools_metric, list):
+                counts: dict[str, int] = {}
+                for pool in pools_metric:
+                    if not isinstance(pool, dict):
+                        continue
+                    dex_value = pool.get("dex")
+                    dex_key = str(dex_value) if dex_value is not None else "unknown"
+                    counts[dex_key] = counts.get(dex_key, 0) + 1
+                if counts:
+                    pool_counts_json = json.dumps(counts)
+
+        upsert_sql = text(
+            """
+            INSERT INTO latest_token_scores (
+                token_id,
+                score,
+                smoothed_score,
+                liquidity_usd,
+                delta_p_5m,
+                delta_p_15m,
+                n_5m,
+                primary_dex,
+                pool_counts,
+                fetched_at,
+                scoring_model,
+                created_at
+            )
+            VALUES (
+                :token_id,
+                :score,
+                :smoothed_score,
+                :liquidity_usd,
+                :delta_p_5m,
+                :delta_p_15m,
+                :n_5m,
+                :primary_dex,
+                :pool_counts::jsonb,
+                :fetched_at::timestamptz,
+                :scoring_model,
+                :created_at
+            )
+            ON CONFLICT (token_id) DO UPDATE SET
+                score = EXCLUDED.score,
+                smoothed_score = EXCLUDED.smoothed_score,
+                liquidity_usd = EXCLUDED.liquidity_usd,
+                delta_p_5m = EXCLUDED.delta_p_5m,
+                delta_p_15m = EXCLUDED.delta_p_15m,
+                n_5m = EXCLUDED.n_5m,
+                primary_dex = EXCLUDED.primary_dex,
+                pool_counts = EXCLUDED.pool_counts,
+                fetched_at = EXCLUDED.fetched_at,
+                scoring_model = EXCLUDED.scoring_model,
+                created_at = EXCLUDED.created_at
+            """
+        )
+        self.db.execute(
+            upsert_sql,
+            {
+                "token_id": token_id,
+                "score": score,
+                "smoothed_score": smoothed_score,
+                "liquidity_usd": liquidity_usd,
+                "delta_p_5m": delta_p_5m,
+                "delta_p_15m": delta_p_15m,
+                "n_5m": n_5m,
+                "primary_dex": primary_dex,
+                "pool_counts": pool_counts_json,
+                "fetched_at": fetched_at,
+                "scoring_model": scoring_model,
+                "created_at": now,
+            },
+        )
         
         self.db.commit()
         self.db.refresh(snap)
@@ -444,11 +589,9 @@ class TokensRepository:
             results: List[Tuple[Token, Optional[Any]]] = []
             for row in q.all():
                 token = row[0]
-                latest_data = {}
-                for key in latest_columns:
-                    latest_data[key] = getattr(row, key)
-                results.append((token, latest_data))
-            
+                latest_dict = {key: getattr(row, key) for key in latest_columns}
+                results.append((token, latest_dict))
+
             return results
         except ProgrammingError as exc:
             # materialized view отсутствует (например, не применён sql-скрипт) — откатываем и используем безопасный фолбэк
@@ -534,23 +677,23 @@ class TokensRepository:
                         continue
                     dex_key = str(item.get("dex")) if item.get("dex") is not None else "unknown"
                     counts[dex_key] = counts.get(dex_key, 0) + 1
-                pool_counts = counts
-            latest = SimpleNamespace(
-                id=score_row.id,
-                token_id=score_row.token_id,
-                score=score_row.score,
-                smoothed_score=score_row.smoothed_score,
-                liquidity_usd=metrics.get("L_tot"),
-                delta_p_5m=metrics.get("delta_p_5m"),
-                delta_p_15m=metrics.get("delta_p_15m"),
-                n_5m=metrics.get("n_5m"),
-                primary_dex=metrics.get("primary_dex"),
-                pool_counts=pool_counts,
-                fetched_at=metrics.get("fetched_at"),
-                scoring_model=score_row.scoring_model,
-                created_at=score_row.created_at,
-            )
-            results.append((token, latest))
+                if counts:
+                    pool_counts = counts
+            latest_dict = {
+                "latest_id": score_row.id,
+                "latest_score": score_row.score,
+                "latest_smoothed_score": score_row.smoothed_score,
+                "latest_liquidity_usd": metrics.get("L_tot"),
+                "latest_delta_p_5m": metrics.get("delta_p_5m"),
+                "latest_delta_p_15m": metrics.get("delta_p_15m"),
+                "latest_n_5m": metrics.get("n_5m"),
+                "latest_primary_dex": metrics.get("primary_dex"),
+                "latest_pool_counts": pool_counts,
+                "latest_fetched_at": metrics.get("fetched_at"),
+                "latest_scoring_model": score_row.scoring_model,
+                "latest_created_at": score_row.created_at,
+            }
+            results.append((token, latest_dict))
 
         return results
 
