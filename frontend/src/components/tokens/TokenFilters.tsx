@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { TokenFilters as Filters } from '@/types/token'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useEffect, useState } from 'react'
+import { useLanguage } from '@/hooks/useLanguage'
 
 interface TokenFiltersProps {
   filters: Filters
@@ -16,12 +17,13 @@ interface TokenFiltersProps {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active', color: 'bg-green-500 hover:bg-green-600' },
-  { value: 'monitoring', label: 'Monitoring', color: 'bg-yellow-500 hover:bg-yellow-600' },
-  { value: 'archived', label: 'Archived', color: 'bg-gray-500 hover:bg-gray-600' },
+  { value: 'active', labelKey: 'Active', color: 'bg-green-500 hover:bg-green-600' },
+  { value: 'monitoring', labelKey: 'Monitoring', color: 'bg-yellow-500 hover:bg-yellow-600' },
+  { value: 'archived', labelKey: 'Archived', color: 'bg-gray-500 hover:bg-gray-600' },
 ] as const
 
 export function TokenFilters({ filters, onFilterChange, statusCounts }: TokenFiltersProps) {
+  const { t } = useLanguage()
   const [search, setSearch] = useState(filters.search || '')
   const debouncedSearch = useDebounce(search, 300)
 
@@ -57,7 +59,7 @@ export function TokenFilters({ filters, onFilterChange, statusCounts }: TokenFil
               onClick={() => handleStatusChange(option.value)}
               className={isActive ? option.color : ''}
             >
-              {option.label}
+              {t(option.labelKey)}
               {count !== null && <span className="ml-1.5 opacity-75">({count})</span>}
             </Button>
           )
@@ -66,10 +68,10 @@ export function TokenFilters({ filters, onFilterChange, statusCounts }: TokenFil
 
       {/* Search Input */}
       <div className="flex-1 min-w-[200px]">
-        <Label htmlFor="search">Search</Label>
+        <Label htmlFor="search">{t('Search')}</Label>
         <Input
           id="search"
-          placeholder="Search by symbol or address..."
+          placeholder={t('Search by symbol or address...')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

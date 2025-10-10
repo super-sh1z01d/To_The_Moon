@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { Home, Settings, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/hooks/useLanguage'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -9,6 +10,8 @@ const navigation = [
 ]
 
 export function MobileNav() {
+  const { t } = useLanguage()
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
       <div className="flex items-center justify-around">
@@ -26,7 +29,7 @@ export function MobileNav() {
             }
           >
             <item.icon className="h-5 w-5" />
-            <span>{item.name}</span>
+            <span>{t(item.name)}</span>
           </NavLink>
         ))}
       </div>

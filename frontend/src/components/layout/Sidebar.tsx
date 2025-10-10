@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { Home, Settings, FileText, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/hooks/useLanguage'
 
 interface SidebarProps {
   isOpen: boolean
@@ -15,6 +16,8 @@ const navigation = [
 ]
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const { t } = useLanguage()
+
   return (
     <>
       {/* Mobile overlay */}
@@ -60,7 +63,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               }
             >
               <item.icon className="h-5 w-5" />
-              <span>{item.name}</span>
+              <span>{t(item.name)}</span>
             </NavLink>
           ))}
         </nav>

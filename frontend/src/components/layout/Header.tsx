@@ -1,6 +1,8 @@
 import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from './ThemeToggle'
+import { LanguageToggle } from './LanguageToggle'
+import { useLanguage } from '@/hooks/useLanguage'
 
 interface HeaderProps {
   title: string
@@ -9,6 +11,8 @@ interface HeaderProps {
 }
 
 export function Header({ title, onMenuClick, actions }: HeaderProps) {
+  const { t } = useLanguage()
+
   return (
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-12 items-center px-4 border-b">
@@ -17,7 +21,7 @@ export function Header({ title, onMenuClick, actions }: HeaderProps) {
             variant="ghost"
             size="icon"
             onClick={onMenuClick}
-            aria-label="Toggle menu"
+            aria-label={t('Toggle menu')}
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -28,6 +32,7 @@ export function Header({ title, onMenuClick, actions }: HeaderProps) {
           
           <div className="flex items-center space-x-2 ml-auto">
             {actions}
+            <LanguageToggle />
             <ThemeToggle />
           </div>
         </div>

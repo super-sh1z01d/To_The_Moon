@@ -6,12 +6,14 @@ import { SettingsSearch } from '@/components/settings/SettingsSearch'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { useLanguage } from '@/hooks/useLanguage'
 
 export default function Settings() {
   const [search, setSearch] = useState('')
   const { data: settings, isLoading } = useSettings()
   const { mutateAsync: saveSettings, isPending: isSaving } = useSaveSettings()
   const [localSettings, setLocalSettings] = useState<Record<string, string>>({})
+  const { t } = useLanguage()
 
   if (isLoading) {
     return (
@@ -29,10 +31,10 @@ export default function Settings() {
   const handleSave = async () => {
     try {
       await saveSettings(localSettings)
-      toast.success('Settings saved successfully')
+      toast.success(t('Settings saved successfully'))
       setLocalSettings({})
     } catch (error) {
-      toast.error('Failed to save settings')
+      toast.error(t('Failed to save settings'))
     }
   }
 
@@ -43,396 +45,400 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Configure system parameters</p>
+        <h1 className="text-3xl font-bold">{t('Settings')}</h1>
+        <p className="text-muted-foreground">{t('Configure system parameters')}</p>
       </div>
 
-      <SettingsSearch value={search} onChange={setSearch} />
+      <SettingsSearch
+        value={search}
+        onChange={setSearch}
+        placeholder={t('Search settings...')}
+      />
 
       <div className="space-y-6">
         {/* Scoring Model Selection */}
         <SettingsGroup 
-          title="Scoring Model" 
-          description="Select active scoring model and configure weights"
+          title={t('Scoring Model')} 
+          description={t('Select active scoring model and configure weights')}
         >
           <SettingField
-            label="Active Model"
+            label={t('Active Model')}
             value={getValue('scoring_model_active', 'hybrid_momentum')}
             onChange={(v) => handleChange('scoring_model_active', v)}
             type="select"
             options={[
-              { value: 'hybrid_momentum', label: 'Hybrid Momentum (Recommended)' },
-              { value: 'legacy', label: 'Legacy Model' }
+              { value: 'hybrid_momentum', label: t('Hybrid Momentum (Recommended)') },
+              { value: 'legacy', label: t('Legacy Model') }
             ]}
-            description="Choose scoring algorithm"
+            description={t('Choose scoring algorithm')}
           />
           <SettingField
-            label="TX Calculation Mode"
+            label={t('TX Calculation Mode')}
             value={getValue('tx_calculation_mode', 'acceleration')}
             onChange={(v) => handleChange('tx_calculation_mode', v)}
             type="select"
             options={[
-              { value: 'acceleration', label: 'Acceleration (Default)' },
-              { value: 'arbitrage_activity', label: 'Arbitrage Activity' }
+              { value: 'acceleration', label: t('Acceleration (Default)') },
+              { value: 'arbitrage_activity', label: t('Arbitrage Activity') }
             ]}
-            description="Transaction component calculation method"
+            description={t('Transaction component calculation method')}
           />
         </SettingsGroup>
 
         {/* Hybrid Momentum Weights */}
         <SettingsGroup 
-          title="Hybrid Momentum Weights" 
-          description="Component weights for Hybrid Momentum model (must sum to 1.0)"
+          title={t('Hybrid Momentum Weights')} 
+          description={t('Component weights for Hybrid Momentum model (must sum to 1.0)')}
         >
           <SettingField
-            label="Transaction Weight (w_tx)"
+            label={t('Transaction Weight (w_tx)')}
             value={getValue('w_tx', '0.25')}
             onChange={(v) => handleChange('w_tx', v)}
             type="number"
             step="0.01"
-            description="Weight for transaction acceleration/activity component"
+            description={t('Weight for transaction acceleration/activity component')}
           />
           <SettingField
-            label="Volume Weight (w_vol)"
+            label={t('Volume Weight (w_vol)')}
             value={getValue('w_vol', '0.25')}
             onChange={(v) => handleChange('w_vol', v)}
             type="number"
             step="0.01"
-            description="Weight for volume momentum component"
+            description={t('Weight for volume momentum component')}
           />
           <SettingField
-            label="Freshness Weight (w_fresh)"
+            label={t('Freshness Weight (w_fresh)')}
             value={getValue('w_fresh', '0.25')}
             onChange={(v) => handleChange('w_fresh', v)}
             type="number"
             step="0.01"
-            description="Weight for token freshness component"
+            description={t('Weight for token freshness component')}
           />
           <SettingField
-            label="Order Flow Weight (w_oi)"
+            label={t('Order Flow Weight (w_oi)')}
             value={getValue('w_oi', '0.25')}
             onChange={(v) => handleChange('w_oi', v)}
             type="number"
             step="0.01"
-            description="Weight for order flow imbalance component"
+            description={t('Weight for order flow imbalance component')}
           />
           <SettingField
-            label="EWMA Alpha"
+            label={t('EWMA Alpha')}
             value={getValue('ewma_alpha', '0.3')}
             onChange={(v) => handleChange('ewma_alpha', v)}
             type="number"
             step="0.01"
-            description="Exponential smoothing factor (0-1)"
+            description={t('Exponential smoothing factor (0-1)')}
           />
           <SettingField
-            label="Freshness Threshold"
+            label={t('Freshness Threshold')}
             value={getValue('freshness_threshold_hours', '6.0')}
             onChange={(v) => handleChange('freshness_threshold_hours', v)}
             type="number"
-            unit="hours"
-            description="Age threshold for freshness calculation"
+            unit={t('hours')}
+            description={t('Age threshold for freshness calculation')}
           />
         </SettingsGroup>
 
         {/* Legacy Model Weights */}
         <SettingsGroup 
-          title="Legacy Model Weights" 
-          description="Component weights for Legacy model (must sum to 1.0)"
+          title={t('Legacy Model Weights')} 
+          description={t('Component weights for Legacy model (must sum to 1.0)')}
         >
           <SettingField
-            label="Spread Weight (weight_s)"
+            label={t('Spread Weight (weight_s)')}
             value={getValue('weight_s', '0.35')}
             onChange={(v) => handleChange('weight_s', v)}
             type="number"
             step="0.01"
-            description="Weight for spread component"
+            description={t('Weight for spread component')}
           />
           <SettingField
-            label="Liquidity Weight (weight_l)"
+            label={t('Liquidity Weight (weight_l)')}
             value={getValue('weight_l', '0.25')}
             onChange={(v) => handleChange('weight_l', v)}
             type="number"
             step="0.01"
-            description="Weight for liquidity component"
+            description={t('Weight for liquidity component')}
           />
           <SettingField
-            label="Momentum Weight (weight_m)"
+            label={t('Momentum Weight (weight_m)')}
             value={getValue('weight_m', '0.20')}
             onChange={(v) => handleChange('weight_m', v)}
             type="number"
             step="0.01"
-            description="Weight for momentum component"
+            description={t('Weight for momentum component')}
           />
           <SettingField
-            label="Transaction Weight (weight_t)"
+            label={t('Transaction Weight (weight_t)')}
             value={getValue('weight_t', '0.20')}
             onChange={(v) => handleChange('weight_t', v)}
             type="number"
             step="0.01"
-            description="Weight for transaction component"
+            description={t('Weight for transaction component')}
           />
           <SettingField
-            label="Score Smoothing Alpha"
+            label={t('Score Smoothing Alpha')}
             value={getValue('score_smoothing_alpha', '0.3')}
             onChange={(v) => handleChange('score_smoothing_alpha', v)}
             type="number"
             step="0.01"
-            description="Smoothing factor for score changes"
+            description={t('Smoothing factor for score changes')}
           />
           <SettingField
-            label="Max Price Change 5m"
+            label={t('Max Price Change 5m')}
             value={getValue('max_price_change_5m', '0.5')}
             onChange={(v) => handleChange('max_price_change_5m', v)}
             type="number"
             step="0.1"
-            description="Maximum allowed 5-minute price change"
+            description={t('Maximum allowed 5-minute price change')}
           />
         </SettingsGroup>
 
         {/* Token Lifecycle */}
         <SettingsGroup 
-          title="Token Lifecycle" 
-          description="Activation, archival, and monitoring parameters"
+          title={t('Token Lifecycle')} 
+          description={t('Activation, archival, and monitoring parameters')}
         >
           <SettingField
-            label="Minimum Score"
+            label={t('Minimum Score')}
             value={getValue('min_score', '0.1')}
             onChange={(v) => handleChange('min_score', v)}
             type="number"
             step="0.01"
-            description="Minimum score threshold for active tokens"
+            description={t('Minimum score threshold for active tokens')}
           />
           <SettingField
-            label="Minimum Score Change"
+            label={t('Minimum Score Change')}
             value={getValue('min_score_change', '0.05')}
             onChange={(v) => handleChange('min_score_change', v)}
             type="number"
             step="0.01"
-            description="Minimum score change to trigger update"
+            description={t('Minimum score change to trigger update')}
           />
           <SettingField
-            label="Activation Liquidity"
+            label={t('Activation Liquidity')}
             value={getValue('activation_min_liquidity_usd', '200')}
             onChange={(v) => handleChange('activation_min_liquidity_usd', v)}
             type="number"
             unit="USD"
-            description="Minimum liquidity to activate monitoring token"
+            description={t('Minimum liquidity to activate monitoring token')}
           />
           <SettingField
-            label="Archive Below Hours"
+            label={t('Archive Below Hours')}
             value={getValue('archive_below_hours', '12')}
             onChange={(v) => handleChange('archive_below_hours', v)}
             type="number"
-            unit="hours"
-            description="Archive active tokens below min_score after this time"
+            unit={t('hours')}
+            description={t('Archive active tokens below min_score after this time')}
           />
           <SettingField
-            label="Monitoring Timeout Hours"
+            label={t('Monitoring Timeout Hours')}
             value={getValue('monitoring_timeout_hours', '12')}
             onChange={(v) => handleChange('monitoring_timeout_hours', v)}
             type="number"
-            unit="hours"
-            description="Archive monitoring tokens after this timeout"
+            unit={t('hours')}
+            description={t('Archive monitoring tokens after this timeout')}
           />
         </SettingsGroup>
 
         {/* Data Filtering - Active Tokens */}
         <SettingsGroup 
-          title="Data Filtering - Active Tokens" 
-          description="Strict filtering thresholds for active tokens"
+          title={t('Data Filtering - Active Tokens')} 
+          description={t('Strict filtering thresholds for active tokens')}
         >
           <SettingField
-            label="Minimum Pool Liquidity"
+            label={t('Minimum Pool Liquidity')}
             value={getValue('min_pool_liquidity_usd', '500')}
             onChange={(v) => handleChange('min_pool_liquidity_usd', v)}
             type="number"
             unit="USD"
-            description="Minimum liquidity per pool for active tokens"
+            description={t('Minimum liquidity per pool for active tokens')}
           />
           <SettingField
-            label="Min TX Threshold 5m"
+            label={t('Min TX Threshold 5m')}
             value={getValue('min_tx_threshold_5m', '0')}
             onChange={(v) => handleChange('min_tx_threshold_5m', v)}
             type="number"
-            description="Minimum 5-minute transaction count"
+            description={t('Minimum 5-minute transaction count')}
           />
           <SettingField
-            label="Min TX Threshold 1h"
+            label={t('Min TX Threshold 1h')}
             value={getValue('min_tx_threshold_1h', '0')}
             onChange={(v) => handleChange('min_tx_threshold_1h', v)}
             type="number"
-            description="Minimum 1-hour transaction count"
+            description={t('Minimum 1-hour transaction count')}
           />
           <SettingField
-            label="Min Volume Threshold 5m"
+            label={t('Min Volume Threshold 5m')}
             value={getValue('min_volume_threshold_5m', '0')}
             onChange={(v) => handleChange('min_volume_threshold_5m', v)}
             type="number"
             unit="USD"
-            description="Minimum 5-minute volume"
+            description={t('Minimum 5-minute volume')}
           />
           <SettingField
-            label="Min Volume Threshold 1h"
+            label={t('Min Volume Threshold 1h')}
             value={getValue('min_volume_threshold_1h', '0')}
             onChange={(v) => handleChange('min_volume_threshold_1h', v)}
             type="number"
             unit="USD"
-            description="Minimum 1-hour volume"
+            description={t('Minimum 1-hour volume')}
           />
           <SettingField
-            label="Min Order Flow Volume 5m"
+            label={t('Min Order Flow Volume 5m')}
             value={getValue('min_orderflow_volume_5m', '0')}
             onChange={(v) => handleChange('min_orderflow_volume_5m', v)}
             type="number"
             unit="USD"
-            description="Minimum 5-minute order flow volume"
+            description={t('Minimum 5-minute order flow volume')}
           />
         </SettingsGroup>
 
         {/* Data Filtering - Monitoring Tokens */}
         <SettingsGroup 
-          title="Data Filtering - Monitoring Tokens" 
-          description="Relaxed filtering for tokens in monitoring status"
+          title={t('Data Filtering - Monitoring Tokens')} 
+          description={t('Relaxed filtering for tokens in monitoring status')}
         >
           <SettingField
-            label="Arbitrage Min TX 5m"
+            label={t('Arbitrage Min TX 5m')}
             value={getValue('arbitrage_min_tx_5m', '100')}
             onChange={(v) => handleChange('arbitrage_min_tx_5m', v)}
             type="number"
-            description="Minimum 5-minute transactions for arbitrage mode"
+            description={t('Minimum 5-minute transactions for arbitrage mode')}
           />
           <SettingField
-            label="Arbitrage Optimal TX 5m"
+            label={t('Arbitrage Optimal TX 5m')}
             value={getValue('arbitrage_optimal_tx_5m', '200')}
             onChange={(v) => handleChange('arbitrage_optimal_tx_5m', v)}
             type="number"
-            description="Optimal 5-minute transactions for arbitrage mode"
+            description={t('Optimal 5-minute transactions for arbitrage mode')}
           />
           <SettingField
-            label="Arbitrage Acceleration Weight"
+            label={t('Arbitrage Acceleration Weight')}
             value={getValue('arbitrage_acceleration_weight', '0.1')}
             onChange={(v) => handleChange('arbitrage_acceleration_weight', v)}
             type="number"
             step="0.01"
-            description="Weight for acceleration in arbitrage mode"
+            description={t('Weight for acceleration in arbitrage mode')}
           />
         </SettingsGroup>
 
         {/* Component Calculation Parameters */}
         <SettingsGroup 
-          title="Component Calculation" 
-          description="Advanced parameters for score component calculations"
+          title={t('Component Calculation')} 
+          description={t('Advanced parameters for score component calculations')}
         >
           <SettingField
-            label="Liquidity Factor Threshold"
+            label={t('Liquidity Factor Threshold')}
             value={getValue('liquidity_factor_threshold', '100000')}
             onChange={(v) => handleChange('liquidity_factor_threshold', v)}
             type="number"
             unit="USD"
-            description="Liquidity threshold for sigmoid boost calculation"
+            description={t('Liquidity threshold for sigmoid boost calculation')}
           />
           <SettingField
-            label="Order Flow Significance Threshold"
+            label={t('Order Flow Significance Threshold')}
             value={getValue('orderflow_significance_threshold', '500')}
             onChange={(v) => handleChange('orderflow_significance_threshold', v)}
             type="number"
             unit="USD"
-            description="Volume threshold for order flow significance"
+            description={t('Volume threshold for order flow significance')}
           />
           <SettingField
-            label="Manipulation Detection Ratio"
+            label={t('Manipulation Detection Ratio')}
             value={getValue('manipulation_detection_ratio', '3.0')}
             onChange={(v) => handleChange('manipulation_detection_ratio', v)}
             type="number"
             step="0.1"
-            description="Size ratio threshold for manipulation detection"
+            description={t('Size ratio threshold for manipulation detection')}
           />
         </SettingsGroup>
 
         {/* System Performance */}
         <SettingsGroup 
-          title="System Performance" 
-          description="Update intervals and processing parameters"
+          title={t('System Performance')} 
+          description={t('Update intervals and processing parameters')}
         >
           <SettingField
-            label="Hot Interval"
+            label={t('Hot Interval')}
             value={getValue('hot_interval_sec', '10')}
             onChange={(v) => handleChange('hot_interval_sec', v)}
             type="number"
-            unit="seconds"
-            description="Update interval for hot (high-activity) tokens"
+            unit={t('seconds')}
+            description={t('Update interval for hot (high-activity) tokens')}
           />
           <SettingField
-            label="Cold Interval"
+            label={t('Cold Interval')}
             value={getValue('cold_interval_sec', '45')}
             onChange={(v) => handleChange('cold_interval_sec', v)}
             type="number"
-            unit="seconds"
-            description="Update interval for cold (low-activity) tokens"
+            unit={t('seconds')}
+            description={t('Update interval for cold (low-activity) tokens')}
           />
         </SettingsGroup>
 
         {/* Data Quality Validation */}
         <SettingsGroup 
-          title="Data Quality Validation" 
-          description="Configure data quality checks and warnings"
+          title={t('Data Quality Validation')} 
+          description={t('Configure data quality checks and warnings')}
         >
           <SettingField
-            label="Strict Data Validation"
+            label={t('Strict Data Validation')}
             value={getValue('strict_data_validation', 'false')}
             onChange={(v) => handleChange('strict_data_validation', v)}
             type="select"
             options={[
-              { value: 'true', label: 'Enabled' },
-              { value: 'false', label: 'Disabled' }
+              { value: 'true', label: t('Enabled') },
+              { value: 'false', label: t('Disabled') }
             ]}
-            description="Enable strict validation mode"
+            description={t('Enable strict validation mode')}
           />
           <SettingField
-            label="Min Liquidity for Warnings"
+            label={t('Min Liquidity for Warnings')}
             value={getValue('min_liquidity_for_warnings', '10000')}
             onChange={(v) => handleChange('min_liquidity_for_warnings', v)}
             type="number"
             unit="USD"
-            description="Minimum liquidity to trigger zero-transaction warnings"
+            description={t('Minimum liquidity to trigger zero-transaction warnings')}
           />
           <SettingField
-            label="Min Transactions for Warnings"
+            label={t('Min Transactions for Warnings')}
             value={getValue('min_transactions_for_warnings', '200')}
             onChange={(v) => handleChange('min_transactions_for_warnings', v)}
             type="number"
-            description="Minimum transactions to trigger zero-price-change warnings"
+            description={t('Minimum transactions to trigger zero-price-change warnings')}
           />
           <SettingField
-            label="Max Stale Minutes"
+            label={t('Max Stale Minutes')}
             value={getValue('max_stale_minutes', '10')}
             onChange={(v) => handleChange('max_stale_minutes', v)}
             type="number"
-            unit="minutes"
-            description="Maximum age of data before considered stale"
+            unit={t('minutes')}
+            description={t('Maximum age of data before considered stale')}
           />
         </SettingsGroup>
 
         {/* NotArb Integration */}
         <SettingsGroup 
-          title="NotArb Integration" 
-          description="Configure NotArb bot export parameters"
+          title={t('NotArb Integration')} 
+          description={t('Configure NotArb bot export parameters')}
         >
           <SettingField
-            label="NotArb Min Score"
+            label={t('NotArb Min Score')}
             value={getValue('notarb_min_score', '0.5')}
             onChange={(v) => handleChange('notarb_min_score', v)}
             type="number"
             step="0.01"
-            description="Minimum score for NotArb config export"
+            description={t('Minimum score for NotArb config export')}
           />
           <SettingField
-            label="Max Spam Percentage"
+            label={t('Max Spam Percentage')}
             value={getValue('notarb_max_spam_percentage', '50')}
             onChange={(v) => handleChange('notarb_max_spam_percentage', v)}
             type="number"
             unit="%"
-            description="Maximum spam percentage for NotArb export"
+            description={t('Maximum spam percentage for NotArb export')}
           />
         </SettingsGroup>
       </div>
@@ -442,14 +448,14 @@ export default function Settings() {
           onClick={handleSave} 
           disabled={Object.keys(localSettings).length === 0 || isSaving}
         >
-          {isSaving ? 'Saving...' : 'Save Changes'}
+          {isSaving ? t('Saving...') : t('Save changes')}
         </Button>
         <Button 
           variant="outline" 
           onClick={() => setLocalSettings({})}
           disabled={Object.keys(localSettings).length === 0 || isSaving}
         >
-          Reset
+          {t('Reset')}
         </Button>
       </div>
     </div>

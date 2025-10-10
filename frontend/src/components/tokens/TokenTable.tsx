@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useLanguage } from '@/hooks/useLanguage'
 
 interface TokenTableProps {
   tokens: Token[]
@@ -64,6 +65,7 @@ export function TokenTable({
   sortDirection 
 }: TokenTableProps) {
   const navigate = useNavigate()
+  const { t } = useLanguage()
 
   const handleRowClick = (mint: string) => {
     navigate(`/token/${mint}`)
@@ -76,11 +78,11 @@ export function TokenTable({
   }
 
   if (isLoading) {
-    return <div className="text-center py-8 text-muted-foreground">Loading...</div>
+    return <div className="text-center py-8 text-muted-foreground">{t('Loading tokens...')}</div>
   }
 
   if (tokens.length === 0) {
-    return <div className="text-center py-8 text-muted-foreground">No tokens found</div>
+    return <div className="text-center py-8 text-muted-foreground">{t('No tokens found')}</div>
   }
 
   return (
@@ -91,28 +93,28 @@ export function TokenTable({
             <TableRow>
               <TableHead className="w-[180px]">
                 <Button variant="ghost" size="sm" onClick={() => handleSort('symbol')} className="h-8 px-2">
-                  Token
+                  {t('Token')}
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead className="w-[100px] text-right">
                 <Button variant="ghost" size="sm" onClick={() => handleSort('score')} className="h-8 px-2">
-                  Score
+                  {t('Score')}
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[100px]">Status</TableHead>
+              <TableHead className="w-[100px]">{t('Status')}</TableHead>
               <TableHead className="w-[80px] text-right">
                 <Button variant="ghost" size="sm" onClick={() => handleSort('created_at')} className="h-8 px-2">
-                  Age
+                  {t('Age')}
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[120px] text-right">Liquidity</TableHead>
-              <TableHead className="w-[80px] text-right">TX 5m</TableHead>
-              <TableHead className="w-[120px]">DEXs</TableHead>
-              <TableHead className="w-[140px]">Last Update</TableHead>
-              <TableHead className="w-[80px]">Solscan</TableHead>
+              <TableHead className="w-[120px] text-right">{t('Liquidity')}</TableHead>
+              <TableHead className="w-[80px] text-right">{t('5m TX Count')}</TableHead>
+              <TableHead className="w-[120px]">{t('Dex Pools')}</TableHead>
+              <TableHead className="w-[140px]">{t('Last Update')}</TableHead>
+              <TableHead className="w-[80px]">{t('Solscan')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -123,6 +125,13 @@ export function TokenTable({
               const tokenAge = tokenAgeSource ? formatAge(tokenAgeSource) : '—'
               const tokenIsFresh = tokenAgeSource ? isFresh(tokenAgeSource) : false
               const dexCounts = getDexCounts(token.pools)
+              const lastUpdatedRaw = formatRelativeTime(token.last_processed_at || token.fetched_at)
+              const lastUpdated =
+                lastUpdatedRaw === 'Unknown'
+                  ? t('Unknown')
+                  : lastUpdatedRaw === 'Invalid date'
+                  ? t('Invalid date')
+                  : lastUpdatedRaw
               
               return (
                 <TableRow
@@ -132,7 +141,7 @@ export function TokenTable({
                 >
                   <TableCell className="font-medium">
                     <div>
-                      <div className="font-semibold">{token.symbol || 'Unknown'}</div>
+                      <div className="font-semibold">{token.symbol || t('Unknown')}</div>
                       <div className="text-xs text-muted-foreground">
                         {token.mint_address.slice(0, 4)}...{token.mint_address.slice(-4)}
                       </div>
@@ -154,7 +163,7 @@ export function TokenTable({
                           : 'border-gray-500 text-gray-600 dark:text-gray-400'
                       }`}
                     >
-                      {token.status === 'active' ? 'Active' : token.status === 'monitoring' ? 'Monitoring' : 'Archived'}
+                      {token.status === 'active' ? t('Active') : token.status === 'monitoring' ? t('Monitoring') : t('Archived')}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -166,7 +175,7 @@ export function TokenTable({
                   <TableCell className="text-right">{token.n_5m || 0}</TableCell>
                   <TableCell>
                     {Object.keys(dexCounts).length === 0 ? (
-                      <span className="text-xs text-muted-foreground">N/A</span>
+                      <span className="text-xs text-muted-foreground">{t('No data available')}</span>
                     ) : (
                       <div className="flex flex-col gap-1">
                         {Object.entries(dexCounts).map(([dex, count]) => (
@@ -178,7 +187,7 @@ export function TokenTable({
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {formatRelativeTime(token.last_processed_at || token.fetched_at)}
+                    {lastUpdated}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -189,7 +198,7 @@ export function TokenTable({
                         window.open(`https://solscan.io/token/${token.mint_address}`, '_blank')
                       }}
                     >
-                      View
+                      {t('View details')}
                     </Button>
                   </TableCell>
                 </TableRow>

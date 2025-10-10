@@ -7,6 +7,7 @@ import { TokenFilters as Filters } from '@/types/token'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorDisplay } from '@/components/ui/error-display'
 import { useTokenStats } from '@/hooks/useTokenStats'
+import { useLanguage } from '@/hooks/useLanguage'
 
 const STORAGE_KEY = 'dashboard_page_size'
 
@@ -14,6 +15,7 @@ export default function Dashboard() {
   // Load page size from localStorage
   const savedPageSize = localStorage.getItem(STORAGE_KEY)
   const initialPageSize = savedPageSize ? Number(savedPageSize) : 50
+  const { t } = useLanguage()
 
   const [filters, setFilters] = useState<Filters>({
     status: 'active',
@@ -40,10 +42,11 @@ export default function Dashboard() {
   }
 
   if (error) {
+    const message = error instanceof Error ? error.message : t('Unknown error')
     return (
       <ErrorDisplay
-        title="Failed to load tokens"
-        message={error instanceof Error ? error.message : 'Unknown error'}
+        title={t('Failed to load tokens')}
+        message={message}
         onRetry={() => refetch()}
       />
     )

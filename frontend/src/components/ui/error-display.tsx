@@ -1,6 +1,7 @@
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from './alert'
 import { Button } from './button'
+import { useLanguage } from '@/hooks/useLanguage'
 
 interface ErrorDisplayProps {
   title?: string
@@ -9,14 +10,16 @@ interface ErrorDisplayProps {
 }
 
 export function ErrorDisplay({ 
-  title = 'Error', 
+  title, 
   message, 
   onRetry 
 }: ErrorDisplayProps) {
+  const { t } = useLanguage()
+  const resolvedTitle = title ?? t('Error')
   return (
     <Alert variant="destructive" className="my-4">
       <AlertCircle className="h-4 w-4" />
-      <AlertTitle>{title}</AlertTitle>
+      <AlertTitle>{resolvedTitle}</AlertTitle>
       <AlertDescription className="mt-2">
         <p>{message}</p>
         {onRetry && (
@@ -27,7 +30,7 @@ export function ErrorDisplay({
             className="mt-3"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            Retry
+            {t('Retry')}
           </Button>
         )}
       </AlertDescription>
