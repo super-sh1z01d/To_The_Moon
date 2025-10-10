@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -27,11 +28,16 @@ class Token(Base):
     __tablename__ = "tokens"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    mint_address: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    mint_address: Mapped[str] = mapped_column(Text, unique=True, nullable=False, index=True)
     name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     symbol: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="monitoring")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="monitoring", index=True)
+    
+    # Extracted fields for fast filtering (from metrics)
+    liquidity_usd: Mapped[Optional[float]] = mapped_column(Numeric(20, 2), nullable=True, index=True)
+    primary_dex: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False, index=True)
     last_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
@@ -52,18 +58,16 @@ class TokenScore(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     token_id: Mapped[int] = mapped_column(ForeignKey("tokens.id", ondelete="CASCADE"), index=True, nullable=False)
     score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
-    smoothed_score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
-    metrics: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    smoothed_score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True, index=True)
     
-    # New fields for hybrid momentum scoring
-    raw_components: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    smoothed_components: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Use JSONB for PostgreSQL (falls back to JSON for SQLite)
+    metrics: Mapped[Optional[dict]] = mapped_column(JSONB.with_variant(JSON, "sqlite"), nullable=True)
+    raw_components: Mapped[Optional[dict]] = mapped_column(JSONB.with_variant(JSON, "sqlite"), nullable=True)
+    smoothed_components: Mapped[Optional[dict]] = mapped_column(JSONB.with_variant(JSON, "sqlite"), nullable=True)
+    spam_metrics: Mapped[Optional[dict]] = mapped_column(JSONB.with_variant(JSON, "sqlite"), nullable=True)
+    
     scoring_model: Mapped[str] = mapped_column(String(50), default="hybrid_momentum", nullable=False)
-    
-    # Spam detection metrics
-    spam_metrics: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False, index=True)
 
     token: Mapped[Token] = relationship(back_populates="scores")
 

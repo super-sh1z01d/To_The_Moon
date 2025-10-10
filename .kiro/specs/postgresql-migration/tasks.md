@@ -29,8 +29,8 @@
   - Verify backup integrity
   - _Requirements: 7.1, 7.4_
 
-- [ ] 2. Schema Migration and Optimization
-- [ ] 2.1 Create Alembic migration for PostgreSQL schema
+- [-] 2. Schema Migration and Optimization
+- [x] 2.1 Create Alembic migration for PostgreSQL schema
   - Update models.py to use JSONB instead of JSON
   - Add extracted fields (liquidity_usd, primary_dex) to tokens table
   - Create migration script
