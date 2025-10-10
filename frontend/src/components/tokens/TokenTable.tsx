@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { SCORE_DISPLAY_DECIMALS } from '@/lib/constants'
 import { useLanguage } from '@/hooks/useLanguage'
 
 interface TokenTableProps {
@@ -149,7 +150,7 @@ export function TokenTable({
                   </TableCell>
                   <TableCell className="text-right">
                     <span className={`font-semibold ${getScoreColor(score)}`}>
-                      {score !== null ? score.toFixed(2) : '—'}
+                      {score !== null ? score.toFixed(SCORE_DISPLAY_DECIMALS) : '—'}
                     </span>
                   </TableCell>
                   <TableCell>

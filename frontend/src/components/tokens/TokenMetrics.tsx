@@ -2,6 +2,7 @@ import { Token } from '@/types/token'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatPercentage, formatRelativeTime } from '@/lib/utils'
+import { SCORE_DISPLAY_DECIMALS } from '@/lib/constants'
 import { Copy, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -82,7 +83,7 @@ export function TokenMetrics({ token }: TokenMetricsProps) {
         <CardContent className="space-y-3">
           <div>
             <div className="text-sm text-muted-foreground">Overall Score</div>
-            <div className="text-4xl font-bold text-primary">{token.score.toFixed(2)}</div>
+            <div className="text-4xl font-bold text-primary">{token.score.toFixed(SCORE_DISPLAY_DECIMALS)}</div>
           </div>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">

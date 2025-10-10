@@ -17,6 +17,8 @@ export const SCORE_THRESHOLDS = {
   LOW: 0.5,
 } as const
 
+export const SCORE_DISPLAY_DECIMALS = 3
+
 // Spam risk levels
 export const SPAM_RISK_LEVELS = {
   LOW: 'low',
