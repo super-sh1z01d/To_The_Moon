@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from typing import Any, Optional
-from datetime import timezone
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -141,48 +142,58 @@ async def list_tokens(
     items: list[TokenItem] = []
     
     # Оптимизированная обработка - минимум операций
-    for token, snap in rows:
-        # Быстрый доступ к metrics без лишних проверок
-        metrics = snap.metrics if snap else {}
-        
-        # Упрощенная обработка components — используем model_construct во избежание валидации
+    for token, latest in rows:
+        latest_data = latest or SimpleNamespace()
+
         raw_components = None
-        if snap and snap.raw_components and isinstance(snap.raw_components, dict):
+        rc_value = getattr(latest_data, "raw_components", None)
+        if isinstance(rc_value, dict):
             try:
-                raw_components = ComponentBreakdown.model_construct(**snap.raw_components)
+                raw_components = ComponentBreakdown.model_construct(**rc_value)
             except Exception:
                 raw_components = None
-        
+
         smoothed_components = None
-        if snap and snap.smoothed_components and isinstance(snap.smoothed_components, dict):
+        sc_value = getattr(latest_data, "smoothed_components", None)
+        if isinstance(sc_value, dict):
             try:
-                smoothed_components = ComponentBreakdown.model_construct(**snap.smoothed_components)
+                smoothed_components = ComponentBreakdown.model_construct(**sc_value)
             except Exception:
                 smoothed_components = None
 
-        # Упрощенная обработка pools - только если есть данные
         pools = None
-        if metrics:
-            pools_data = metrics.get("pools")
-            if pools_data and isinstance(pools_data, list):
-                try:
-                    pools = [
-                        PoolItem.model_construct(
-                            address=p.get("address"),
-                            dex=p.get("dex"),
-                            quote=p.get("quote"),
-                            solscan_url=f"https://solscan.io/account/{p['address']}" if p.get("address") else None
-                        )
-                        for p in pools_data
-                    ]
-                except Exception:
-                    pools = None
+        pools_data = getattr(latest_data, "pools", None)
+        if isinstance(pools_data, list):
+            try:
+                pools = [
+                    PoolItem.model_construct(
+                        address=p.get("address"),
+                        dex=p.get("dex"),
+                        quote=p.get("quote"),
+                        solscan_url=f"https://solscan.io/account/{p['address']}" if p.get("address") else None
+                    )
+                    for p in pools_data
+                ]
+            except Exception:
+                pools = None
 
-        # Оптимизированное создание TokenItem - минимум условий
+        liquidity_usd = getattr(latest_data, "liquidity_usd", None)
+        delta_p_5m = getattr(latest_data, "delta_p_5m", None)
+        delta_p_15m = getattr(latest_data, "delta_p_15m", None)
+        n_5m = getattr(latest_data, "n_5m", None)
+
         score_value = None
-        if snap:
-            score_value = float(snap.smoothed_score) if snap.smoothed_score is not None else (float(snap.score) if snap.score is not None else None)
-        
+        if latest_data:
+            smoothed = getattr(latest_data, "smoothed_score", None)
+            score_raw = getattr(latest_data, "score", None)
+            if smoothed is not None:
+                score_value = float(smoothed)
+            elif score_raw is not None:
+                score_value = float(score_raw)
+
+        fetched_at_value = getattr(latest_data, "fetched_at", None)
+        fetched_at = fetched_at_value.isoformat() if isinstance(fetched_at_value, datetime) else fetched_at_value
+
         items.append(
             TokenItem.model_construct(
                 mint_address=token.mint_address,
@@ -190,19 +201,19 @@ async def list_tokens(
                 symbol=token.symbol,
                 status=token.status,
                 score=score_value,
-                liquidity_usd=float(metrics["L_tot"]) if metrics and metrics.get("L_tot") is not None else None,
-                delta_p_5m=float(metrics["delta_p_5m"]) if metrics and metrics.get("delta_p_5m") is not None else None,
-                delta_p_15m=float(metrics["delta_p_15m"]) if metrics and metrics.get("delta_p_15m") is not None else None,
-                n_5m=int(metrics["n_5m"]) if metrics and metrics.get("n_5m") is not None else None,
-                primary_dex=metrics.get("primary_dex") if isinstance(metrics, dict) else None,
+                liquidity_usd=float(liquidity_usd) if liquidity_usd is not None else None,
+                delta_p_5m=float(delta_p_5m) if delta_p_5m is not None else None,
+                delta_p_15m=float(delta_p_15m) if delta_p_15m is not None else None,
+                n_5m=int(n_5m) if n_5m is not None else None,
+                primary_dex=getattr(latest_data, "primary_dex", None),
                 pools=pools,
-                fetched_at=metrics.get("fetched_at") if isinstance(metrics, dict) else None,
-                scored_at=snap.created_at.replace(tzinfo=timezone.utc).isoformat() if snap and snap.created_at else None,
+                fetched_at=fetched_at,
+                scored_at=getattr(latest_data, "created_at", None).isoformat() if getattr(latest_data, "created_at", None) else None,
                 last_processed_at=token.last_updated_at.replace(tzinfo=timezone.utc).isoformat() if token.last_updated_at else None,
                 solscan_url=f"https://solscan.io/token/{token.mint_address}",
                 raw_components=raw_components,
                 smoothed_components=smoothed_components,
-                scoring_model=snap.scoring_model if snap else None,
+                scoring_model=getattr(latest_data, "scoring_model", None),
                 created_at=token.created_at.replace(tzinfo=timezone.utc).isoformat() if token.created_at else None,
                 spam_metrics=None,
             )

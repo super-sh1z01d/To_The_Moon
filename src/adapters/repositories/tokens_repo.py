@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session
 
 from src.adapters.db.models import Token
 from src.adapters.db.models import TokenScore
-from sqlalchemy import select, func, text, Integer, Numeric, DateTime
-from typing import Optional, Tuple, List
+from sqlalchemy import select, func, text, Integer, Numeric, DateTime, String, JSON
+from sqlalchemy.dialects.postgresql import JSONB
+from types import SimpleNamespace
+from typing import Optional, Tuple, List, Any
 
 
 class TokensRepository:
@@ -362,30 +364,37 @@ class TokensRepository:
         limit: int = 50,
         offset: int = 0,
         sort: str = "score_desc",
-    ) -> List[Tuple[Token, Optional[TokenScore]]]:
+    ) -> List[Tuple[Token, Optional[Any]]]:
         try:
             # Используем materialized view для быстрого доступа к последним scores
             latest_scores_table = text("""
-                SELECT id, token_id, score, smoothed_score, created_at
+                SELECT id, token_id, score, smoothed_score, liquidity_usd, delta_p_5m, delta_p_15m,
+                       n_5m, primary_dex, pools, fetched_at, raw_components, smoothed_components,
+                       scoring_model, created_at
                 FROM latest_token_scores
             """).columns(
                 id=Integer(),
                 token_id=Integer(),
                 score=Numeric(),
                 smoothed_score=Numeric(),
+                liquidity_usd=Numeric(),
+                delta_p_5m=Numeric(),
+                delta_p_15m=Numeric(),
+                n_5m=Numeric(),
+                primary_dex=String(),
+                pools=JSON().with_variant(JSONB, "postgresql"),
+                fetched_at=DateTime(timezone=True),
+                raw_components=JSON().with_variant(JSONB, "postgresql"),
+                smoothed_components=JSON().with_variant(JSONB, "postgresql"),
+                scoring_model=String(),
                 created_at=DateTime(timezone=True),
             ).alias("latest_scores")
             
-            # Основной запрос с JOIN к materialized view
             q = (
-                self.db.query(Token, TokenScore)
+                self.db.query(Token, latest_scores_table)
                 .outerjoin(
                     latest_scores_table,
                     Token.id == latest_scores_table.c.token_id
-                )
-                .outerjoin(
-                    TokenScore,
-                    TokenScore.id == latest_scores_table.c.id
                 )
             )
             
@@ -400,9 +409,9 @@ class TokensRepository:
                 if statuses and len(statuses) == 1 and statuses[0] == "active":
                     pass  # Не фильтруем активные токены по скору
                 else:
-                    q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
+                    q = q.filter(((Token.status == "active") | (latest_scores_table.c.score >= min_score)))
             
-            score_expr = func.coalesce(TokenScore.smoothed_score, TokenScore.score)
+            score_expr = func.coalesce(latest_scores_table.c.smoothed_score, latest_scores_table.c.score)
             if sort == "score_asc":
                 q = q.order_by(
                     score_expr.asc(),
@@ -444,7 +453,7 @@ class TokensRepository:
         limit: int = 50,
         offset: int = 0,
         sort: str = "score_desc",
-    ) -> List[Tuple[Token, Optional[TokenScore]]]:
+    ) -> List[Tuple[Token, Optional[Any]]]:
         latest_score_id_subq = (
             select(TokenScore.id)
             .where(TokenScore.token_id == Token.id)
@@ -487,7 +496,33 @@ class TokensRepository:
         if limit:
             q = q.limit(limit)
 
-        return list(q.all())
+        results: List[Tuple[Token, Optional[Any]]] = []
+        for token, score_row in q.all():
+            if score_row is None:
+                results.append((token, None))
+                continue
+
+            metrics = score_row.metrics if isinstance(score_row.metrics, dict) else {}
+            latest = SimpleNamespace(
+                id=score_row.id,
+                token_id=score_row.token_id,
+                score=score_row.score,
+                smoothed_score=score_row.smoothed_score,
+                liquidity_usd=metrics.get("L_tot"),
+                delta_p_5m=metrics.get("delta_p_5m"),
+                delta_p_15m=metrics.get("delta_p_15m"),
+                n_5m=metrics.get("n_5m"),
+                primary_dex=metrics.get("primary_dex"),
+                pools=metrics.get("pools"),
+                fetched_at=metrics.get("fetched_at"),
+                raw_components=score_row.raw_components if isinstance(score_row.raw_components, dict) else None,
+                smoothed_components=score_row.smoothed_components if isinstance(score_row.smoothed_components, dict) else None,
+                scoring_model=score_row.scoring_model,
+                created_at=score_row.created_at,
+            )
+            results.append((token, latest))
+
+        return results
 
     def count_non_archived_with_latest_scores(self, statuses: Optional[List[str]] = None, min_score: Optional[float] = None) -> int:
         # Оптимизированный count без сложных JOIN если min_score не задан
@@ -503,12 +538,12 @@ class TokensRepository:
         try:
             # Если min_score задан, используем materialized view
             latest_scores_table = text("""
-                SELECT id, token_id, score
+                SELECT token_id, score, smoothed_score
                 FROM latest_token_scores
             """).columns(
-                id=Integer(),
                 token_id=Integer(),
                 score=Numeric(),
+                smoothed_score=Numeric(),
             ).alias("latest_scores")
             
             q = (
@@ -517,12 +552,8 @@ class TokensRepository:
                     latest_scores_table,
                     Token.id == latest_scores_table.c.token_id
                 )
-                .outerjoin(
-                    TokenScore,
-                    TokenScore.id == latest_scores_table.c.id
-                )
             )
-            
+
             if statuses is None:
                 q = q.filter(Token.status != "archived")
             else:
@@ -532,7 +563,8 @@ class TokensRepository:
             if statuses and len(statuses) == 1 and statuses[0] == "active":
                 pass  # Не фильтруем активные токены по скору
             else:
-                q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
+                score_for_filter = func.coalesce(latest_scores_table.c.smoothed_score, latest_scores_table.c.score)
+                q = q.filter(((Token.status == "active") | (score_for_filter >= min_score)))
             
             return int(q.scalar() or 0)
         except ProgrammingError as exc:
