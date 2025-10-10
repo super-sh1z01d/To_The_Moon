@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.adapters.db.models import Token
 from src.adapters.db.models import TokenScore
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from typing import Optional, Tuple, List
 
 
@@ -363,31 +363,42 @@ class TokensRepository:
         offset: int = 0,
         sort: str = "score_desc",
     ) -> List[Tuple[Token, Optional[TokenScore]]]:
-        # Оптимизированный запрос с LATERAL JOIN для получения последнего score
-        from sqlalchemy import literal
+        # Используем оптимизированный подзапрос с DISTINCT ON
+        from sqlalchemy import text
         
-        # Подзапрос для получения последнего score для каждого токена
-        latest_score_subq = (
-            self.db.query(TokenScore)
-            .filter(TokenScore.token_id == Token.id)
-            .order_by(TokenScore.created_at.desc())
-            .limit(1)
-            .correlate(Token)
-            .subquery()
-            .lateral("latest_score")
-        )
+        # Подзапрос для получения последних scores с DISTINCT ON
+        latest_scores_cte = text("""
+            SELECT DISTINCT ON (token_id) 
+                id, token_id, score, smoothed_score, metrics, 
+                raw_components, smoothed_components, scoring_model, created_at
+            FROM token_scores
+            ORDER BY token_id, created_at DESC
+        """).columns(
+            id=TokenScore.id,
+            token_id=TokenScore.token_id,
+            score=TokenScore.score,
+            smoothed_score=TokenScore.smoothed_score,
+            metrics=TokenScore.metrics,
+            raw_components=TokenScore.raw_components,
+            smoothed_components=TokenScore.smoothed_components,
+            scoring_model=TokenScore.scoring_model,
+            created_at=TokenScore.created_at
+        ).cte("latest_scores")
         
-        # Основной запрос
+        # Основной запрос с JOIN к CTE
         q = (
             self.db.query(Token, TokenScore)
-            .outerjoin(latest_score_subq, literal(True))
+            .outerjoin(
+                latest_scores_cte,
+                Token.id == latest_scores_cte.c.token_id
+            )
             .outerjoin(
                 TokenScore,
-                (TokenScore.id == latest_score_subq.c.id)
+                TokenScore.id == latest_scores_cte.c.id
             )
         )
         
-        # По умолчанию скрываем archived. Если явный фильтр статусов задан — используем его как есть
+        # По умолчанию скрываем archived
         if statuses is None:
             q = q.filter(Token.status != "archived")
         else:
@@ -395,14 +406,12 @@ class TokensRepository:
         
         # min_score применяется только к токенам в мониторинге, активные показываем всегда
         if min_score is not None:
-            # Если запрашиваются только активные токены - не применяем фильтр по скору
             if statuses and len(statuses) == 1 and statuses[0] == "active":
                 pass  # Не фильтруем активные токены по скору
             else:
-                # Для смешанных запросов или токенов в мониторинге применяем фильтр
                 q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
         
-        # Сортировка: приоритет smoothed_score с fallback на score (как в отображении)
+        # Сортировка
         if sort == "score_asc":
             q = q.order_by(
                 func.coalesce(TokenScore.smoothed_score, TokenScore.score).asc().nullsfirst(), 
