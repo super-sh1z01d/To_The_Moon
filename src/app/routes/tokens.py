@@ -144,7 +144,24 @@ async def list_tokens(
     
     # Оптимизированная обработка - минимум операций
     for token, latest in rows:
-        latest_data = latest or SimpleNamespace()
+        if isinstance(latest, dict):
+            latest_data = SimpleNamespace(
+                score=latest.get("latest_score"),
+                smoothed_score=latest.get("latest_smoothed_score"),
+                liquidity_usd=latest.get("latest_liquidity_usd"),
+                delta_p_5m=latest.get("latest_delta_p_5m"),
+                delta_p_15m=latest.get("latest_delta_p_15m"),
+                n_5m=latest.get("latest_n_5m"),
+                primary_dex=latest.get("latest_primary_dex"),
+                pool_counts=latest.get("latest_pool_counts"),
+                fetched_at=latest.get("latest_fetched_at"),
+                scoring_model=latest.get("latest_scoring_model"),
+                created_at=latest.get("latest_created_at"),
+            )
+        elif latest is None:
+            latest_data = SimpleNamespace()
+        else:
+            latest_data = latest
 
         raw_components = None
         smoothed_components = None

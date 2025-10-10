@@ -386,9 +386,24 @@ class TokensRepository:
                 scoring_model=String(),
                 created_at=DateTime(timezone=True),
             ).alias("latest_scores")
-            
+
+            latest_columns = {
+                "latest_id": latest_scores_table.c.id.label("latest_id"),
+                "latest_score": latest_scores_table.c.score.label("latest_score"),
+                "latest_smoothed_score": latest_scores_table.c.smoothed_score.label("latest_smoothed_score"),
+                "latest_liquidity_usd": latest_scores_table.c.liquidity_usd.label("latest_liquidity_usd"),
+                "latest_delta_p_5m": latest_scores_table.c.delta_p_5m.label("latest_delta_p_5m"),
+                "latest_delta_p_15m": latest_scores_table.c.delta_p_15m.label("latest_delta_p_15m"),
+                "latest_n_5m": latest_scores_table.c.n_5m.label("latest_n_5m"),
+                "latest_primary_dex": latest_scores_table.c.primary_dex.label("latest_primary_dex"),
+                "latest_pool_counts": latest_scores_table.c.pool_counts.label("latest_pool_counts"),
+                "latest_fetched_at": latest_scores_table.c.fetched_at.label("latest_fetched_at"),
+                "latest_scoring_model": latest_scores_table.c.scoring_model.label("latest_scoring_model"),
+                "latest_created_at": latest_scores_table.c.created_at.label("latest_created_at"),
+            }
+
             q = (
-                self.db.query(Token, latest_scores_table)
+                self.db.query(Token, *latest_columns.values())
                 .options(noload(Token.scores))
                 .outerjoin(
                     latest_scores_table,
@@ -425,8 +440,16 @@ class TokensRepository:
                 q = q.offset(offset)
             if limit:
                 q = q.limit(limit)
+
+            results: List[Tuple[Token, Optional[Any]]] = []
+            for row in q.all():
+                token = row[0]
+                latest_data = {}
+                for key in latest_columns:
+                    latest_data[key] = getattr(row, key)
+                results.append((token, latest_data))
             
-            return list(q.all())
+            return results
         except ProgrammingError as exc:
             # materialized view отсутствует (например, не применён sql-скрипт) — откатываем и используем безопасный фолбэк
             self.db.rollback()
