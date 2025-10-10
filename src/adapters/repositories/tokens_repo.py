@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 from sqlalchemy.exc import IntegrityError, ProgrammingError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, noload
 
 from src.adapters.db.models import Token
 from src.adapters.db.models import TokenScore
@@ -389,6 +389,7 @@ class TokensRepository:
             
             q = (
                 self.db.query(Token, latest_scores_table)
+                .options(noload(Token.scores))
                 .outerjoin(
                     latest_scores_table,
                     Token.id == latest_scores_table.c.token_id
@@ -462,6 +463,7 @@ class TokensRepository:
 
         q = (
             self.db.query(Token, TokenScore)
+            .options(noload(Token.scores))
             .outerjoin(TokenScore, TokenScore.id == latest_score_id_subq)
         )
 
