@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from src.adapters.db.models import Token
 from src.adapters.db.models import TokenScore
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, Integer, Numeric, DateTime
 from typing import Optional, Tuple, List
 
 
@@ -369,11 +369,11 @@ class TokensRepository:
                 SELECT id, token_id, score, smoothed_score, created_at
                 FROM latest_token_scores
             """).columns(
-                id=TokenScore.id,
-                token_id=TokenScore.token_id,
-                score=TokenScore.score,
-                smoothed_score=TokenScore.smoothed_score,
-                created_at=TokenScore.created_at,
+                id=Integer(),
+                token_id=Integer(),
+                score=Numeric(),
+                smoothed_score=Numeric(),
+                created_at=DateTime(timezone=True),
             ).alias("latest_scores")
             
             # Основной запрос с JOIN к materialized view
@@ -509,9 +509,9 @@ class TokensRepository:
                 SELECT id, token_id, score
                 FROM latest_token_scores
             """).columns(
-                id=TokenScore.id,
-                token_id=TokenScore.token_id,
-                score=TokenScore.score,
+                id=Integer(),
+                token_id=Integer(),
+                score=Numeric(),
             ).alias("latest_scores")
             
             q = (
