@@ -405,16 +405,16 @@ class TokensRepository:
                 else:
                     q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
             
-            # Сортировка
+            score_expr = func.coalesce(TokenScore.smoothed_score, TokenScore.score)
             if sort == "score_asc":
                 q = q.order_by(
-                    func.coalesce(TokenScore.smoothed_score, TokenScore.score).asc().nullsfirst(), 
-                    Token.id.desc()
+                    score_expr.asc(),
+                    Token.id.desc(),
                 )
             else:
                 q = q.order_by(
-                    func.coalesce(TokenScore.smoothed_score, TokenScore.score).desc().nullslast(), 
-                    Token.id.desc()
+                    score_expr.desc(),
+                    Token.id.desc(),
                 )
             
             if offset:
@@ -476,14 +476,15 @@ class TokensRepository:
             else:
                 q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
 
+        score_expr = func.coalesce(TokenScore.smoothed_score, TokenScore.score)
         if sort == "score_asc":
             q = q.order_by(
-                func.coalesce(TokenScore.smoothed_score, TokenScore.score).asc().nullsfirst(),
+                score_expr.asc(),
                 Token.id.desc(),
             )
         else:
             q = q.order_by(
-                func.coalesce(TokenScore.smoothed_score, TokenScore.score).desc().nullslast(),
+                score_expr.desc(),
                 Token.id.desc(),
             )
 
