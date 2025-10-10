@@ -62,7 +62,7 @@ class TokensMeta(BaseModel):
     has_prev: bool
     has_next: bool
     sort: str
-    min_score: float
+    min_score: Optional[float] = None
 
 
 class TokensResponse(BaseModel):
@@ -116,19 +116,17 @@ async def list_tokens(
     db: Session = Depends(get_db),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    min_score: Optional[float] = Query(None),
+    min_score: Optional[float] = Query(None, description="Minimum score filter (optional)"),
     sort: str = Query("score_desc", pattern="^(score_desc|score_asc)$"),
     statuses: Optional[str] = Query(None, description="Comma-separated: active,monitoring,archived"),
     status: Optional[str] = Query(None, description="Single status: active,monitoring,archived"),
 ) -> TokensResponse:
     repo = TokensRepository(db)
     settings = SettingsService(db)
-    if min_score is None:
-        try:
-            min_score = float(settings.get("min_score") or 0.1)
-        except Exception:
-            min_score = 0.1
-
+    # Don't apply min_score filter by default - show all tokens
+    # Users can explicitly pass min_score parameter if they want filtering
+    # Note: min_score is still used for archival and other backend processes
+    
     status_list: Optional[list[str]] = None
     # Handle both 'status' (single) and 'statuses' (comma-separated) parameters
     if status and status.strip() in ("active", "monitoring", "archived"):
@@ -242,7 +240,7 @@ async def list_tokens(
         has_prev=offset > 0,
         has_next=(offset + limit) < total,
         sort=sort,
-        min_score=float(min_score),
+        min_score=float(min_score) if min_score is not None else None,
     )
     return TokensResponse(total=total, items=items, meta=meta)
 
