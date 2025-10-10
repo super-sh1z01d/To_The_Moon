@@ -5,6 +5,7 @@ import { useLanguage } from '@/hooks/useLanguage'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
+  { name: 'API Docs', href: '/api-docs', icon: FileText },
   { name: 'Settings', href: '/settings', icon: Settings },
   { name: 'Logs', href: '/logs', icon: FileText },
 ]

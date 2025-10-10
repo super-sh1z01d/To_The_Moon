@@ -125,6 +125,7 @@ export const translations: Translations = {
     'Showing {from}-{to} of {total}': 'Показаны {from}–{to} из {total}',
     'Logs': 'Логи',
     'Dashboard': 'Дашборд',
+    'API Docs': 'Документация API',
     'Refresh': 'Обновить',
     'Copy mint address': 'Скопировать адрес',
     'Copied!': 'Скопировано!',

@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
 import TokenDetail from './pages/TokenDetail'
 import Logs from './pages/Logs'
+import ApiDocs from './pages/ApiDocs'
 
 export default function App(){
   return (
@@ -20,6 +21,7 @@ export default function App(){
               <Route path="/" element={<Dashboard/>} />
               <Route path="/settings" element={<Settings/>} />
               <Route path="/logs" element={<Logs/>} />
+              <Route path="/api-docs" element={<ApiDocs/>} />
               <Route path="/token/:mint" element={<TokenDetail/>} />
               <Route path="*" element={<div className="text-center py-12">Страница не найдена</div>} />
             </Routes>
