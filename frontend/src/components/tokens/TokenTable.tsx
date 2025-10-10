@@ -40,10 +40,10 @@ function isFresh(dateString: string): boolean {
   return diffHours <= FRESHNESS_THRESHOLD_HOURS
 }
 
-// Aggregate pools by DEX (e.g., "meteora (2), orca (5)")
-function formatDexPools(pools: any[] | undefined): string {
+// Aggregate pools by DEX and return counts
+function getDexCounts(pools: any[] | undefined): Record<string, number> {
   if (!pools || pools.length === 0) {
-    return 'N/A'
+    return {}
   }
   
   const dexCounts: Record<string, number> = {}
@@ -52,9 +52,7 @@ function formatDexPools(pools: any[] | undefined): string {
     dexCounts[dex] = (dexCounts[dex] || 0) + 1
   })
   
-  return Object.entries(dexCounts)
-    .map(([dex, count]) => `${dex} (${count})`)
-    .join(', ')
+  return dexCounts
 }
 
 export function TokenTable({ 
@@ -120,6 +118,7 @@ export function TokenTable({
             {tokens.map((token) => {
               const tokenAge = formatAge(token.created_at || token.fetched_at)
               const tokenIsFresh = isFresh(token.created_at || token.fetched_at)
+              const dexCounts = getDexCounts(token.pools)
               
               return (
                 <TableRow
@@ -161,8 +160,18 @@ export function TokenTable({
                   </TableCell>
                   <TableCell className="text-right">{formatCurrency(token.liquidity_usd)}</TableCell>
                   <TableCell className="text-right">{token.n_5m || 0}</TableCell>
-                  <TableCell className="text-xs">
-                    {formatDexPools(token.pools)}
+                  <TableCell>
+                    {Object.keys(dexCounts).length === 0 ? (
+                      <span className="text-xs text-muted-foreground">N/A</span>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {Object.entries(dexCounts).map(([dex, count]) => (
+                          <Badge key={dex} variant="outline" className="text-xs w-fit">
+                            {dex} <span className="ml-1 opacity-75">({count})</span>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatRelativeTime(token.last_processed_at || token.fetched_at)}
