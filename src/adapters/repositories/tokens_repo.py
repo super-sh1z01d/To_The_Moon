@@ -366,17 +366,14 @@ class TokensRepository:
         try:
             # Используем materialized view для быстрого доступа к последним scores
             latest_scores_table = text("""
-                SELECT * FROM latest_token_scores
+                SELECT id, token_id, score, smoothed_score, created_at
+                FROM latest_token_scores
             """).columns(
                 id=TokenScore.id,
                 token_id=TokenScore.token_id,
                 score=TokenScore.score,
                 smoothed_score=TokenScore.smoothed_score,
-                metrics=TokenScore.metrics,
-                raw_components=TokenScore.raw_components,
-                smoothed_components=TokenScore.smoothed_components,
-                scoring_model=TokenScore.scoring_model,
-                created_at=TokenScore.created_at
+                created_at=TokenScore.created_at,
             ).alias("latest_scores")
             
             # Основной запрос с JOIN к materialized view
@@ -509,11 +506,12 @@ class TokensRepository:
         try:
             # Если min_score задан, используем materialized view
             latest_scores_table = text("""
-                SELECT * FROM latest_token_scores
+                SELECT id, token_id, score
+                FROM latest_token_scores
             """).columns(
                 id=TokenScore.id,
                 token_id=TokenScore.token_id,
-                score=TokenScore.score
+                score=TokenScore.score,
             ).alias("latest_scores")
             
             q = (
