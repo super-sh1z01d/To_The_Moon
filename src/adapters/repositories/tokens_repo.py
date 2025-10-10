@@ -533,7 +533,6 @@ class TokensRepository:
             ).alias("latest_scores")
 
             latest_columns = {
-                "latest_id": latest_scores_table.c.id.label("latest_id"),
                 "latest_score": latest_scores_table.c.score.label("latest_score"),
                 "latest_smoothed_score": latest_scores_table.c.smoothed_score.label("latest_smoothed_score"),
                 "latest_liquidity_usd": latest_scores_table.c.liquidity_usd.label("latest_liquidity_usd"),
@@ -680,7 +679,6 @@ class TokensRepository:
                 if counts:
                     pool_counts = counts
             latest_dict = {
-                "latest_id": score_row.id,
                 "latest_score": score_row.score,
                 "latest_smoothed_score": score_row.smoothed_score,
                 "latest_liquidity_usd": metrics.get("L_tot"),
