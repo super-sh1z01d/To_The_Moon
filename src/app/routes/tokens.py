@@ -145,20 +145,20 @@ async def list_tokens(
         # Быстрый доступ к metrics без лишних проверок
         metrics = snap.metrics if snap else {}
         
-        # Упрощенная обработка components - используем model_validate для скорости
+        # Упрощенная обработка components — используем model_construct во избежание валидации
         raw_components = None
         if snap and snap.raw_components and isinstance(snap.raw_components, dict):
             try:
-                raw_components = ComponentBreakdown.model_validate(snap.raw_components)
+                raw_components = ComponentBreakdown.model_construct(**snap.raw_components)
             except Exception:
-                pass
+                raw_components = None
         
         smoothed_components = None
         if snap and snap.smoothed_components and isinstance(snap.smoothed_components, dict):
             try:
-                smoothed_components = ComponentBreakdown.model_validate(snap.smoothed_components)
+                smoothed_components = ComponentBreakdown.model_construct(**snap.smoothed_components)
             except Exception:
-                pass
+                smoothed_components = None
 
         # Упрощенная обработка pools - только если есть данные
         pools = None
@@ -167,7 +167,7 @@ async def list_tokens(
             if pools_data and isinstance(pools_data, list):
                 try:
                     pools = [
-                        PoolItem(
+                        PoolItem.model_construct(
                             address=p.get("address"),
                             dex=p.get("dex"),
                             quote=p.get("quote"),
@@ -176,7 +176,7 @@ async def list_tokens(
                         for p in pools_data
                     ]
                 except Exception:
-                    pass
+                    pools = None
 
         # Оптимизированное создание TokenItem - минимум условий
         score_value = None
@@ -184,19 +184,19 @@ async def list_tokens(
             score_value = float(snap.smoothed_score) if snap.smoothed_score is not None else (float(snap.score) if snap.score is not None else None)
         
         items.append(
-            TokenItem(
+            TokenItem.model_construct(
                 mint_address=token.mint_address,
                 name=token.name,
                 symbol=token.symbol,
                 status=token.status,
                 score=score_value,
-                liquidity_usd=float(metrics["L_tot"]) if metrics.get("L_tot") is not None else None,
-                delta_p_5m=float(metrics["delta_p_5m"]) if metrics.get("delta_p_5m") is not None else None,
-                delta_p_15m=float(metrics["delta_p_15m"]) if metrics.get("delta_p_15m") is not None else None,
-                n_5m=int(metrics["n_5m"]) if metrics.get("n_5m") is not None else None,
-                primary_dex=metrics.get("primary_dex"),
+                liquidity_usd=float(metrics["L_tot"]) if metrics and metrics.get("L_tot") is not None else None,
+                delta_p_5m=float(metrics["delta_p_5m"]) if metrics and metrics.get("delta_p_5m") is not None else None,
+                delta_p_15m=float(metrics["delta_p_15m"]) if metrics and metrics.get("delta_p_15m") is not None else None,
+                n_5m=int(metrics["n_5m"]) if metrics and metrics.get("n_5m") is not None else None,
+                primary_dex=metrics.get("primary_dex") if isinstance(metrics, dict) else None,
                 pools=pools,
-                fetched_at=metrics.get("fetched_at"),
+                fetched_at=metrics.get("fetched_at") if isinstance(metrics, dict) else None,
                 scored_at=snap.created_at.replace(tzinfo=timezone.utc).isoformat() if snap and snap.created_at else None,
                 last_processed_at=token.last_updated_at.replace(tzinfo=timezone.utc).isoformat() if token.last_updated_at else None,
                 solscan_url=f"https://solscan.io/token/{token.mint_address}",
