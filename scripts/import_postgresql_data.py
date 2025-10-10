@@ -12,7 +12,7 @@ from datetime import datetime
 
 # Configuration
 IMPORT_DIR = "/srv/tothemoon/migration_data"
-DATABASE_URL = "postgresql://tothemoon:PASSWORD@localhost:5432/tothemoon_prod"
+DATABASE_URL = "postgresql://tothemoon:ToTheMoon2025Secure@localhost:5432/tothemoon_prod"
 
 def connect_postgresql():
     """Connect to PostgreSQL database."""

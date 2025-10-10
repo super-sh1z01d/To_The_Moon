@@ -1,12 +1,12 @@
 # PostgreSQL Migration Implementation Plan
 
 - [-] 1. Preparation and Environment Setup
-- [ ] 1.1 Install PostgreSQL 14+ on server
+- [x] 1.1 Install PostgreSQL 14+ on server
   - Install postgresql, postgresql-contrib packages
   - Start and enable PostgreSQL service
   - _Requirements: 1.1, 1.2, 1.3, 1.5_
 
-- [ ] 1.2 Create database and user
+- [x] 1.2 Create database and user
   - Create database tothemoon_prod
   - Create user with password
   - Grant all privileges
@@ -23,7 +23,7 @@
   - Install on server
   - _Requirements: 5.1_
 
-- [ ] 1.5 Backup current SQLite database
+- [x] 1.5 Backup current SQLite database
   - Create /srv/tothemoon/backups/ directory
   - Copy dev.db to backup with timestamp
   - Verify backup integrity

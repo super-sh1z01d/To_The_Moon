@@ -10,7 +10,7 @@ from pathlib import Path
 
 # Configuration
 SQLITE_DB = "/srv/tothemoon/dev.db"
-DATABASE_URL = "postgresql://tothemoon:PASSWORD@localhost:5432/tothemoon_prod"
+DATABASE_URL = "postgresql://tothemoon:ToTheMoon2025Secure@localhost:5432/tothemoon_prod"
 
 def connect_databases():
     """Connect to both databases."""
