@@ -445,21 +445,18 @@ class TokensRepository:
         offset: int = 0,
         sort: str = "score_desc",
     ) -> List[Tuple[Token, Optional[TokenScore]]]:
-        # Фолбэк без materialized view: определяем последние снапшоты через агрегаты
-        latest_score_ids = (
-            self.db.query(
-                TokenScore.token_id.label("token_id"),
-                func.max(TokenScore.created_at).label("max_created_at"),
-                func.max(TokenScore.id).label("max_id"),
-            )
-            .group_by(TokenScore.token_id)
-            .subquery()
+        latest_score_id_subq = (
+            select(TokenScore.id)
+            .where(TokenScore.token_id == Token.id)
+            .order_by(TokenScore.created_at.desc(), TokenScore.id.desc())
+            .limit(1)
+            .correlate(Token)
+            .scalar_subquery()
         )
 
         q = (
             self.db.query(Token, TokenScore)
-            .outerjoin(latest_score_ids, Token.id == latest_score_ids.c.token_id)
-            .outerjoin(TokenScore, TokenScore.id == latest_score_ids.c.max_id)
+            .outerjoin(TokenScore, TokenScore.id == latest_score_id_subq)
         )
 
         if statuses is None:
@@ -556,19 +553,18 @@ class TokensRepository:
         statuses: Optional[List[str]] = None,
         min_score: Optional[float] = None,
     ) -> int:
-        latest_score_ids = (
-            self.db.query(
-                TokenScore.token_id.label("token_id"),
-                func.max(TokenScore.id).label("max_id"),
-            )
-            .group_by(TokenScore.token_id)
-            .subquery()
+        latest_score_id_subq = (
+            select(TokenScore.id)
+            .where(TokenScore.token_id == Token.id)
+            .order_by(TokenScore.created_at.desc(), TokenScore.id.desc())
+            .limit(1)
+            .correlate(Token)
+            .scalar_subquery()
         )
 
         q = (
             self.db.query(func.count(Token.id))
-            .outerjoin(latest_score_ids, Token.id == latest_score_ids.c.token_id)
-            .outerjoin(TokenScore, TokenScore.id == latest_score_ids.c.max_id)
+            .outerjoin(TokenScore, TokenScore.id == latest_score_id_subq)
         )
 
         if statuses is None:
