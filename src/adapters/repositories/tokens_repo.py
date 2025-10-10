@@ -363,29 +363,36 @@ class TokensRepository:
         offset: int = 0,
         sort: str = "score_desc",
     ) -> List[Tuple[Token, Optional[TokenScore]]]:
-        # Подзапрос на последний снапшот per token
-        subq = (
-            self.db.query(
-                TokenScore.token_id.label("token_id"), func.max(TokenScore.created_at).label("max_created_at")
-            )
-            .group_by(TokenScore.token_id)
+        # Оптимизированный запрос с LATERAL JOIN для получения последнего score
+        from sqlalchemy import literal
+        
+        # Подзапрос для получения последнего score для каждого токена
+        latest_score_subq = (
+            self.db.query(TokenScore)
+            .filter(TokenScore.token_id == Token.id)
+            .order_by(TokenScore.created_at.desc())
+            .limit(1)
+            .correlate(Token)
             .subquery()
+            .lateral("latest_score")
         )
-        # Соединяем с последними снапшотами
+        
+        # Основной запрос
         q = (
             self.db.query(Token, TokenScore)
-            .join(subq, subq.c.token_id == Token.id, isouter=True)
-            .join(
+            .outerjoin(latest_score_subq, literal(True))
+            .outerjoin(
                 TokenScore,
-                (TokenScore.token_id == subq.c.token_id) & (TokenScore.created_at == subq.c.max_created_at),
-                isouter=True,
+                (TokenScore.id == latest_score_subq.c.id)
             )
         )
+        
         # По умолчанию скрываем archived. Если явный фильтр статусов задан — используем его как есть
         if statuses is None:
             q = q.filter(Token.status != "archived")
         else:
             q = q.filter(Token.status.in_(statuses))
+        
         # min_score применяется только к токенам в мониторинге, активные показываем всегда
         if min_score is not None:
             # Если запрашиваются только активные токены - не применяем фильтр по скору
@@ -394,6 +401,7 @@ class TokensRepository:
             else:
                 # Для смешанных запросов или токенов в мониторинге применяем фильтр
                 q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
+        
         # Сортировка: приоритет smoothed_score с fallback на score (как в отображении)
         if sort == "score_asc":
             q = q.order_by(
@@ -405,42 +413,59 @@ class TokensRepository:
                 func.coalesce(TokenScore.smoothed_score, TokenScore.score).desc().nullslast(), 
                 Token.id.desc()
             )
+        
         if offset:
             q = q.offset(offset)
         if limit:
             q = q.limit(limit)
+        
         return list(q.all())
 
     def count_non_archived_with_latest_scores(self, statuses: Optional[List[str]] = None, min_score: Optional[float] = None) -> int:
-        # Подзапрос на последний снапшот per token
-        subq = (
-            self.db.query(
-                TokenScore.token_id.label("token_id"), func.max(TokenScore.created_at).label("max_created_at")
-            )
-            .group_by(TokenScore.token_id)
+        # Оптимизированный count без сложных JOIN если min_score не задан
+        if min_score is None:
+            # Простой count по статусу без JOIN
+            q = self.db.query(func.count(Token.id))
+            if statuses is None:
+                q = q.filter(Token.status != "archived")
+            else:
+                q = q.filter(Token.status.in_(statuses))
+            return int(q.scalar() or 0)
+        
+        # Если min_score задан, нужен JOIN с scores
+        from sqlalchemy import literal
+        
+        latest_score_subq = (
+            self.db.query(TokenScore)
+            .filter(TokenScore.token_id == Token.id)
+            .order_by(TokenScore.created_at.desc())
+            .limit(1)
+            .correlate(Token)
             .subquery()
+            .lateral("latest_score")
         )
+        
         q = (
             self.db.query(func.count(Token.id))
-            .join(subq, subq.c.token_id == Token.id, isouter=True)
-            .join(
+            .outerjoin(latest_score_subq, literal(True))
+            .outerjoin(
                 TokenScore,
-                (TokenScore.token_id == subq.c.token_id) & (TokenScore.created_at == subq.c.max_created_at),
-                isouter=True,
+                (TokenScore.id == latest_score_subq.c.id)
             )
         )
+        
         if statuses is None:
             q = q.filter(Token.status != "archived")
         else:
             q = q.filter(Token.status.in_(statuses))
+        
         # min_score применяется только к токенам в мониторинге, активные показываем всегда
-        if min_score is not None:
-            # Если запрашиваются только активные токены - не применяем фильтр по скору
-            if statuses and len(statuses) == 1 and statuses[0] == "active":
-                pass  # Не фильтруем активные токены по скору
-            else:
-                # Для смешанных запросов или токенов в мониторинге применяем фильтр
-                q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
+        if statuses and len(statuses) == 1 and statuses[0] == "active":
+            pass  # Не фильтруем активные токены по скору
+        else:
+            # Для смешанных запросов или токенов в мониторинге применяем фильтр
+            q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
+        
         return int(q.scalar() or 0)
 
     def get_score_history(self, token_id: int, limit: int = 20) -> List[TokenScore]:
