@@ -506,15 +506,16 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         max_instances=1
     )
     
+    # TODO: Re-enable after PostgreSQL migration adds spam_metrics column
     # Спам-мониторинг каждые 5 секунд для топовых токенов
     # Использует параллельную обработку для быстрого анализа
-    from src.scheduler.tasks import run_spam_monitor
-    scheduler.add_job(
-        run_spam_monitor, 
-        IntervalTrigger(seconds=5), 
-        id="spam_monitor", 
-        max_instances=1
-    )
+    # from src.scheduler.tasks import run_spam_monitor
+    # scheduler.add_job(
+    #     run_spam_monitor, 
+    #     IntervalTrigger(seconds=5), 
+    #     id="spam_monitor", 
+    #     max_instances=1
+    # )
     
     scheduler.start()
     
