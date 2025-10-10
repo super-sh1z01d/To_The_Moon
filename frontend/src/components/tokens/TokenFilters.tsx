@@ -11,10 +11,9 @@ interface TokenFiltersProps {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'All Tokens' },
-  { value: 'active', label: 'Active' },
-  { value: 'monitoring', label: 'Monitoring' },
-  { value: 'archived', label: 'Archived' },
+  { value: 'active', label: 'Активные', color: 'bg-green-500 hover:bg-green-600' },
+  { value: 'monitoring', label: 'Мониторинг', color: 'bg-yellow-500 hover:bg-yellow-600' },
+  { value: 'archived', label: 'Архивные', color: 'bg-gray-500 hover:bg-gray-600' },
 ] as const
 
 export function TokenFilters({ filters, onFilterChange }: TokenFiltersProps) {
@@ -37,9 +36,7 @@ export function TokenFilters({ filters, onFilterChange }: TokenFiltersProps) {
       {/* Status Filter Buttons */}
       <div className="flex flex-wrap gap-2">
         {STATUS_OPTIONS.map((option) => {
-          const isActive =
-            (option.value === 'all' && !filters.status) ||
-            filters.status === option.value
+          const isActive = filters.status === option.value
 
           return (
             <Button
@@ -47,6 +44,7 @@ export function TokenFilters({ filters, onFilterChange }: TokenFiltersProps) {
               variant={isActive ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleStatusChange(option.value)}
+              className={isActive ? option.color : ''}
             >
               {option.label}
             </Button>

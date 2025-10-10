@@ -8,8 +8,13 @@ async function fetchTokens(filters: TokenFilters = {}): Promise<TokensResponse> 
   if (filters.status) params.append('status', filters.status)
   if (filters.minScore !== undefined) params.append('min_score', filters.minScore.toString())
   if (filters.search) params.append('search', filters.search)
-  if (filters.page) params.append('page', filters.page.toString())
   if (filters.limit) params.append('limit', filters.limit.toString())
+  
+  // Convert page to offset
+  if (filters.page && filters.limit) {
+    const offset = (filters.page - 1) * filters.limit
+    params.append('offset', offset.toString())
+  }
   
   const url = `${API_BASE_URL}/tokens${params.toString() ? `?${params}` : ''}`
   const response = await fetch(url)

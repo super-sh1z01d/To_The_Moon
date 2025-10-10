@@ -59,21 +59,20 @@ export function TokenTable({
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="w-[120px] text-right">Liquidity</TableHead>
-              <TableHead className="w-[100px] text-right">5m Δ</TableHead>
-              <TableHead className="w-[100px] text-right">15m Δ</TableHead>
-              <TableHead className="w-[80px] text-right">TX 5m</TableHead>
-              <TableHead className="w-[100px]">DEX</TableHead>
               <TableHead className="w-[100px]">Status</TableHead>
-              <TableHead className="w-[120px]">Age</TableHead>
+              <TableHead className="w-[120px] text-right">Liquidity</TableHead>
+              <TableHead className="w-[80px] text-right">TX 5m</TableHead>
+              <TableHead className="w-[120px]">DEXs</TableHead>
+              <TableHead className="w-[140px]">Last Update</TableHead>
+              <TableHead className="w-[80px]">Solscan</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {tokens.map((token) => (
               <TableRow
                 key={token.mint_address}
-                onClick={() => handleRowClick(token.mint_address)}
                 className="cursor-pointer hover:bg-muted/50"
+                onClick={() => handleRowClick(token.mint_address)}
               >
                 <TableCell className="font-medium">
                   <div>
@@ -88,29 +87,41 @@ export function TokenTable({
                     {token.score.toFixed(2)}
                   </span>
                 </TableCell>
-                <TableCell className="text-right">{formatCurrency(token.liquidity_usd)}</TableCell>
-                <TableCell className={`text-right font-medium ${token.delta_p_5m >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {formatPercentage(token.delta_p_5m)}
-                </TableCell>
-                <TableCell className={`text-right font-medium ${token.delta_p_15m >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {formatPercentage(token.delta_p_15m)}
-                </TableCell>
-                <TableCell className="text-right">{token.n_5m}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="text-xs">
-                    {token.primary_dex}
-                  </Badge>
-                </TableCell>
                 <TableCell>
                   <Badge 
-                    variant={token.status === 'active' ? 'default' : token.status === 'monitoring' ? 'secondary' : 'outline'}
-                    className="text-xs"
+                    variant="outline" 
+                    className={`text-xs ${
+                      token.status === 'active' 
+                        ? 'border-green-500 text-green-600 dark:text-green-400' 
+                        : token.status === 'monitoring'
+                        ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400'
+                        : 'border-gray-500 text-gray-600 dark:text-gray-400'
+                    }`}
                   >
-                    {token.status}
+                    {token.status === 'active' ? 'Активный' : token.status === 'monitoring' ? 'Мониторинг' : 'Архивный'}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">{formatCurrency(token.liquidity_usd)}</TableCell>
+                <TableCell className="text-right">{token.n_5m || 0}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="text-xs">
+                    {token.primary_dex || 'N/A'}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {formatRelativeTime(token.created_at || token.fetched_at)}
+                  {formatRelativeTime(token.last_processed_at || token.fetched_at)}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.open(`https://solscan.io/token/${token.mint_address}`, '_blank')
+                    }}
+                  >
+                    View
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
