@@ -271,7 +271,8 @@ class TokensRepository:
             liquidity_usd = _as_float(metrics.get("L_tot"))
             delta_p_5m = _as_float(metrics.get("delta_p_5m"))
             delta_p_15m = _as_float(metrics.get("delta_p_15m"))
-            n_5m = _as_float(metrics.get("n_5m"))
+            tx_count_5m = metrics.get("tx_count_5m")
+            n_5m = _as_float(tx_count_5m if tx_count_5m is not None else metrics.get("n_5m"))
             primary_dex = metrics.get("primary_dex")
             fetched_at_raw = metrics.get("fetched_at")
             fetched_at = None
