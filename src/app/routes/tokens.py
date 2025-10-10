@@ -139,93 +139,72 @@ async def list_tokens(
     rows = repo.list_non_archived_with_latest_scores(statuses=status_list, min_score=min_score, limit=limit, offset=offset, sort=sort)
     total = repo.count_non_archived_with_latest_scores(statuses=status_list, min_score=min_score)
     items: list[TokenItem] = []
+    
+    # Оптимизированная обработка - минимум операций
     for token, snap in rows:
-        metrics = snap.metrics if (snap and snap.metrics) else {}
-        # Extract component data if available
-        raw_components = None
-        smoothed_components = None
-        if snap and snap.raw_components:
-            try:
-                raw_data = snap.raw_components if isinstance(snap.raw_components, dict) else {}
-                raw_components = ComponentBreakdown(
-                    tx_accel=float(raw_data.get("tx_accel", 0)),
-                    vol_momentum=float(raw_data.get("vol_momentum", 0)),
-                    token_freshness=float(raw_data.get("token_freshness", 0)),
-                    orderflow_imbalance=float(raw_data.get("orderflow_imbalance", 0))
-                )
-            except (ValueError, TypeError):
-                raw_components = None
+        # Быстрый доступ к metrics без лишних проверок
+        metrics = snap.metrics if snap else {}
         
-        if snap and snap.smoothed_components:
+        # Упрощенная обработка components - используем model_validate для скорости
+        raw_components = None
+        if snap and snap.raw_components and isinstance(snap.raw_components, dict):
             try:
-                smoothed_data = snap.smoothed_components if isinstance(snap.smoothed_components, dict) else {}
-                smoothed_components = ComponentBreakdown(
-                    tx_accel=float(smoothed_data.get("tx_accel", 0)),
-                    vol_momentum=float(smoothed_data.get("vol_momentum", 0)),
-                    token_freshness=float(smoothed_data.get("token_freshness", 0)),
-                    orderflow_imbalance=float(smoothed_data.get("orderflow_imbalance", 0))
-                )
-            except (ValueError, TypeError):
-                smoothed_components = None
+                raw_components = ComponentBreakdown.model_validate(snap.raw_components)
+            except Exception:
+                pass
+        
+        smoothed_components = None
+        if snap and snap.smoothed_components and isinstance(snap.smoothed_components, dict):
+            try:
+                smoothed_components = ComponentBreakdown.model_validate(snap.smoothed_components)
+            except Exception:
+                pass
 
-        # Extract spam metrics if available
-        # TODO: Re-enable spam_metrics after PostgreSQL migration adds spam_metrics column
-        spam_metrics = None
-        # if snap and snap.spam_metrics:
-        #     try:
-        #         spam_data = snap.spam_metrics if isinstance(snap.spam_metrics, dict) else {}
-        #         spam_metrics = SpamMetrics(
-        #             spam_percentage=float(spam_data.get("spam_percentage", 0)),
-        #             risk_level=str(spam_data.get("risk_level", "unknown")),
-        #             total_instructions=int(spam_data.get("total_instructions", 0)),
-        #             compute_budget_count=int(spam_data.get("compute_budget_count", 0)),
-        #             analyzed_at=str(spam_data.get("analyzed_at")) if spam_data.get("analyzed_at") else None
-        #         )
-        #     except (ValueError, TypeError, KeyError):
-        #         spam_metrics = None
-
-        # Extract pools data
+        # Упрощенная обработка pools - только если есть данные
         pools = None
-        if metrics and metrics.get("pools"):
-            try:
-                pools_data = metrics.get("pools", [])
-                if isinstance(pools_data, list):
+        if metrics:
+            pools_data = metrics.get("pools")
+            if pools_data and isinstance(pools_data, list):
+                try:
                     pools = [
                         PoolItem(
-                            address=pool.get("address"),
-                            dex=pool.get("dex"),
-                            quote=pool.get("quote"),
-                            solscan_url=f"https://solscan.io/account/{pool.get('address')}" if pool.get("address") else None
+                            address=p.get("address"),
+                            dex=p.get("dex"),
+                            quote=p.get("quote"),
+                            solscan_url=f"https://solscan.io/account/{p['address']}" if p.get("address") else None
                         )
-                        for pool in pools_data
+                        for p in pools_data
                     ]
-            except (ValueError, TypeError, KeyError):
-                pools = None
+                except Exception:
+                    pass
 
+        # Оптимизированное создание TokenItem - минимум условий
+        score_value = None
+        if snap:
+            score_value = float(snap.smoothed_score) if snap.smoothed_score is not None else (float(snap.score) if snap.score is not None else None)
+        
         items.append(
             TokenItem(
                 mint_address=token.mint_address,
                 name=token.name,
                 symbol=token.symbol,
                 status=token.status,
-                score=float(snap.smoothed_score) if (snap and snap.smoothed_score is not None) else (float(snap.score) if (snap and snap.score is not None) else None),
-                liquidity_usd=(float(metrics.get("L_tot")) if metrics and metrics.get("L_tot") is not None else None),
-                delta_p_5m=(float(metrics.get("delta_p_5m")) if metrics and metrics.get("delta_p_5m") is not None else None),
-                delta_p_15m=(
-                    float(metrics.get("delta_p_15m")) if metrics and metrics.get("delta_p_15m") is not None else None
-                ),
-                n_5m=(int(metrics.get("n_5m")) if metrics and metrics.get("n_5m") is not None else None),
-                primary_dex=(str(metrics.get("primary_dex")) if metrics and metrics.get("primary_dex") else None),
+                score=score_value,
+                liquidity_usd=float(metrics["L_tot"]) if metrics.get("L_tot") is not None else None,
+                delta_p_5m=float(metrics["delta_p_5m"]) if metrics.get("delta_p_5m") is not None else None,
+                delta_p_15m=float(metrics["delta_p_15m"]) if metrics.get("delta_p_15m") is not None else None,
+                n_5m=int(metrics["n_5m"]) if metrics.get("n_5m") is not None else None,
+                primary_dex=metrics.get("primary_dex"),
                 pools=pools,
-                fetched_at=(str(metrics.get("fetched_at")) if metrics and metrics.get("fetched_at") else None),
-                scored_at=(snap.created_at.replace(tzinfo=timezone.utc).isoformat() if snap and snap.created_at else None),
-                last_processed_at=(token.last_updated_at.replace(tzinfo=timezone.utc).isoformat() if token.last_updated_at else None),
+                fetched_at=metrics.get("fetched_at"),
+                scored_at=snap.created_at.replace(tzinfo=timezone.utc).isoformat() if snap and snap.created_at else None,
+                last_processed_at=token.last_updated_at.replace(tzinfo=timezone.utc).isoformat() if token.last_updated_at else None,
                 solscan_url=f"https://solscan.io/token/{token.mint_address}",
                 raw_components=raw_components,
                 smoothed_components=smoothed_components,
                 scoring_model=snap.scoring_model if snap else None,
                 created_at=token.created_at.replace(tzinfo=timezone.utc).isoformat() if token.created_at else None,
-                spam_metrics=spam_metrics,
+                spam_metrics=None,
             )
         )
 
