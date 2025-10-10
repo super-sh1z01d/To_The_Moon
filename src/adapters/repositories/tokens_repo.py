@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import Optional
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from src.adapters.db.models import Token
@@ -363,64 +363,135 @@ class TokensRepository:
         offset: int = 0,
         sort: str = "score_desc",
     ) -> List[Tuple[Token, Optional[TokenScore]]]:
-        # Используем materialized view для быстрого доступа к последним scores
-        latest_scores_table = text("""
-            SELECT * FROM latest_token_scores
-        """).columns(
-            id=TokenScore.id,
-            token_id=TokenScore.token_id,
-            score=TokenScore.score,
-            smoothed_score=TokenScore.smoothed_score,
-            metrics=TokenScore.metrics,
-            raw_components=TokenScore.raw_components,
-            smoothed_components=TokenScore.smoothed_components,
-            scoring_model=TokenScore.scoring_model,
-            created_at=TokenScore.created_at
-        ).alias("latest_scores")
-        
-        # Основной запрос с JOIN к materialized view
+        try:
+            # Используем materialized view для быстрого доступа к последним scores
+            latest_scores_table = text("""
+                SELECT * FROM latest_token_scores
+            """).columns(
+                id=TokenScore.id,
+                token_id=TokenScore.token_id,
+                score=TokenScore.score,
+                smoothed_score=TokenScore.smoothed_score,
+                metrics=TokenScore.metrics,
+                raw_components=TokenScore.raw_components,
+                smoothed_components=TokenScore.smoothed_components,
+                scoring_model=TokenScore.scoring_model,
+                created_at=TokenScore.created_at
+            ).alias("latest_scores")
+            
+            # Основной запрос с JOIN к materialized view
+            q = (
+                self.db.query(Token, TokenScore)
+                .outerjoin(
+                    latest_scores_table,
+                    Token.id == latest_scores_table.c.token_id
+                )
+                .outerjoin(
+                    TokenScore,
+                    TokenScore.id == latest_scores_table.c.id
+                )
+            )
+            
+            # По умолчанию скрываем archived
+            if statuses is None:
+                q = q.filter(Token.status != "archived")
+            else:
+                q = q.filter(Token.status.in_(statuses))
+            
+            # min_score применяется только к токенам в мониторинге, активные показываем всегда
+            if min_score is not None:
+                if statuses and len(statuses) == 1 and statuses[0] == "active":
+                    pass  # Не фильтруем активные токены по скору
+                else:
+                    q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
+            
+            # Сортировка
+            if sort == "score_asc":
+                q = q.order_by(
+                    func.coalesce(TokenScore.smoothed_score, TokenScore.score).asc().nullsfirst(), 
+                    Token.id.desc()
+                )
+            else:
+                q = q.order_by(
+                    func.coalesce(TokenScore.smoothed_score, TokenScore.score).desc().nullslast(), 
+                    Token.id.desc()
+                )
+            
+            if offset:
+                q = q.offset(offset)
+            if limit:
+                q = q.limit(limit)
+            
+            return list(q.all())
+        except ProgrammingError as exc:
+            # materialized view отсутствует (например, не применён sql-скрипт) — откатываем и используем безопасный фолбэк
+            self.db.rollback()
+            if "latest_token_scores" not in str(exc.orig).lower():  # type: ignore[attr-defined]
+                raise
+            self._log.warning(
+                "latest_token_scores_view_missing_fallback",
+                exc_info=exc,
+            )
+            return self._list_non_archived_with_latest_scores_fallback(
+                statuses=statuses,
+                min_score=min_score,
+                limit=limit,
+                offset=offset,
+                sort=sort,
+            )
+
+    def _list_non_archived_with_latest_scores_fallback(
+        self,
+        statuses: Optional[List[str]] = None,
+        min_score: Optional[float] = None,
+        limit: int = 50,
+        offset: int = 0,
+        sort: str = "score_desc",
+    ) -> List[Tuple[Token, Optional[TokenScore]]]:
+        # Фолбэк без materialized view: определяем последние снапшоты через агрегаты
+        latest_score_ids = (
+            self.db.query(
+                TokenScore.token_id.label("token_id"),
+                func.max(TokenScore.created_at).label("max_created_at"),
+                func.max(TokenScore.id).label("max_id"),
+            )
+            .group_by(TokenScore.token_id)
+            .subquery()
+        )
+
         q = (
             self.db.query(Token, TokenScore)
-            .outerjoin(
-                latest_scores_table,
-                Token.id == latest_scores_table.c.token_id
-            )
-            .outerjoin(
-                TokenScore,
-                TokenScore.id == latest_scores_table.c.id
-            )
+            .outerjoin(latest_score_ids, Token.id == latest_score_ids.c.token_id)
+            .outerjoin(TokenScore, TokenScore.id == latest_score_ids.c.max_id)
         )
-        
-        # По умолчанию скрываем archived
+
         if statuses is None:
             q = q.filter(Token.status != "archived")
         else:
             q = q.filter(Token.status.in_(statuses))
-        
-        # min_score применяется только к токенам в мониторинге, активные показываем всегда
+
         if min_score is not None:
             if statuses and len(statuses) == 1 and statuses[0] == "active":
-                pass  # Не фильтруем активные токены по скору
+                pass
             else:
                 q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
-        
-        # Сортировка
+
         if sort == "score_asc":
             q = q.order_by(
-                func.coalesce(TokenScore.smoothed_score, TokenScore.score).asc().nullsfirst(), 
-                Token.id.desc()
+                func.coalesce(TokenScore.smoothed_score, TokenScore.score).asc().nullsfirst(),
+                Token.id.desc(),
             )
         else:
             q = q.order_by(
-                func.coalesce(TokenScore.smoothed_score, TokenScore.score).desc().nullslast(), 
-                Token.id.desc()
+                func.coalesce(TokenScore.smoothed_score, TokenScore.score).desc().nullslast(),
+                Token.id.desc(),
             )
-        
+
         if offset:
             q = q.offset(offset)
         if limit:
             q = q.limit(limit)
-        
+
         return list(q.all())
 
     def count_non_archived_with_latest_scores(self, statuses: Optional[List[str]] = None, min_score: Optional[float] = None) -> int:
@@ -433,39 +504,84 @@ class TokensRepository:
             else:
                 q = q.filter(Token.status.in_(statuses))
             return int(q.scalar() or 0)
-        
-        # Если min_score задан, используем materialized view
-        latest_scores_table = text("""
-            SELECT * FROM latest_token_scores
-        """).columns(
-            id=TokenScore.id,
-            token_id=TokenScore.token_id,
-            score=TokenScore.score
-        ).alias("latest_scores")
-        
+
+        try:
+            # Если min_score задан, используем materialized view
+            latest_scores_table = text("""
+                SELECT * FROM latest_token_scores
+            """).columns(
+                id=TokenScore.id,
+                token_id=TokenScore.token_id,
+                score=TokenScore.score
+            ).alias("latest_scores")
+            
+            q = (
+                self.db.query(func.count(Token.id))
+                .outerjoin(
+                    latest_scores_table,
+                    Token.id == latest_scores_table.c.token_id
+                )
+                .outerjoin(
+                    TokenScore,
+                    TokenScore.id == latest_scores_table.c.id
+                )
+            )
+            
+            if statuses is None:
+                q = q.filter(Token.status != "archived")
+            else:
+                q = q.filter(Token.status.in_(statuses))
+            
+            # min_score применяется только к токенам в мониторинге, активные показываем всегда
+            if statuses and len(statuses) == 1 and statuses[0] == "active":
+                pass  # Не фильтруем активные токены по скору
+            else:
+                q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
+            
+            return int(q.scalar() or 0)
+        except ProgrammingError as exc:
+            self.db.rollback()
+            if "latest_token_scores" not in str(exc.orig).lower():  # type: ignore[attr-defined]
+                raise
+            self._log.warning(
+                "latest_token_scores_view_missing_fallback_count",
+                exc_info=exc,
+            )
+            return self._count_non_archived_with_latest_scores_fallback(
+                statuses=statuses,
+                min_score=min_score,
+            )
+
+    def _count_non_archived_with_latest_scores_fallback(
+        self,
+        statuses: Optional[List[str]] = None,
+        min_score: Optional[float] = None,
+    ) -> int:
+        latest_score_ids = (
+            self.db.query(
+                TokenScore.token_id.label("token_id"),
+                func.max(TokenScore.id).label("max_id"),
+            )
+            .group_by(TokenScore.token_id)
+            .subquery()
+        )
+
         q = (
             self.db.query(func.count(Token.id))
-            .outerjoin(
-                latest_scores_table,
-                Token.id == latest_scores_table.c.token_id
-            )
-            .outerjoin(
-                TokenScore,
-                TokenScore.id == latest_scores_table.c.id
-            )
+            .outerjoin(latest_score_ids, Token.id == latest_score_ids.c.token_id)
+            .outerjoin(TokenScore, TokenScore.id == latest_score_ids.c.max_id)
         )
-        
+
         if statuses is None:
             q = q.filter(Token.status != "archived")
         else:
             q = q.filter(Token.status.in_(statuses))
-        
-        # min_score применяется только к токенам в мониторинге, активные показываем всегда
+
         if statuses and len(statuses) == 1 and statuses[0] == "active":
-            pass  # Не фильтруем активные токены по скору
+            pass
         else:
             q = q.filter(((Token.status == "active") | (TokenScore.score >= min_score)))
-        
+
         return int(q.scalar() or 0)
 
     def get_score_history(self, token_id: int, limit: int = 20) -> List[TokenScore]:
