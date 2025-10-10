@@ -61,10 +61,10 @@ class TokenScore(Base):
     smoothed_score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True, index=True)
     
     # Use JSONB for PostgreSQL (falls back to JSON for SQLite)
-    metrics: Mapped[Optional[dict]] = mapped_column(JSONB.with_variant(JSON, "sqlite"), nullable=True)
-    raw_components: Mapped[Optional[dict]] = mapped_column(JSONB.with_variant(JSON, "sqlite"), nullable=True)
-    smoothed_components: Mapped[Optional[dict]] = mapped_column(JSONB.with_variant(JSON, "sqlite"), nullable=True)
-    spam_metrics: Mapped[Optional[dict]] = mapped_column(JSONB.with_variant(JSON, "sqlite"), nullable=True)
+    metrics: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    raw_components: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    smoothed_components: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    spam_metrics: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
     
     scoring_model: Mapped[str] = mapped_column(String(50), default="hybrid_momentum", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False, index=True)
