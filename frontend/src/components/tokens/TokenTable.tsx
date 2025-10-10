@@ -14,6 +14,32 @@ interface TokenTableProps {
   sortDirection?: 'asc' | 'desc'
 }
 
+const FRESHNESS_THRESHOLD_HOURS = 6
+
+// Format age in compact format (minutes/hours)
+function formatAge(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  
+  if (diffMins < 60) {
+    return `${diffMins}m`
+  }
+  
+  const diffHours = Math.floor(diffMins / 60)
+  return `${diffHours}h`
+}
+
+// Check if token is fresh (within threshold)
+function isFresh(dateString: string): boolean {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffHours = diffMs / (1000 * 60 * 60)
+  return diffHours <= FRESHNESS_THRESHOLD_HOURS
+}
+
 export function TokenTable({ 
   tokens, 
   isLoading,
@@ -60,6 +86,12 @@ export function TokenTable({
                 </Button>
               </TableHead>
               <TableHead className="w-[100px]">Status</TableHead>
+              <TableHead className="w-[80px] text-right">
+                <Button variant="ghost" size="sm" onClick={() => handleSort('created_at')} className="h-8 px-2">
+                  Age
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
               <TableHead className="w-[120px] text-right">Liquidity</TableHead>
               <TableHead className="w-[80px] text-right">TX 5m</TableHead>
               <TableHead className="w-[120px]">DEXs</TableHead>
@@ -68,63 +100,73 @@ export function TokenTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tokens.map((token) => (
-              <TableRow
-                key={token.mint_address}
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleRowClick(token.mint_address)}
-              >
-                <TableCell className="font-medium">
-                  <div>
-                    <div className="font-semibold">{token.symbol || 'Unknown'}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {token.mint_address.slice(0, 4)}...{token.mint_address.slice(-4)}
+            {tokens.map((token) => {
+              const tokenAge = formatAge(token.created_at || token.fetched_at)
+              const tokenIsFresh = isFresh(token.created_at || token.fetched_at)
+              
+              return (
+                <TableRow
+                  key={token.mint_address}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleRowClick(token.mint_address)}
+                >
+                  <TableCell className="font-medium">
+                    <div>
+                      <div className="font-semibold">{token.symbol || 'Unknown'}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {token.mint_address.slice(0, 4)}...{token.mint_address.slice(-4)}
+                      </div>
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <span className={`font-semibold ${getScoreColor(token.score)}`}>
-                    {token.score.toFixed(2)}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs ${
-                      token.status === 'active' 
-                        ? 'border-green-500 text-green-600 dark:text-green-400' 
-                        : token.status === 'monitoring'
-                        ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400'
-                        : 'border-gray-500 text-gray-600 dark:text-gray-400'
-                    }`}
-                  >
-                    {token.status === 'active' ? 'Активный' : token.status === 'monitoring' ? 'Мониторинг' : 'Архивный'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">{formatCurrency(token.liquidity_usd)}</TableCell>
-                <TableCell className="text-right">{token.n_5m || 0}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="text-xs">
-                    {token.primary_dex || 'N/A'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {formatRelativeTime(token.last_processed_at || token.fetched_at)}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      window.open(`https://solscan.io/token/${token.mint_address}`, '_blank')
-                    }}
-                  >
-                    View
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className={`font-semibold ${getScoreColor(token.score)}`}>
+                      {token.score.toFixed(2)}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs ${
+                        token.status === 'active' 
+                          ? 'border-green-500 text-green-600 dark:text-green-400' 
+                          : token.status === 'monitoring'
+                          ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400'
+                          : 'border-gray-500 text-gray-600 dark:text-gray-400'
+                      }`}
+                    >
+                      {token.status === 'active' ? 'Active' : token.status === 'monitoring' ? 'Monitoring' : 'Archived'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className={`text-sm font-medium ${tokenIsFresh ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                      {tokenAge}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">{formatCurrency(token.liquidity_usd)}</TableCell>
+                  <TableCell className="text-right">{token.n_5m || 0}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {token.primary_dex || 'N/A'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatRelativeTime(token.last_processed_at || token.fetched_at)}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        window.open(`https://solscan.io/token/${token.mint_address}`, '_blank')
+                      }}
+                    >
+                      View
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </div>

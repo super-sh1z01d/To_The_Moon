@@ -27,13 +27,13 @@ export function Pagination({
     <div className="flex items-center justify-between gap-4 py-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>
-          Показано {startItem}-{endItem} из {totalItems}
+          Showing {startItem}-{endItem} of {totalItems}
         </span>
       </div>
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">На странице:</span>
+          <span className="text-sm text-muted-foreground">Per page:</span>
           <Select
             value={pageSize.toString()}
             onValueChange={(value) => onPageSizeChange(Number(value))}
