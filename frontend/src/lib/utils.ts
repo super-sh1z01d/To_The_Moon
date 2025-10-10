@@ -21,7 +21,10 @@ export function formatNumber(num: number): string {
 }
 
 // Format currency (USD)
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number | null | undefined, fallback = '—'): string {
+  if (typeof amount !== 'number' || Number.isNaN(amount)) {
+    return fallback
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -70,7 +73,10 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 // Get score color class
-export function getScoreColor(score: number): string {
+export function getScoreColor(score: number | null | undefined): string {
+  if (typeof score !== 'number' || Number.isNaN(score)) {
+    return 'text-muted-foreground'
+  }
   if (score >= 0.9) return 'text-green-600 dark:text-green-400'
   if (score >= 0.7) return 'text-yellow-600 dark:text-yellow-400'
   if (score >= 0.5) return 'text-orange-600 dark:text-orange-400'

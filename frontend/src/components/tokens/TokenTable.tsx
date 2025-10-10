@@ -116,8 +116,11 @@ export function TokenTable({
           </TableHeader>
           <TableBody>
             {tokens.map((token) => {
-              const tokenAge = formatAge(token.created_at || token.fetched_at)
-              const tokenIsFresh = isFresh(token.created_at || token.fetched_at)
+              const score = typeof token.score === 'number' ? token.score : null
+              const liquidityUsd = typeof token.liquidity_usd === 'number' ? token.liquidity_usd : null
+              const tokenAgeSource = token.created_at || token.fetched_at
+              const tokenAge = tokenAgeSource ? formatAge(tokenAgeSource) : '—'
+              const tokenIsFresh = tokenAgeSource ? isFresh(tokenAgeSource) : false
               const dexCounts = getDexCounts(token.pools)
               
               return (
@@ -135,8 +138,8 @@ export function TokenTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <span className={`font-semibold ${getScoreColor(token.score)}`}>
-                      {token.score.toFixed(2)}
+                    <span className={`font-semibold ${getScoreColor(score)}`}>
+                      {score !== null ? score.toFixed(2) : '—'}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -158,7 +161,7 @@ export function TokenTable({
                       {tokenAge}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">{formatCurrency(token.liquidity_usd)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(liquidityUsd)}</TableCell>
                   <TableCell className="text-right">{token.n_5m || 0}</TableCell>
                   <TableCell>
                     {Object.keys(dexCounts).length === 0 ? (
