@@ -542,8 +542,8 @@ export default function Landing() {
                     <>
                       <div className="hidden grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid sm:gap-x-4">
                         <span className="text-left">{copy.liveTable.token}</span>
-                        <span className="text-right">{copy.liveTable.age}</span>
                         <span className="text-right">{copy.liveTable.score}</span>
+                        <span className="text-right">{copy.liveTable.age}</span>
                         <span className="text-right">{copy.liveTable.pools}</span>
                         <span className="text-right">{copy.liveTable.liquidity}</span>
                       </div>
@@ -590,11 +590,11 @@ export default function Landing() {
                               </div>
                             </div>
                           </div>
-                          <div className={cn('text-right text-sm font-semibold', ageClass)}>
-                            {ageLabel}
-                          </div>
                           <div className="text-right font-semibold text-primary">
                             {token.score?.toFixed(3)}
+                          </div>
+                          <div className={cn('text-right text-sm font-semibold', ageClass)}>
+                            {ageLabel}
                           </div>
                           <div className="text-right text-sm text-muted-foreground">
                             {poolCount}
@@ -779,8 +779,8 @@ export default function Landing() {
                   <>
                     <div className="hidden grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid md:gap-x-4">
                       <span className="text-left">{copy.liveTable.token}</span>
-                      <span className="text-right">{copy.liveTable.age}</span>
                       <span className="text-right">{copy.liveTable.score}</span>
+                      <span className="text-right">{copy.liveTable.age}</span>
                       <span className="text-right">{copy.liveTable.pools}</span>
                       <span className="text-right">{copy.liveTable.liquidity}</span>
                     </div>
@@ -827,11 +827,11 @@ export default function Landing() {
                             </div>
                           </div>
                           </div>
-                          <div className={cn('text-right text-sm font-semibold', ageClass)}>
-                            {ageLabel}
-                          </div>
                           <div className="text-right font-semibold text-primary">
                             {token.score?.toFixed(3)}
+                          </div>
+                          <div className={cn('text-right text-sm font-semibold', ageClass)}>
+                            {ageLabel}
                           </div>
                           <div className="text-right text-sm text-muted-foreground">
                             {poolCount}
