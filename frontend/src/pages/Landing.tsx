@@ -389,7 +389,7 @@ export default function Landing() {
         <div className="relative mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-20 pt-24 lg:px-8 lg:pt-32">
           <div className="flex flex-col gap-10 lg:flex-row lg:items-start">
             <div className="flex-1 space-y-8">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
                   <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-primary">
                     <Sparkles className="h-3.5 w-3.5" />
@@ -399,7 +399,9 @@ export default function Landing() {
                     {copy.brand}
                   </span>
                 </div>
-                <LanguageSwitch language={lang} onSelect={(value) => setLanguage(value)} />
+                <div className="shrink-0">
+                  <LanguageSwitch language={lang} onSelect={(value) => setLanguage(value)} />
+                </div>
               </div>
               <h1 className="text-4xl font-bold leading-tight tracking-tight md:text-5xl lg:text-6xl">
                 {copy.heroTitle}
@@ -431,8 +433,8 @@ export default function Landing() {
                   </div>
                 ))}
               </div>
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {copy.stats.totalTokens}:{' '}
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <span>{copy.stats.totalTokens}</span>
                 <span className="text-foreground">{formatInteger(stats?.total)}</span>
               </div>
             </div>
@@ -446,37 +448,73 @@ export default function Landing() {
                   <Sparkles className="h-6 w-6 text-primary" />
                 </div>
                 <div className="overflow-hidden rounded-2xl border border-muted/40">
-                  <div className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto] bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <span>{copy.liveTable.token}</span>
-                    <span className="text-right">{copy.liveTable.score}</span>
-                    <span className="text-right">{copy.liveTable.pools}</span>
-                    <span className="text-right">{copy.liveTable.liquidity}</span>
-                  </div>
                   {heroPreview.length > 0 ? (
-                    heroPreview.map((token) => (
-                      <div
-                        key={token.mint_address}
-                        className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto] items-center px-4 py-3 text-sm transition hover:bg-muted/30"
-                      >
-                        <div>
-                          <div className="font-semibold">
-                            {token.symbol || token.name || token.mint_address.slice(0, 6)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
-                          </div>
-                        </div>
-                        <div className="text-right font-semibold text-primary">
-                          {token.score?.toFixed(3)}
-                        </div>
-                        <div className="text-right text-sm text-muted-foreground">
-                          {token.pools?.length ?? 0}
-                        </div>
-                        <div className="text-right text-sm font-semibold text-foreground">
-                          {formatCurrency(token.liquidity_usd)}
-                        </div>
+                    <>
+                      <div className="hidden grid-cols-[minmax(0,2fr)_auto_auto_auto] bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid">
+                        <span>{copy.liveTable.token}</span>
+                        <span className="text-right">{copy.liveTable.score}</span>
+                        <span className="text-right">{copy.liveTable.pools}</span>
+                        <span className="text-right">{copy.liveTable.liquidity}</span>
                       </div>
-                    ))
+                      {heroPreview.map((token) => (
+                        <div
+                          key={`hero-row-${token.mint_address}`}
+                          className="hidden grid-cols-[minmax(0,2fr)_auto_auto_auto] items-center px-4 py-3 text-sm transition hover:bg-muted/30 sm:grid"
+                        >
+                          <div>
+                            <div className="font-semibold">
+                              {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                            </div>
+                          </div>
+                          <div className="text-right font-semibold text-primary">
+                            {token.score?.toFixed(3)}
+                          </div>
+                          <div className="text-right text-sm text-muted-foreground">
+                            {token.pools?.length ?? 0}
+                          </div>
+                          <div className="text-right text-sm font-semibold text-foreground">
+                            {formatCurrency(token.liquidity_usd)}
+                          </div>
+                        </div>
+                      ))}
+                      <div className="space-y-3 p-4 sm:hidden">
+                        {heroPreview.map((token) => (
+                          <div
+                            key={`hero-card-${token.mint_address}`}
+                            className="rounded-xl border border-muted/50 bg-background/90 p-3 shadow-sm"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <div className="text-sm font-semibold">
+                                  {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                                </div>
+                              </div>
+                              <span className="text-sm font-semibold text-primary">
+                                {token.score?.toFixed(3)}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <span>{copy.liveTable.pools}:</span>
+                                <span className="font-semibold text-foreground">{token.pools?.length ?? 0}</span>
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <span>{copy.liveTable.liquidity}:</span>
+                                <span className="font-semibold text-foreground">
+                                  {formatCurrency(token.liquidity_usd)}
+                                </span>
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   ) : (
                     <div className="px-4 py-6 text-sm text-muted-foreground">
                       {copy.liveTable.empty}
@@ -576,37 +614,73 @@ export default function Landing() {
             </div>
             <div className="rounded-3xl border border-muted bg-background/80 shadow-sm backdrop-blur">
               <div className="overflow-hidden rounded-3xl">
-                <div className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto] bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span>{copy.liveTable.token}</span>
-                  <span className="text-right">{copy.liveTable.score}</span>
-                  <span className="text-right">{copy.liveTable.pools}</span>
-                  <span className="text-right">{copy.liveTable.liquidity}</span>
-                </div>
                 {topTokens.length > 0 ? (
-                  topTokens.slice(0, 10).map((token) => (
-                    <div
-                      key={`pulse-${token.mint_address}`}
-                      className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto] items-center px-4 py-3 text-sm transition hover:bg-muted/25"
-                    >
-                      <div>
-                        <div className="font-semibold">
-                          {token.symbol || token.name || token.mint_address.slice(0, 6)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
-                        </div>
-                      </div>
-                      <div className="text-right font-semibold text-primary">
-                        {token.score?.toFixed(3)}
-                      </div>
-                      <div className="text-right text-sm text-muted-foreground">
-                        {token.pools?.length ?? 0}
-                      </div>
-                      <div className="text-right text-sm font-semibold text-foreground">
-                        {formatCurrency(token.liquidity_usd)}
-                      </div>
+                  <>
+                    <div className="hidden grid-cols-[minmax(0,2fr)_auto_auto_auto] bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid">
+                      <span>{copy.liveTable.token}</span>
+                      <span className="text-right">{copy.liveTable.score}</span>
+                      <span className="text-right">{copy.liveTable.pools}</span>
+                      <span className="text-right">{copy.liveTable.liquidity}</span>
                     </div>
-                  ))
+                    {topTokens.slice(0, 10).map((token) => (
+                      <div
+                        key={`pulse-${token.mint_address}`}
+                        className="hidden grid-cols-[minmax(0,2fr)_auto_auto_auto] items-center px-4 py-3 text-sm transition hover:bg-muted/25 md:grid"
+                      >
+                        <div>
+                          <div className="font-semibold">
+                            {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                          </div>
+                        </div>
+                        <div className="text-right font-semibold text-primary">
+                          {token.score?.toFixed(3)}
+                        </div>
+                        <div className="text-right text-sm text-muted-foreground">
+                          {token.pools?.length ?? 0}
+                        </div>
+                        <div className="text-right text-sm font-semibold text-foreground">
+                          {formatCurrency(token.liquidity_usd)}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="space-y-3 p-4 md:hidden">
+                      {topTokens.slice(0, 10).map((token) => (
+                        <div
+                          key={`pulse-card-${token.mint_address}`}
+                          className="rounded-2xl border border-muted/60 bg-background/95 p-3 shadow-sm"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-semibold">
+                                {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                              </div>
+                            </div>
+                            <span className="text-sm font-semibold text-primary">
+                              {token.score?.toFixed(3)}
+                            </span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <span>{copy.liveTable.pools}:</span>
+                              <span className="font-semibold text-foreground">{token.pools?.length ?? 0}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span>{copy.liveTable.liquidity}:</span>
+                              <span className="font-semibold text-foreground">
+                                {formatCurrency(token.liquidity_usd)}
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 ) : (
                   <div className="px-4 py-6 text-sm text-muted-foreground">{copy.liveTable.empty}</div>
                 )}
