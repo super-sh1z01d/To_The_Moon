@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { usePageMetadata } from '@/hooks/usePageMetadata'
 import { TokenAvatar } from '@/components/tokens/TokenAvatar'
+import { getTokenIdentity } from '@/lib/token-format'
 
 export default function TokenDetail() {
   const { mint } = useParams<{ mint: string }>()
@@ -87,8 +88,11 @@ export default function TokenDetail() {
     )
   }
 
-  const fallbackLabel = token.symbol?.trim() || token.name?.trim() || token.mint_address
-  const displayLabel = token.symbol || token.name || 'Unknown Token'
+  const { label: displayLabel, fallback: fallbackLabel } = getTokenIdentity(
+    token.symbol,
+    token.name,
+    token.mint_address
+  )
 
   return (
     <div className="space-y-4">

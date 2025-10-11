@@ -22,6 +22,7 @@ import { cn, formatCurrency } from '@/lib/utils'
 import { usePageMetadata } from '@/hooks/usePageMetadata'
 import type { Pool } from '@/types/token'
 import { TokenAvatar } from '@/components/tokens/TokenAvatar'
+import { getTokenIdentity } from '@/lib/token-format'
 
 type Lang = 'en' | 'ru'
 
@@ -519,12 +520,11 @@ export default function Landing() {
                         <span className="text-right">{copy.liveTable.liquidity}</span>
                       </div>
                       {heroPreview.map((token) => {
-                        const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
-                        const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
-                        const heroLabel = trimmedSymbol
-                          ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
-                          : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
-                        const avatarFallback = trimmedSymbol || trimmedName || token.mint_address
+                        const { label: heroLabel, fallback: avatarFallback, shortMint } = getTokenIdentity(
+                          token.symbol,
+                          token.name,
+                          token.mint_address
+                        )
 
                         const poolCount = countPools(token.pools)
                         const formattedLiquidity = formatCurrency(
@@ -552,7 +552,7 @@ export default function Landing() {
                                 {heroLabel}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                                {shortMint}
                               </div>
                             </div>
                           </div>
@@ -570,12 +570,11 @@ export default function Landing() {
                       })}
                       <div className="space-y-3 p-4 sm:hidden">
                         {heroPreview.map((token) => {
-                          const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
-                          const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
-                          const heroLabel = trimmedSymbol
-                            ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
-                            : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
-                          const avatarFallback = trimmedSymbol || trimmedName || token.mint_address
+                          const { label: heroLabel, fallback: avatarFallback, shortMint } = getTokenIdentity(
+                            token.symbol,
+                            token.name,
+                            token.mint_address
+                          )
 
                           const poolCount = countPools(token.pools)
                           const formattedLiquidity = formatCurrency(
@@ -605,7 +604,7 @@ export default function Landing() {
                                     {heroLabel}
                                   </div>
                                   <div className="text-xs text-muted-foreground">
-                                    {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                                    {shortMint}
                                   </div>
                                 </div>
                               </div>
@@ -738,12 +737,11 @@ export default function Landing() {
                       <span className="text-right">{copy.liveTable.liquidity}</span>
                     </div>
                     {topTokens.slice(0, 10).map((token) => {
-                      const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
-                      const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
-                      const pulseLabel = trimmedSymbol
-                        ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
-                        : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
-                      const avatarFallback = trimmedSymbol || trimmedName || token.mint_address
+                      const { label: pulseLabel, fallback: avatarFallback, shortMint } = getTokenIdentity(
+                        token.symbol,
+                        token.name,
+                        token.mint_address
+                      )
 
                       const poolCount = countPools(token.pools)
                       const formattedLiquidity = formatCurrency(
@@ -767,12 +765,12 @@ export default function Landing() {
                               alt={`${pulseLabel} logo`}
                             />
                             <div>
-                              <div className="font-semibold whitespace-pre-line">
-                                {pulseLabel}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
-                              </div>
+                            <div className="font-semibold whitespace-pre-line">
+                              {pulseLabel}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {shortMint}
+                            </div>
                             </div>
                           </div>
                           <div className="text-right font-semibold text-primary">
@@ -789,12 +787,11 @@ export default function Landing() {
                     })}
                     <div className="space-y-3 p-4 md:hidden">
                       {topTokens.slice(0, 10).map((token) => {
-                        const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
-                        const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
-                      const pulseLabel = trimmedSymbol
-                        ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
-                        : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
-                      const avatarFallback = trimmedSymbol || trimmedName || token.mint_address
+                        const { label: pulseLabel, fallback: avatarFallback, shortMint } = getTokenIdentity(
+                          token.symbol,
+                          token.name,
+                          token.mint_address
+                        )
 
                         const poolCount = countPools(token.pools)
                         const formattedLiquidity = formatCurrency(
@@ -820,12 +817,12 @@ export default function Landing() {
                                   size="md"
                                 />
                                 <div>
-                                  <div className="text-sm font-semibold whitespace-pre-line">
-                                    {pulseLabel}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
-                                  </div>
+                                <div className="text-sm font-semibold whitespace-pre-line">
+                                  {pulseLabel}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {shortMint}
+                                </div>
                                 </div>
                               </div>
                               <span className="text-sm font-semibold text-primary">

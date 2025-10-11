@@ -30,7 +30,7 @@ export function TokenAvatar({
   return (
     <div
       className={cn(
-        'flex items-center justify-center overflow-hidden rounded-full border border-muted bg-background text-muted-foreground',
+        'flex-shrink-0 flex items-center justify-center overflow-hidden rounded-sm border border-muted bg-background text-muted-foreground p-0.5',
         SIZE_CLASSES[size],
         className
       )}
