@@ -41,11 +41,18 @@ class TokensRepository:
                 delta_p_15m NUMERIC(10, 4),
                 n_5m NUMERIC(20, 2),
                 primary_dex TEXT,
+                image_url TEXT,
                 pool_counts JSONB,
                 fetched_at TIMESTAMPTZ,
                 scoring_model VARCHAR(50),
                 created_at TIMESTAMPTZ
             );
+            """
+        )
+        alter_sql = text(
+            """
+            ALTER TABLE latest_token_scores
+            ADD COLUMN IF NOT EXISTS image_url TEXT;
             """
         )
         index_sql = text(
@@ -65,6 +72,7 @@ class TokensRepository:
                 if "is not a materialized view" not in str(exc.orig).lower():  # type: ignore[attr-defined]
                     raise
             self.db.execute(ddl)
+            self.db.execute(alter_sql)
             self.db.execute(index_sql)
             self.db.commit()
         except Exception as exc:
@@ -259,6 +267,7 @@ class TokensRepository:
         n_5m = None
         primary_dex = None
         fetched_at = None
+        image_url = None
         pool_counts_json = None
 
         if isinstance(metrics, dict):
@@ -286,6 +295,11 @@ class TokensRepository:
                         fetched_at = fetched_at_raw
                 except Exception:
                     fetched_at = None
+            image_candidate = metrics.get("image_url")
+            if isinstance(image_candidate, str):
+                image_candidate = image_candidate.strip()
+                if image_candidate:
+                    image_url = image_candidate
 
             pools_metric = metrics.get("pools")
             if isinstance(pools_metric, list):
@@ -310,6 +324,7 @@ class TokensRepository:
                 delta_p_15m,
                 n_5m,
                 primary_dex,
+                image_url,
                 pool_counts,
                 fetched_at,
                 scoring_model,
@@ -324,6 +339,7 @@ class TokensRepository:
                 :delta_p_15m,
                 :n_5m,
                 :primary_dex,
+                :image_url,
                 :pool_counts,
                 :fetched_at,
                 :scoring_model,
@@ -337,6 +353,7 @@ class TokensRepository:
                 delta_p_15m = EXCLUDED.delta_p_15m,
                 n_5m = EXCLUDED.n_5m,
                 primary_dex = EXCLUDED.primary_dex,
+                image_url = EXCLUDED.image_url,
                 pool_counts = EXCLUDED.pool_counts,
                 fetched_at = EXCLUDED.fetched_at,
                 scoring_model = EXCLUDED.scoring_model,
@@ -354,6 +371,7 @@ class TokensRepository:
                 "delta_p_15m": delta_p_15m,
                 "n_5m": n_5m,
                 "primary_dex": primary_dex,
+                "image_url": image_url,
                 "pool_counts": pool_counts_json,
                 "fetched_at": fetched_at,
                 "scoring_model": scoring_model,
@@ -532,7 +550,7 @@ class TokensRepository:
             # Используем materialized view для быстрого доступа к последним scores
             latest_scores_table = text("""
                 SELECT token_id, score, smoothed_score, liquidity_usd, delta_p_5m, delta_p_15m,
-                       n_5m, primary_dex, pool_counts, fetched_at, scoring_model, created_at
+                       n_5m, primary_dex, image_url, pool_counts, fetched_at, scoring_model, created_at
                 FROM latest_token_scores
             """).columns(
                 token_id=Integer(),
@@ -543,6 +561,7 @@ class TokensRepository:
                 delta_p_15m=Numeric(),
                 n_5m=Numeric(),
                 primary_dex=String(),
+                image_url=String(),
                 pool_counts=JSON().with_variant(JSONB, "postgresql"),
                 fetched_at=DateTime(timezone=True),
                 scoring_model=String(),
@@ -557,6 +576,7 @@ class TokensRepository:
                 "latest_delta_p_15m": latest_scores_table.c.delta_p_15m.label("latest_delta_p_15m"),
                 "latest_n_5m": latest_scores_table.c.n_5m.label("latest_n_5m"),
                 "latest_primary_dex": latest_scores_table.c.primary_dex.label("latest_primary_dex"),
+                "latest_image_url": latest_scores_table.c.image_url.label("latest_image_url"),
                 "latest_pool_counts": latest_scores_table.c.pool_counts.label("latest_pool_counts"),
                 "latest_fetched_at": latest_scores_table.c.fetched_at.label("latest_fetched_at"),
                 "latest_scoring_model": latest_scores_table.c.scoring_model.label("latest_scoring_model"),
@@ -703,6 +723,7 @@ class TokensRepository:
                 "latest_delta_p_15m": metrics.get("delta_p_15m"),
                 "latest_n_5m": metrics.get("n_5m"),
                 "latest_primary_dex": metrics.get("primary_dex"),
+                "latest_image_url": metrics.get("image_url"),
                 "latest_pool_counts": pool_counts,
                 "latest_fetched_at": metrics.get("fetched_at"),
                 "latest_scoring_model": score_row.scoring_model,

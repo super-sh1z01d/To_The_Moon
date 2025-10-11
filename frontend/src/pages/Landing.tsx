@@ -21,6 +21,7 @@ import { useTokens } from '@/hooks/useTokens'
 import { cn, formatCurrency } from '@/lib/utils'
 import { usePageMetadata } from '@/hooks/usePageMetadata'
 import type { Pool } from '@/types/token'
+import { TokenAvatar } from '@/components/tokens/TokenAvatar'
 
 type Lang = 'en' | 'ru'
 
@@ -523,6 +524,7 @@ export default function Landing() {
                         const heroLabel = trimmedSymbol
                           ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
                           : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
+                        const avatarFallback = trimmedSymbol || trimmedName || token.mint_address
 
                         const poolCount = countPools(token.pools)
                         const formattedLiquidity = formatCurrency(
@@ -539,12 +541,19 @@ export default function Landing() {
                           key={`hero-row-${token.mint_address}`}
                           className="hidden grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] items-center px-4 py-3 text-sm transition hover:bg-muted/30 sm:grid sm:gap-x-4"
                         >
-                          <div>
-                            <div className="font-semibold whitespace-pre-line">
-                              {heroLabel}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                          <div className="flex items-center gap-3">
+                            <TokenAvatar
+                              imageUrl={token.image_url}
+                              fallback={avatarFallback}
+                              alt={`${heroLabel} logo`}
+                            />
+                            <div>
+                              <div className="font-semibold whitespace-pre-line">
+                                {heroLabel}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                              </div>
                             </div>
                           </div>
                           <div className="text-right font-semibold text-primary">
@@ -566,6 +575,7 @@ export default function Landing() {
                           const heroLabel = trimmedSymbol
                             ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
                             : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
+                          const avatarFallback = trimmedSymbol || trimmedName || token.mint_address
 
                           const poolCount = countPools(token.pools)
                           const formattedLiquidity = formatCurrency(
@@ -583,14 +593,22 @@ export default function Landing() {
                             className="rounded-xl border border-muted/50 bg-background/90 p-3 shadow-sm"
                           >
                             <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <div className="text-sm font-semibold whitespace-pre-line">
-                                {heroLabel}
+                              <div className="flex items-center gap-3">
+                                <TokenAvatar
+                                  imageUrl={token.image_url}
+                                  fallback={avatarFallback}
+                                  alt={`${heroLabel} logo`}
+                                  size="md"
+                                />
+                                <div>
+                                  <div className="text-sm font-semibold whitespace-pre-line">
+                                    {heroLabel}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
-                              </div>
-                            </div>
                               <span className="text-sm font-semibold text-primary">
                                 {token.score?.toFixed(3)}
                               </span>
@@ -725,6 +743,7 @@ export default function Landing() {
                       const pulseLabel = trimmedSymbol
                         ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
                         : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
+                      const avatarFallback = trimmedSymbol || trimmedName || token.mint_address
 
                       const poolCount = countPools(token.pools)
                       const formattedLiquidity = formatCurrency(
@@ -741,12 +760,19 @@ export default function Landing() {
                           key={`pulse-${token.mint_address}`}
                           className="hidden grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] items-center px-4 py-3 text-sm transition hover:bg-muted/25 md:grid md:gap-x-4"
                         >
-                          <div>
-                            <div className="font-semibold whitespace-pre-line">
-                              {pulseLabel}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                          <div className="flex items-center gap-3">
+                            <TokenAvatar
+                              imageUrl={token.image_url}
+                              fallback={avatarFallback}
+                              alt={`${pulseLabel} logo`}
+                            />
+                            <div>
+                              <div className="font-semibold whitespace-pre-line">
+                                {pulseLabel}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                              </div>
                             </div>
                           </div>
                           <div className="text-right font-semibold text-primary">
@@ -765,9 +791,10 @@ export default function Landing() {
                       {topTokens.slice(0, 10).map((token) => {
                         const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
                         const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
-                        const pulseLabel = trimmedSymbol
-                          ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
-                          : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
+                      const pulseLabel = trimmedSymbol
+                        ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
+                        : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
+                      const avatarFallback = trimmedSymbol || trimmedName || token.mint_address
 
                         const poolCount = countPools(token.pools)
                         const formattedLiquidity = formatCurrency(
@@ -785,12 +812,20 @@ export default function Landing() {
                             className="rounded-2xl border border-muted/60 bg-background/95 p-3 shadow-sm"
                           >
                             <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <div className="text-sm font-semibold whitespace-pre-line">
-                                  {pulseLabel}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                              <div className="flex items-center gap-3">
+                                <TokenAvatar
+                                  imageUrl={token.image_url}
+                                  fallback={avatarFallback}
+                                  alt={`${pulseLabel} logo`}
+                                  size="md"
+                                />
+                                <div>
+                                  <div className="text-sm font-semibold whitespace-pre-line">
+                                    {pulseLabel}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                                  </div>
                                 </div>
                               </div>
                               <span className="text-sm font-semibold text-primary">

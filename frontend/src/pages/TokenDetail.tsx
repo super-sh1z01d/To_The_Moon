@@ -12,6 +12,7 @@ import { ErrorDisplay } from '@/components/ui/error-display'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { usePageMetadata } from '@/hooks/usePageMetadata'
+import { TokenAvatar } from '@/components/tokens/TokenAvatar'
 
 export default function TokenDetail() {
   const { mint } = useParams<{ mint: string }>()
@@ -86,6 +87,9 @@ export default function TokenDetail() {
     )
   }
 
+  const fallbackLabel = token.symbol?.trim() || token.name?.trim() || token.mint_address
+  const displayLabel = token.symbol || token.name || 'Unknown Token'
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -97,8 +101,14 @@ export default function TokenDetail() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
+          <TokenAvatar
+            imageUrl={token.image_url}
+            fallback={fallbackLabel}
+            alt={`${displayLabel} logo`}
+            size="md"
+          />
           <div>
-            <h1 className="text-3xl font-bold">{token.symbol || 'Unknown Token'}</h1>
+            <h1 className="text-3xl font-bold">{displayLabel}</h1>
             <p className="text-sm text-muted-foreground">
               Token Details • Auto-refreshing every 5s
             </p>

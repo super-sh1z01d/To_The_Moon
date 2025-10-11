@@ -171,6 +171,14 @@ def aggregate_wsol_metrics(
     pools_with_liquidity.sort(key=lambda x: x[1], reverse=True)
     pools = [pool_info for pool_info, _ in pools_with_liquidity]
 
+    image_url = None
+    for p in filtered_pairs:
+        info = p.get("info") or {}
+        candidate = info.get("imageUrl")
+        if isinstance(candidate, str) and candidate.strip():
+            image_url = candidate.strip()
+            break
+
     l_tot = 0.0
     primary = None
     primary_lq = -1.0
@@ -223,6 +231,7 @@ def aggregate_wsol_metrics(
         "usdc_pairs": len(usdc_pairs),
         "primary_dex": (primary or {}).get("dexId") if primary else None,
         "primary_liq_usd": round(primary_lq, 6) if primary_lq >= 0 else None,
+        "image_url": image_url,
         "source": "dexscreener_with_fallback" if fallback_used else "dexscreener",
         "pools": pools,
         "fetched_at": datetime.now(tz=timezone.utc).isoformat(),

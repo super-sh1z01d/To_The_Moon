@@ -7,6 +7,7 @@ import { ArrowUpDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SCORE_DISPLAY_DECIMALS } from '@/lib/constants'
 import { useLanguage } from '@/hooks/useLanguage'
+import { TokenAvatar } from '@/components/tokens/TokenAvatar'
 
 interface TokenTableProps {
   tokens: Token[]
@@ -137,6 +138,7 @@ export function TokenTable({
               const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
               const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
               const hasSymbol = trimmedSymbol.length > 0
+              const fallbackLabel = trimmedSymbol || trimmedName || token.mint_address
               const label = hasSymbol
                 ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
                 : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
@@ -148,10 +150,17 @@ export function TokenTable({
                   onClick={() => handleRowClick(token.mint_address)}
                 >
                   <TableCell className="font-medium">
-                    <div>
-                      <div className="font-semibold whitespace-pre-line">{label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {token.mint_address.slice(0, 4)}...{token.mint_address.slice(-4)}
+                    <div className="flex items-start gap-3">
+                      <TokenAvatar
+                        imageUrl={token.image_url}
+                        fallback={fallbackLabel}
+                        alt={`${label} logo`}
+                      />
+                      <div>
+                        <div className="font-semibold whitespace-pre-line">{label}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {token.mint_address.slice(0, 4)}...{token.mint_address.slice(-4)}
+                        </div>
                       </div>
                     </div>
                   </TableCell>

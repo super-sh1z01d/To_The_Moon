@@ -47,6 +47,7 @@ class TokenItem(BaseModel):
     scored_at: Optional[str] = Field(default=None, description="Last time token score was calculated and saved")
     last_processed_at: Optional[str] = Field(default=None, description="Last time token was processed by scheduler")
     solscan_url: str
+    image_url: Optional[str] = None
     raw_components: Optional[ComponentBreakdown] = None
     smoothed_components: Optional[ComponentBreakdown] = None
     scoring_model: Optional[str] = None
@@ -153,6 +154,7 @@ async def list_tokens(
                 delta_p_15m=latest.get("latest_delta_p_15m"),
                 n_5m=latest.get("latest_n_5m"),
                 primary_dex=latest.get("latest_primary_dex"),
+                image_url=latest.get("latest_image_url"),
                 pool_counts=latest.get("latest_pool_counts"),
                 fetched_at=latest.get("latest_fetched_at"),
                 scoring_model=latest.get("latest_scoring_model"),
@@ -212,6 +214,7 @@ async def list_tokens(
                 delta_p_15m=float(delta_p_15m) if delta_p_15m is not None else None,
                 n_5m=int(n_5m) if n_5m is not None else None,
                 primary_dex=getattr(latest_data, "primary_dex", None),
+                image_url=getattr(latest_data, "image_url", None),
                 pools=pools,
                 fetched_at=fetched_at,
                 scored_at=getattr(latest_data, "created_at", None).isoformat() if getattr(latest_data, "created_at", None) else None,
@@ -258,6 +261,7 @@ class TokenDetail(BaseModel):
     score_history: list[TokenHistoryItem]
     pools: Optional[list[PoolItem]] = None
     solscan_url: str
+    image_url: Optional[str] = None
 
 
 @router.get("/{mint}", response_model=TokenDetail)
@@ -293,6 +297,7 @@ async def get_token_detail(mint: str, db: Session = Depends(get_db), history_lim
         ],
         pools=pools,
         solscan_url=f"https://solscan.io/token/{token.mint_address}",
+        image_url=(snap.metrics.get("image_url") if snap and snap.metrics else None),
     )
 
 

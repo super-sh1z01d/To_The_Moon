@@ -37,6 +37,7 @@ export interface Token {
   scored_at: string
   last_processed_at: string
   solscan_url: string
+  image_url?: string | null
   raw_components: ScoreComponents
   spam_metrics?: SpamMetrics
   created_at?: string
