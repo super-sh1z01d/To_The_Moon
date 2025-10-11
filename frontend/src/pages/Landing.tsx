@@ -20,12 +20,32 @@ import { useTokenStats } from '@/hooks/useTokenStats'
 import { useTokens } from '@/hooks/useTokens'
 import { cn, formatCurrency } from '@/lib/utils'
 import { usePageMetadata } from '@/hooks/usePageMetadata'
+import type { Pool } from '@/types/token'
 
 type Lang = 'en' | 'ru'
 
 const ACTIVE_FILTER = { status: 'active', limit: 10, sort: 'score_desc' as const }
 const MONITORING_FILTER = { status: 'monitoring', limit: 50, sort: 'score_desc' as const }
 const ONE_DAY = 24 * 60 * 60 * 1000
+
+const countPools = (pools?: Pool[] | null) => {
+  if (!Array.isArray(pools) || pools.length === 0) {
+    return 0
+  }
+
+  return pools.reduce((total, pool) => {
+    if (!pool) {
+      return total
+    }
+
+    const poolCount = pool.count
+    if (typeof poolCount === 'number' && Number.isFinite(poolCount)) {
+      return total + Math.max(poolCount, 0)
+    }
+
+    return total + 1
+  }, 0)
+}
 
 const TEXT = {
   en: {
@@ -351,7 +371,7 @@ export default function Landing() {
       return sum + value
     }, 0)
 
-    const poolsCount = fresh.reduce((sum, token) => sum + (token.pools?.length ?? 0), 0)
+    const poolsCount = fresh.reduce((sum, token) => sum + countPools(token.pools), 0)
 
     return {
       mintedCount: fresh.length,
@@ -504,6 +524,7 @@ export default function Landing() {
                           ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
                           : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
 
+                        const poolCount = countPools(token.pools)
                         const formattedLiquidity = formatCurrency(
                           token.liquidity_usd,
                           undefined,
@@ -530,7 +551,7 @@ export default function Landing() {
                             {token.score?.toFixed(3)}
                           </div>
                           <div className="text-right text-sm text-muted-foreground">
-                            {token.pools?.length ?? 0}
+                            {poolCount}
                           </div>
                           <div className="text-right text-sm font-semibold text-foreground">
                             {formattedLiquidity}
@@ -546,6 +567,7 @@ export default function Landing() {
                             ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
                             : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
 
+                          const poolCount = countPools(token.pools)
                           const formattedLiquidity = formatCurrency(
                             token.liquidity_usd,
                             undefined,
@@ -576,7 +598,7 @@ export default function Landing() {
                             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <span>{copy.liveTable.pools}:</span>
-                                <span className="font-semibold text-foreground">{token.pools?.length ?? 0}</span>
+                                <span className="font-semibold text-foreground">{poolCount}</span>
                               </span>
                               <span className="flex items-center gap-1">
                                 <span>{copy.liveTable.liquidity}:</span>
@@ -704,6 +726,7 @@ export default function Landing() {
                         ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
                         : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
 
+                      const poolCount = countPools(token.pools)
                       const formattedLiquidity = formatCurrency(
                         token.liquidity_usd,
                         undefined,
@@ -730,7 +753,7 @@ export default function Landing() {
                             {token.score?.toFixed(3)}
                           </div>
                           <div className="text-right text-sm text-muted-foreground">
-                            {token.pools?.length ?? 0}
+                            {poolCount}
                           </div>
                           <div className="text-right text-sm font-semibold text-foreground">
                             {formattedLiquidity}
@@ -746,6 +769,7 @@ export default function Landing() {
                           ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
                           : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
 
+                        const poolCount = countPools(token.pools)
                         const formattedLiquidity = formatCurrency(
                           token.liquidity_usd,
                           undefined,
@@ -773,11 +797,11 @@ export default function Landing() {
                                 {token.score?.toFixed(3)}
                               </span>
                             </div>
-                            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <span>{copy.liveTable.pools}:</span>
-                                <span className="font-semibold text-foreground">{token.pools?.length ?? 0}</span>
-                              </span>
+                          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <span>{copy.liveTable.pools}:</span>
+                              <span className="font-semibold text-foreground">{poolCount}</span>
+                            </span>
                               <span className="flex items-center gap-1">
                                 <span>{copy.liveTable.liquidity}:</span>
                                 <span className="font-semibold text-foreground">{formattedLiquidity}</span>
