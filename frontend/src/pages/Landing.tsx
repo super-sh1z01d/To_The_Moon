@@ -290,7 +290,6 @@ export default function Landing() {
         <div className="pointer-events-none absolute inset-x-0 top-1/3 h-[480px] -translate-y-1/2 bg-[radial-gradient(80%_60%_at_50%_50%,rgba(34,197,94,0.12),transparent)] blur-3xl" />
         <div className="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute -right-24 top-10 h-60 w-60 rounded-full bg-secondary/20 blur-3xl" />
-        <div className="absolute right-4 top-4 z-20"><LanguageToggle /></div>
         <div className="absolute right-4 top-4 z-20">
           <div className="rounded-md border border-muted bg-background/70 px-3 py-1 shadow-sm backdrop-blur">
             <LanguageToggle />
@@ -545,12 +544,12 @@ export default function Landing() {
                 <h3 className="text-xl font-semibold">{copy.subscribe.title}</h3>
                 <p className="text-sm text-muted-foreground">{copy.subscribe.description}</p>
               </div>
-            <Button size="lg" variant="secondary" asChild>
-              <a href="/app/">
-                <Send className="mr-2 h-4 w-4" />
-                {copy.subscribe.button}
-              </a>
-            </Button>
+              <Button size="lg" variant="secondary" asChild>
+                <a href="/app/">
+                  <Send className="mr-2 h-4 w-4" />
+                  {copy.subscribe.button}
+                </a>
+              </Button>
             </div>
           </div>
         </div>
