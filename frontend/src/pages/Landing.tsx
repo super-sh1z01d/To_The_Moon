@@ -18,6 +18,7 @@ import { useLanguage } from '@/hooks/useLanguage'
 import { useTokenStats } from '@/hooks/useTokenStats'
 import { useTokens } from '@/hooks/useTokens'
 import { formatCurrency } from '@/lib/utils'
+import { LanguageToggle } from '@/components/layout/LanguageToggle'
 
 type Lang = 'en' | 'ru'
 
@@ -102,9 +103,9 @@ const TEXT = {
       { title: 'Track fresh pools', description: 'Receive live updates and execute before the crowd.' },
     ],
     subscribe: {
-      title: 'Stay in the loop',
-      description: 'Join our Telegram channel for instant updates, alpha and release notes.',
-      button: 'Open Telegram',
+      title: 'Ready to trade on fresh pools?',
+      description: 'Jump into the dashboard and start scanning new liquidity routes in seconds.',
+      button: 'Open dashboard',
     },
     communityTitle: 'Community & roadmap',
     timeline: [
@@ -196,9 +197,9 @@ const TEXT = {
       { title: 'Лови свежие пулы', description: 'Получай апдейты и заходи раньше остальных.' },
     ],
     subscribe: {
-      title: 'Будь в курсе',
-      description: 'Подпишись на Telegram-канал с обновлениями, альфой и анонсами релизов.',
-      button: 'Открыть Telegram',
+      title: 'Готов к арбитражу свежих пулов?',
+      description: 'Открой дашборд и начинай отслеживать новые маршруты за пару кликов.',
+      button: 'Перейти к дашборду',
     },
     communityTitle: 'Комьюнити и дорожная карта',
     timeline: [
@@ -242,6 +243,7 @@ export default function Landing() {
     const active = activeTokens?.items ?? []
     const monitoring = monitoringTokens?.items ?? []
     const combined = [...active, ...monitoring]
+    const top = active.slice(0, 5)
 
     const fresh = combined.filter((token) => {
       if (!token.created_at) return false
@@ -252,7 +254,7 @@ export default function Landing() {
 
     const pools24h = fresh.filter((token) => (token.pools ?? []).length > 0)
 
-    const liquidityValues = active
+    const liquidityValues = top
       .map((token) => Number(token.liquidity_usd))
       .filter((value) => Number.isFinite(value) && value > 0)
 
@@ -265,9 +267,11 @@ export default function Landing() {
       freshCount: fresh.length,
       avgLiquidity: avgLiq,
       newPoolsCount: pools24h.length,
-      topTokens: active.slice(0, 5),
+      topTokens: top,
     }
   }, [activeTokens, monitoringTokens])
+
+  const heroPreview = topTokens.slice(0, 3)
 
   const heroStats = [
     {
@@ -289,9 +293,13 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-background" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-background to-background" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(123,97,255,0.25),_transparent_60%)]" />
-        <div className="relative mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-20 pt-24 lg:px-8 lg:pt-28">
+        <div className="pointer-events-none absolute inset-x-0 top-1/3 h-[480px] -translate-y-1/2 bg-[radial-gradient(80%_60%_at_50%_50%,rgba(34,197,94,0.12),transparent)] blur-3xl" />
+        <div className="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 top-10 h-60 w-60 rounded-full bg-secondary/20 blur-3xl" />
+        <div className="absolute right-4 top-4 z-20"><LanguageToggle /></div>
+        <div className="relative mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-20 pt-28 lg:px-8 lg:pt-32">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center">
             <div className="flex-1 space-y-6">
               <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
@@ -305,13 +313,13 @@ export default function Landing() {
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button size="lg" asChild>
-                  <a href="/login">
+                  <a href="/app/">
                     {copy.ctaLogin}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </a>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
-                  <a href="/register">{copy.ctaRegister}</a>
+                  <a href="/app/">{copy.ctaRegister}</a>
                 </Button>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
@@ -333,7 +341,7 @@ export default function Landing() {
                   <Sparkles className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex flex-col gap-3">
-                  {topTokens.map((token) => (
+                  {heroPreview.map((token) => (
                     <div
                       key={token.mint_address}
                       className="flex items-center justify-between rounded-lg border border-muted px-3 py-2"
@@ -404,23 +412,27 @@ export default function Landing() {
         <div className="grid gap-12 lg:grid-cols-[3fr_2fr]">
           <div>
             <h2 className="mb-6 text-3xl font-bold lg:text-4xl">{copy.liveTitle}</h2>
-            <div className="flex gap-4 overflow-x-auto pb-4">
+            <div className="space-y-3">
               {topTokens.map((token) => (
                 <div
-                  key={`card-${token.mint_address}`}
-                  className="min-w-[220px] rounded-xl border border-muted bg-card/80 p-4 shadow-sm"
+                  key={`live-${token.mint_address}`}
+                  className="flex items-center justify-between rounded-xl border border-muted bg-card/80 px-4 py-3 shadow-sm"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">
+                  <div>
+                    <div className="text-sm font-semibold">
                       {token.symbol || token.name || token.mint_address.slice(0, 6)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">score</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                    </div>
                   </div>
-                  <div className="mt-2 text-2xl font-bold text-primary">
-                    {token.score?.toFixed(3)}
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {formatCurrency(token.liquidity_usd)}
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-primary">
+                      {token.score?.toFixed(3)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatCurrency(token.liquidity_usd)}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -502,14 +514,9 @@ export default function Landing() {
                   </div>
                   <h3 className="text-lg font-semibold">{card.title}</h3>
                   <p className="mt-2 flex-1 text-sm text-muted-foreground">{card.description}</p>
-                  {card.action && card.href && (
-                    <Button variant="link" className="justify-start px-0" asChild>
-                      <a href={card.href} className="text-primary">
-                        {card.action}
-                        <ArrowRight className="ml-1 h-4 w-4" />
-                      </a>
-                    </Button>
-                  )}
+                  <div className="mt-4 text-xs uppercase tracking-wide text-muted-foreground">
+                    beta
+                  </div>
                 </div>
               )
               return <div key={card.title}>{cardContent}</div>
@@ -540,12 +547,12 @@ export default function Landing() {
                 <h3 className="text-xl font-semibold">{copy.subscribe.title}</h3>
                 <p className="text-sm text-muted-foreground">{copy.subscribe.description}</p>
               </div>
-              <Button size="lg" variant="secondary" asChild>
-                <a href="https://t.me/tothemoon_arbitrage" target="_blank" rel="noreferrer">
-                  <Send className="mr-2 h-4 w-4" />
-                  {copy.subscribe.button}
-                </a>
-              </Button>
+            <Button size="lg" variant="secondary" asChild>
+              <a href="/app/">
+                <Send className="mr-2 h-4 w-4" />
+                {copy.subscribe.button}
+              </a>
+            </Button>
             </div>
           </div>
         </div>
@@ -575,10 +582,10 @@ export default function Landing() {
           <p className="text-sm text-muted-foreground">{copy.footer.beta}</p>
           <div className="flex flex-wrap justify-center gap-3">
             <Button asChild>
-              <a href="/login">{copy.footer.login}</a>
+              <a href="/app/">{copy.footer.login}</a>
             </Button>
             <Button variant="outline" asChild>
-              <a href="/register">{copy.footer.register}</a>
+              <a href="/app/">{copy.footer.register}</a>
             </Button>
           </div>
         </div>
