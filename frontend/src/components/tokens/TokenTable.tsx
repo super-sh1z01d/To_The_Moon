@@ -134,15 +134,12 @@ export function TokenTable({
                   ? t('Invalid date')
                   : lastUpdatedRaw
               
-              const displayLabel = (() => {
-                if (typeof token.symbol === 'string' && token.symbol.trim().length > 0) {
-                  return token.symbol.trim()
-                }
-                if (typeof token.name === 'string' && token.name.trim().length > 0) {
-                  return token.name.trim()
-                }
-                return `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
-              })()
+              const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
+              const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
+              const hasSymbol = trimmedSymbol.length > 0
+              const label = hasSymbol
+                ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
+                : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
 
               return (
                 <TableRow
@@ -152,7 +149,7 @@ export function TokenTable({
                 >
                   <TableCell className="font-medium">
                     <div>
-                      <div className="font-semibold">{displayLabel}</div>
+                      <div className="font-semibold whitespace-pre-line">{label}</div>
                       <div className="text-xs text-muted-foreground">
                         {token.mint_address.slice(0, 4)}...{token.mint_address.slice(-4)}
                       </div>
