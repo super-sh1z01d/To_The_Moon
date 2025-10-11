@@ -14,11 +14,11 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useTokenStats } from '@/hooks/useTokenStats'
 import { useTokens } from '@/hooks/useTokens'
-import { formatCurrency } from '@/lib/utils'
-import { LanguageToggle } from '@/components/layout/LanguageToggle'
+import { cn, formatCurrency } from '@/lib/utils'
 
 type Lang = 'en' | 'ru'
 
@@ -32,12 +32,14 @@ const TEXT = {
     heroSubtitle: 'Pump.fun → External DEX → Ready-made bundles for your bot',
     ctaLogin: 'Sign in',
     ctaRegister: 'Create account',
+    brand: 'To The Moon',
+    betaLabel: 'Beta access',
     stats: {
-      fresh: 'Fresh tokens (24h)',
-      avgLiquidity: 'Average liquidity',
+      fresh: 'New mints (24h)',
+      activated: 'Activated (24h)',
+      pools: 'Pools created (24h)',
+      liquidity: 'Liquidity added (24h)',
       totalTokens: 'Tokens in system',
-      newPools: 'New pools (24h)',
-      newCoins: 'New coins (24h)',
     },
     valueTitle: 'Why traders choose To The Moon',
     valueCards: [
@@ -62,6 +64,21 @@ const TEXT = {
       { title: 'Bundles for arbitrage', description: 'Copy ready-made pool lists for bots or act manually in one click.' },
     ],
     liveTitle: 'Live market pulse',
+    liveSubtitle: 'Real-time stats for the last 24 hours',
+    liveTable: {
+      token: 'Token',
+      score: 'Score',
+      pools: 'Pools',
+      liquidity: 'Liquidity',
+      empty: 'No standout tokens right now — data refreshes live.',
+    },
+    liveSummary: {
+      minted: 'New mints (24h)',
+      activated: 'Activated (24h)',
+      pools: 'Pools created (24h)',
+      liquidity: 'Liquidity added (24h)',
+    },
+    liveAssist: 'Scores refresh live using Pump.fun launches and external DEX liquidity.',
     advantagesTitle: 'Built for professional arbitrageurs',
     advantages: [
       {
@@ -122,12 +139,14 @@ const TEXT = {
     heroSubtitle: 'Pump.fun → Внешние DEX → Готовые связки для бота',
     ctaLogin: 'Войти',
     ctaRegister: 'Зарегистрироваться',
+    brand: 'To The Moon',
+    betaLabel: 'Открытая бета',
     stats: {
-      fresh: 'Свежие токены (24ч)',
-      avgLiquidity: 'Средняя ликвидность',
+      fresh: 'Новые минты (24ч)',
+      activated: 'Активировано (24ч)',
+      pools: 'Создано пулов (24ч)',
+      liquidity: 'Ликвидность (24ч)',
       totalTokens: 'Токенов в системе',
-      newPools: 'Новые пулы (24ч)',
-      newCoins: 'Новые монеты (24ч)',
     },
     valueTitle: 'Зачем это нужно арбитражникам',
     valueCards: [
@@ -152,6 +171,21 @@ const TEXT = {
       { title: 'Готовые связки', description: 'Копируй пул-листы в бота или работай вручную первым.' },
     ],
     liveTitle: 'Пульс рынка в реальном времени',
+    liveSubtitle: 'Актуальные показатели за последние 24 часа',
+    liveTable: {
+      token: 'Токен',
+      score: 'Score',
+      pools: 'Пулы',
+      liquidity: 'Ликвидность',
+      empty: 'Пока без ярких токенов — данные обновляются в онлайне.',
+    },
+    liveSummary: {
+      minted: 'Новые минты (24ч)',
+      activated: 'Перешли в активные (24ч)',
+      pools: 'Создано пулов (24ч)',
+      liquidity: 'Добавленная ликвидность (24ч)',
+    },
+    liveAssist: 'Скоры обновляются в реальном времени по потокам Pump.fun и внешних DEX.',
     advantagesTitle: 'Преимущества для арбитражников',
     advantages: [
       {
@@ -216,8 +250,38 @@ function formatInteger(value: number | undefined) {
   return value.toLocaleString()
 }
 
+function LanguageSwitch({ language, onSelect }: { language: Lang; onSelect: (lang: Lang) => void }) {
+  const options: Array<{ value: Lang; label: string }> = [
+    { value: 'en', label: 'EN' },
+    { value: 'ru', label: 'RU' },
+  ]
+
+  return (
+    <div
+      className="inline-flex items-center gap-1 rounded-full border border-muted/40 bg-background/80 p-1 shadow-sm backdrop-blur"
+      aria-label="Language switcher"
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onSelect(option.value)}
+          className={cn(
+            'rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors',
+            language === option.value
+              ? 'bg-primary text-primary-foreground shadow'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function Landing() {
-  const { language } = useLanguage()
+  const { language, setLanguage } = useLanguage()
   const lang: Lang = language === 'ru' ? 'ru' : 'en'
   const copy = TEXT[lang]
 
@@ -226,16 +290,25 @@ export default function Landing() {
   const { data: monitoringTokens } = useTokens(MONITORING_FILTER)
 
   const {
-    freshCount,
-    avgLiquidity,
-    newPoolsCount,
+    mintedCount,
+    activatedCount,
+    totalPools24h,
+    totalLiquidity24h,
     topTokens,
   } = useMemo(() => {
     const now = Date.now()
     const active = activeTokens?.items ?? []
     const monitoring = monitoringTokens?.items ?? []
-    const combined = [...active, ...monitoring]
-    const top = active.slice(0, 5)
+    const indexed = new Map<string, (typeof active)[number]>()
+
+    for (const token of [...active, ...monitoring]) {
+      if (token?.mint_address && !indexed.has(token.mint_address)) {
+        indexed.set(token.mint_address, token)
+      }
+    }
+
+    const combined = Array.from(indexed.values())
+    const top = active.slice(0, 6)
 
     const fresh = combined.filter((token) => {
       if (!token.created_at) return false
@@ -244,43 +317,65 @@ export default function Landing() {
       return now - created <= ONE_DAY
     })
 
-    const pools24h = fresh.filter((token) => (token.pools ?? []).length > 0)
+    const activatedFresh = fresh.filter((token) => token.status === 'active')
+    const totalLiquidity = fresh.reduce((sum, token) => {
+      const value = Number(token.liquidity_usd)
+      if (!Number.isFinite(value) || value <= 0) {
+        return sum
+      }
+      return sum + value
+    }, 0)
 
-    const liquidityValues = top
-      .map((token) => Number(token.liquidity_usd))
-      .filter((value) => Number.isFinite(value) && value > 0)
-
-    const avgLiq =
-      liquidityValues.length > 0
-        ? liquidityValues.reduce((sum, value) => sum + value, 0) / liquidityValues.length
-        : undefined
+    const poolsCount = fresh.reduce((sum, token) => sum + (token.pools?.length ?? 0), 0)
 
     return {
-      freshCount: fresh.length,
-      avgLiquidity: avgLiq,
-      newPoolsCount: pools24h.length,
+      mintedCount: fresh.length,
+      activatedCount: activatedFresh.length,
+      totalPools24h: poolsCount,
+      totalLiquidity24h: totalLiquidity,
       topTokens: top,
     }
   }, [activeTokens, monitoringTokens])
 
-  const heroPreview = topTokens.slice(0, 3)
+  const heroPreview = topTokens.slice(0, 5)
 
   const heroStats = [
     {
       label: copy.stats.fresh,
-      value: formatInteger(freshCount),
+      value: formatInteger(mintedCount),
     },
     {
-      label: copy.stats.avgLiquidity,
-      value: avgLiquidity !== undefined ? formatCurrency(avgLiquidity) : '—',
+      label: copy.stats.activated,
+      value: formatInteger(activatedCount),
     },
     {
-      label: copy.stats.totalTokens,
-      value: formatInteger(stats?.total),
+      label: copy.stats.pools,
+      value: formatInteger(totalPools24h),
+    },
+    {
+      label: copy.stats.liquidity,
+      value: totalLiquidity24h > 0 ? formatCurrency(totalLiquidity24h) : '—',
     },
   ]
 
-  const barMax = Math.max(freshCount || 0, newPoolsCount || 0, 1)
+  const pulseStats = [
+    {
+      label: copy.liveSummary.minted,
+      value: formatInteger(mintedCount),
+    },
+    {
+      label: copy.liveSummary.activated,
+      value: formatInteger(activatedCount),
+    },
+    {
+      label: copy.liveSummary.pools,
+      value: formatInteger(totalPools24h),
+    },
+    {
+      label: copy.liveSummary.liquidity,
+      value: totalLiquidity24h > 0 ? formatCurrency(totalLiquidity24h) : '—',
+    },
+  ]
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -290,17 +385,22 @@ export default function Landing() {
         <div className="pointer-events-none absolute inset-x-0 top-1/3 h-[480px] -translate-y-1/2 bg-[radial-gradient(80%_60%_at_50%_50%,rgba(34,197,94,0.12),transparent)] blur-3xl" />
         <div className="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute -right-24 top-10 h-60 w-60 rounded-full bg-secondary/20 blur-3xl" />
-        <div className="absolute right-4 top-4 z-20">
-          <div className="rounded-md border border-muted bg-background/70 px-3 py-1 shadow-sm backdrop-blur">
-            <LanguageToggle />
-          </div>
-        </div>
-        <div className="relative mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-20 pt-28 lg:px-8 lg:pt-32">
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-center">
-            <div className="flex-1 space-y-6">
-              <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
-                Beta access
-              </span>
+        <div className="pointer-events-none absolute inset-x-0 -bottom-16 h-64 bg-[radial-gradient(70%_70%_at_50%_50%,rgba(59,130,246,0.08),transparent)] blur-3xl" />
+        <div className="relative mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-20 pt-24 lg:px-8 lg:pt-32">
+          <div className="flex flex-col gap-10 lg:flex-row lg:items-start">
+            <div className="flex-1 space-y-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-primary">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {copy.betaLabel}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-muted/40 bg-background/70 px-3 py-1 text-xs text-foreground shadow-sm">
+                    {copy.brand}
+                  </span>
+                </div>
+                <LanguageSwitch language={lang} onSelect={(value) => setLanguage(value)} />
+              </div>
               <h1 className="text-4xl font-bold leading-tight tracking-tight md:text-5xl lg:text-6xl">
                 {copy.heroTitle}
               </h1>
@@ -309,52 +409,79 @@ export default function Landing() {
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button size="lg" asChild>
-                  <a href="/app/">
+                  <a className="flex items-center whitespace-nowrap" href="/app/">
                     {copy.ctaLogin}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </a>
                 </Button>
                 <Button size="lg" variant="outline" asChild>
-                  <a href="/app/">{copy.ctaRegister}</a>
+                  <a className="whitespace-nowrap" href="/app/">
+                    {copy.ctaRegister}
+                  </a>
                 </Button>
               </div>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {heroStats.map((stat) => (
                   <div
                     key={stat.label}
-                    className="rounded-xl border border-primary/20 bg-background/60 p-4 backdrop-blur"
+                    className="rounded-xl border border-primary/20 bg-background/70 p-4 shadow-sm backdrop-blur transition hover:border-primary/30 hover:shadow-lg"
                   >
                     <div className="text-2xl font-semibold text-foreground">{stat.value}</div>
                     <div className="text-sm text-muted-foreground">{stat.label}</div>
                   </div>
                 ))}
               </div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {copy.stats.totalTokens}:{' '}
+                <span className="text-foreground">{formatInteger(stats?.total)}</span>
+              </div>
             </div>
             <div className="flex-1">
-              <div className="rounded-2xl border border-primary/20 bg-background/80 p-6 shadow-xl backdrop-blur">
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="font-semibold text-muted-foreground">{copy.liveTitle}</div>
-                  <Sparkles className="h-5 w-5 text-primary" />
+              <div className="rounded-3xl border border-primary/20 bg-background/80 p-6 shadow-xl backdrop-blur">
+                <div className="mb-6 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-primary">{copy.liveTitle}</div>
+                    <p className="text-xs text-muted-foreground">{copy.liveSubtitle}</p>
+                  </div>
+                  <Sparkles className="h-6 w-6 text-primary" />
                 </div>
-                <div className="flex flex-col gap-3">
-                  {heroPreview.map((token) => (
-                    <div
-                      key={token.mint_address}
-                      className="flex items-center justify-between rounded-lg border border-muted px-3 py-2"
-                    >
-                      <div>
-                        <div className="text-sm font-medium">
-                          {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                <div className="overflow-hidden rounded-2xl border border-muted/40">
+                  <div className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto] bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span>{copy.liveTable.token}</span>
+                    <span className="text-right">{copy.liveTable.score}</span>
+                    <span className="text-right">{copy.liveTable.pools}</span>
+                    <span className="text-right">{copy.liveTable.liquidity}</span>
+                  </div>
+                  {heroPreview.length > 0 ? (
+                    heroPreview.map((token) => (
+                      <div
+                        key={token.mint_address}
+                        className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto] items-center px-4 py-3 text-sm transition hover:bg-muted/30"
+                      >
+                        <div>
+                          <div className="font-semibold">
+                            {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                        <div className="text-right font-semibold text-primary">
+                          {token.score?.toFixed(3)}
+                        </div>
+                        <div className="text-right text-sm text-muted-foreground">
+                          {token.pools?.length ?? 0}
+                        </div>
+                        <div className="text-right text-sm font-semibold text-foreground">
+                          {formatCurrency(token.liquidity_usd)}
                         </div>
                       </div>
-                      <div className="text-right text-sm font-semibold text-primary">
-                        {token.score?.toFixed(3)}
-                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-6 text-sm text-muted-foreground">
+                      {copy.liveTable.empty}
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -405,63 +532,85 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="relative mx-auto max-w-6xl px-4 py-16 lg:px-8">
+      <section className="relative mx-auto max-w-6xl px-4 py-20 lg:px-8">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(70%_70%_at_50%_50%,rgba(34,197,94,0.08),transparent)]" />
         <div className="grid gap-12 lg:grid-cols-[3fr_2fr]">
-          <div>
-            <h2 className="mb-6 text-3xl font-bold lg:text-4xl">{copy.liveTitle}</h2>
-            <div className="space-y-3">
-              {topTokens.map((token) => (
-                <div
-                  key={`live-${token.mint_address}`}
-                  className="flex items-center justify-between rounded-xl border border-muted bg-card/80 px-4 py-3 shadow-sm"
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold lg:text-4xl">{copy.liveTitle}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{copy.liveSubtitle}</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {pulseStats.map((stat) => (
+                <Card
+                  key={stat.label}
+                  className="relative overflow-hidden border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background"
                 >
-                  <div>
-                    <div className="text-sm font-semibold">
-                      {token.symbol || token.name || token.mint_address.slice(0, 6)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
-                    </div>
+                  <div className="pointer-events-none absolute inset-px rounded-2xl bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_65%)]" />
+                  <div className="relative flex flex-col gap-2 p-5">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-primary">
+                      {stat.label}
+                    </span>
+                    <span className="text-2xl font-semibold text-foreground">{stat.value}</span>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-primary">
-                      {token.score?.toFixed(3)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatCurrency(token.liquidity_usd)}
-                    </div>
-                  </div>
-                </div>
+                </Card>
               ))}
             </div>
+            <Card className="relative overflow-hidden border-primary/20 bg-background/80">
+              <div className="pointer-events-none absolute -right-24 top-1/2 h-56 w-56 -translate-y-1/2 bg-[radial-gradient(rgba(59,130,246,0.25),transparent_70%)] blur-3xl" />
+              <div className="relative flex items-start gap-3 p-6">
+                <BarChart3 className="h-6 w-6 text-primary" />
+                <div>
+                  <div className="text-sm font-semibold text-foreground">{copy.brand}</div>
+                  <p className="mt-1 text-sm text-muted-foreground">{copy.liveAssist}</p>
+                </div>
+              </div>
+            </Card>
           </div>
-          <div className="space-y-6">
-            <div className="rounded-xl border border-muted bg-card/80 p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-sm font-semibold">{copy.stats.newCoins}</span>
-                <BarChart3 className="h-5 w-5 text-primary" />
-              </div>
-              <div className="h-2 rounded-full bg-muted">
-                <div
-                  className="h-2 rounded-full bg-primary"
-                  style={{ width: `${Math.min(100, (freshCount / barMax) * 100)}%` }}
-                />
-              </div>
-              <div className="mt-2 text-2xl font-semibold">{formatInteger(freshCount)}</div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Compass className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold text-foreground">
+                {copy.liveTitle}
+              </h3>
             </div>
-            <div className="rounded-xl border border-muted bg-card/80 p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-sm font-semibold">{copy.stats.newPools}</span>
-                <Compass className="h-5 w-5 text-primary" />
+            <div className="rounded-3xl border border-muted bg-background/80 shadow-sm backdrop-blur">
+              <div className="overflow-hidden rounded-3xl">
+                <div className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto] bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span>{copy.liveTable.token}</span>
+                  <span className="text-right">{copy.liveTable.score}</span>
+                  <span className="text-right">{copy.liveTable.pools}</span>
+                  <span className="text-right">{copy.liveTable.liquidity}</span>
+                </div>
+                {topTokens.length > 0 ? (
+                  topTokens.slice(0, 10).map((token) => (
+                    <div
+                      key={`pulse-${token.mint_address}`}
+                      className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto] items-center px-4 py-3 text-sm transition hover:bg-muted/25"
+                    >
+                      <div>
+                        <div className="font-semibold">
+                          {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                        </div>
+                      </div>
+                      <div className="text-right font-semibold text-primary">
+                        {token.score?.toFixed(3)}
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        {token.pools?.length ?? 0}
+                      </div>
+                      <div className="text-right text-sm font-semibold text-foreground">
+                        {formatCurrency(token.liquidity_usd)}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-6 text-sm text-muted-foreground">{copy.liveTable.empty}</div>
+                )}
               </div>
-              <div className="h-2 rounded-full bg-muted">
-                <div
-                  className="h-2 rounded-full bg-primary/70"
-                  style={{ width: `${Math.min(100, (newPoolsCount / barMax) * 100)}%` }}
-                />
-              </div>
-              <div className="mt-2 text-2xl font-semibold">{formatInteger(newPoolsCount)}</div>
             </div>
           </div>
         </div>
