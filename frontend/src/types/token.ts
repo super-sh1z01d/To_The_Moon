@@ -55,6 +55,7 @@ export interface TokenFilters {
   search?: string
   page?: number
   limit?: number
+  sort?: 'score_desc' | 'score_asc'
 }
 
 export interface TokenDetailResponse extends Token {

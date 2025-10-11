@@ -9,6 +9,7 @@ async function fetchTokens(filters: TokenFilters = {}): Promise<TokensResponse> 
   if (filters.minScore !== undefined) params.append('min_score', filters.minScore.toString())
   if (filters.search) params.append('search', filters.search)
   if (filters.limit) params.append('limit', filters.limit.toString())
+  if (filters.sort) params.append('sort', filters.sort)
   
   // Convert page to offset
   if (filters.page && filters.limit) {
