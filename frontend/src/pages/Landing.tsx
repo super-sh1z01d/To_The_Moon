@@ -29,6 +29,7 @@ type Lang = 'en' | 'ru'
 const ACTIVE_FILTER = { status: 'active', limit: 10, sort: 'score_desc' as const }
 const MONITORING_FILTER = { status: 'monitoring', limit: 50, sort: 'score_desc' as const }
 const ONE_DAY = 24 * 60 * 60 * 1000
+const FRESHNESS_THRESHOLD_HOURS = 6
 
 const countPools = (pools?: Pool[] | null) => {
   if (!Array.isArray(pools) || pools.length === 0) {
@@ -47,6 +48,30 @@ const countPools = (pools?: Pool[] | null) => {
 
     return total + 1
   }, 0)
+}
+
+const formatAge = (dateString?: string | null) => {
+  if (!dateString) return '—'
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return '—'
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  if (diffMins < 60) {
+    return `${diffMins}m`
+  }
+  const diffHours = Math.floor(diffMins / 60)
+  return `${diffHours}h`
+}
+
+const isFresh = (dateString?: string | null) => {
+  if (!dateString) return false
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return false
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffHours = diffMs / (1000 * 60 * 60)
+  return diffHours <= FRESHNESS_THRESHOLD_HOURS
 }
 
 const TEXT = {
@@ -90,6 +115,7 @@ const TEXT = {
     liveSubtitle: 'Real-time stats for the last 24 hours',
     liveTable: {
       token: 'Token',
+      age: 'Age',
       score: 'Score',
       pools: 'Pools',
       liquidity: 'Liquidity',
@@ -197,6 +223,7 @@ const TEXT = {
     liveSubtitle: 'Актуальные показатели за последние 24 часа',
     liveTable: {
       token: 'Токен',
+      age: 'Возраст',
       score: 'Score',
       pools: 'Пулы',
       liquidity: 'Ликвидность',
@@ -513,8 +540,9 @@ export default function Landing() {
                 <div className="overflow-hidden rounded-2xl border border-muted/40">
                   {heroPreview.length > 0 ? (
                     <>
-                      <div className="hidden grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid sm:gap-x-4">
+                      <div className="hidden grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] bg-muted/50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:grid sm:gap-x-4">
                         <span className="text-left">{copy.liveTable.token}</span>
+                        <span className="text-right">{copy.liveTable.age}</span>
                         <span className="text-right">{copy.liveTable.score}</span>
                         <span className="text-right">{copy.liveTable.pools}</span>
                         <span className="text-right">{copy.liveTable.liquidity}</span>
@@ -525,6 +553,12 @@ export default function Landing() {
                           token.name,
                           token.mint_address
                         )
+
+                        const tokenAgeSource = token.created_at || token.fetched_at
+                        const ageLabel = formatAge(tokenAgeSource)
+                        const ageClass = tokenAgeSource && isFresh(tokenAgeSource)
+                          ? 'text-emerald-500 dark:text-emerald-400'
+                          : 'text-muted-foreground'
 
                         const poolCount = countPools(token.pools)
                         const formattedLiquidity = formatCurrency(
@@ -539,7 +573,7 @@ export default function Landing() {
                         return (
                         <div
                           key={`hero-row-${token.mint_address}`}
-                          className="hidden grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] items-center px-4 py-3 text-sm transition hover:bg-muted/30 sm:grid sm:gap-x-4"
+                          className="hidden grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] items-center px-4 py-3 text-sm transition hover:bg-muted/30 sm:grid sm:gap-x-4"
                         >
                           <div className="flex items-center gap-3">
                             <TokenAvatar
@@ -555,6 +589,9 @@ export default function Landing() {
                                 {shortMint}
                               </div>
                             </div>
+                          </div>
+                          <div className={cn('text-right text-sm font-semibold', ageClass)}>
+                            {ageLabel}
                           </div>
                           <div className="text-right font-semibold text-primary">
                             {token.score?.toFixed(3)}
@@ -575,6 +612,12 @@ export default function Landing() {
                             token.name,
                             token.mint_address
                           )
+
+                          const tokenAgeSource = token.created_at || token.fetched_at
+                          const ageLabel = formatAge(tokenAgeSource)
+                          const ageClass = tokenAgeSource && isFresh(tokenAgeSource)
+                            ? 'text-emerald-500 dark:text-emerald-400'
+                            : 'text-muted-foreground'
 
                           const poolCount = countPools(token.pools)
                           const formattedLiquidity = formatCurrency(
@@ -613,6 +656,10 @@ export default function Landing() {
                               </span>
                             </div>
                             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <span>{copy.liveTable.age}:</span>
+                                <span className={cn('font-semibold', ageClass)}>{ageLabel}</span>
+                              </span>
                               <span className="flex items-center gap-1">
                                 <span>{copy.liveTable.pools}:</span>
                                 <span className="font-semibold text-foreground">{poolCount}</span>
@@ -730,8 +777,9 @@ export default function Landing() {
               <div className="overflow-hidden rounded-3xl">
                 {topTokens.length > 0 ? (
                   <>
-                    <div className="hidden grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid md:gap-x-4">
+                    <div className="hidden grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid md:gap-x-4">
                       <span className="text-left">{copy.liveTable.token}</span>
+                      <span className="text-right">{copy.liveTable.age}</span>
                       <span className="text-right">{copy.liveTable.score}</span>
                       <span className="text-right">{copy.liveTable.pools}</span>
                       <span className="text-right">{copy.liveTable.liquidity}</span>
@@ -742,6 +790,12 @@ export default function Landing() {
                         token.name,
                         token.mint_address
                       )
+
+                      const tokenAgeSource = token.created_at || token.fetched_at
+                      const ageLabel = formatAge(tokenAgeSource)
+                      const ageClass = tokenAgeSource && isFresh(tokenAgeSource)
+                        ? 'text-emerald-500 dark:text-emerald-400'
+                        : 'text-muted-foreground'
 
                       const poolCount = countPools(token.pools)
                       const formattedLiquidity = formatCurrency(
@@ -756,7 +810,7 @@ export default function Landing() {
                       return (
                         <div
                           key={`pulse-${token.mint_address}`}
-                          className="hidden grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] items-center px-4 py-3 text-sm transition hover:bg-muted/25 md:grid md:gap-x-4"
+                          className="hidden grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] items-center px-4 py-3 text-sm transition hover:bg-muted/25 md:grid md:gap-x-4"
                         >
                           <div className="flex items-center gap-3">
                             <TokenAvatar
@@ -771,7 +825,10 @@ export default function Landing() {
                             <div className="text-xs text-muted-foreground">
                               {shortMint}
                             </div>
-                            </div>
+                          </div>
+                          </div>
+                          <div className={cn('text-right text-sm font-semibold', ageClass)}>
+                            {ageLabel}
                           </div>
                           <div className="text-right font-semibold text-primary">
                             {token.score?.toFixed(3)}
@@ -792,6 +849,12 @@ export default function Landing() {
                           token.name,
                           token.mint_address
                         )
+
+                        const tokenAgeSource = token.created_at || token.fetched_at
+                        const ageLabel = formatAge(tokenAgeSource)
+                        const ageClass = tokenAgeSource && isFresh(tokenAgeSource)
+                          ? 'text-emerald-500 dark:text-emerald-400'
+                          : 'text-muted-foreground'
 
                         const poolCount = countPools(token.pools)
                         const formattedLiquidity = formatCurrency(
@@ -831,14 +894,18 @@ export default function Landing() {
                             </div>
                           <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
+                              <span>{copy.liveTable.age}:</span>
+                              <span className={cn('font-semibold', ageClass)}>{ageLabel}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
                               <span>{copy.liveTable.pools}:</span>
                               <span className="font-semibold text-foreground">{poolCount}</span>
                             </span>
-                              <span className="flex items-center gap-1">
-                                <span>{copy.liveTable.liquidity}:</span>
-                                <span className="font-semibold text-foreground">{formattedLiquidity}</span>
-                              </span>
-                            </div>
+                            <span className="flex items-center gap-1">
+                              <span>{copy.liveTable.liquidity}:</span>
+                              <span className="font-semibold text-foreground">{formattedLiquidity}</span>
+                            </span>
+                          </div>
                           </div>
                         )
                       })}
