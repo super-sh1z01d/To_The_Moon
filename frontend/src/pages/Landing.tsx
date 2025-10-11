@@ -498,6 +498,12 @@ export default function Landing() {
                         <span className="text-right">{copy.liveTable.liquidity}</span>
                       </div>
                       {heroPreview.map((token) => {
+                        const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
+                        const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
+                        const heroLabel = trimmedSymbol
+                          ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
+                          : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
+
                         const formattedLiquidity = formatCurrency(
                           token.liquidity_usd,
                           undefined,
@@ -513,8 +519,8 @@ export default function Landing() {
                           className="hidden grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] items-center px-4 py-3 text-sm transition hover:bg-muted/30 sm:grid sm:gap-x-4"
                         >
                           <div>
-                            <div className="font-semibold">
-                              {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                            <div className="font-semibold whitespace-pre-line">
+                              {heroLabel}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
@@ -534,6 +540,12 @@ export default function Landing() {
                       })}
                       <div className="space-y-3 p-4 sm:hidden">
                         {heroPreview.map((token) => {
+                          const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
+                          const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
+                          const heroLabel = trimmedSymbol
+                            ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
+                            : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
+
                           const formattedLiquidity = formatCurrency(
                             token.liquidity_usd,
                             undefined,
@@ -549,14 +561,14 @@ export default function Landing() {
                             className="rounded-xl border border-muted/50 bg-background/90 p-3 shadow-sm"
                           >
                             <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <div className="text-sm font-semibold">
-                                  {token.symbol || token.name || token.mint_address.slice(0, 6)}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
-                                </div>
+                            <div>
+                              <div className="text-sm font-semibold whitespace-pre-line">
+                                {heroLabel}
                               </div>
+                              <div className="text-xs text-muted-foreground">
+                                {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
+                              </div>
+                            </div>
                               <span className="text-sm font-semibold text-primary">
                                 {token.score?.toFixed(3)}
                               </span>
@@ -686,6 +698,12 @@ export default function Landing() {
                       <span className="text-right">{copy.liveTable.liquidity}</span>
                     </div>
                     {topTokens.slice(0, 10).map((token) => {
+                      const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
+                      const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
+                      const pulseLabel = trimmedSymbol
+                        ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
+                        : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
+
                       const formattedLiquidity = formatCurrency(
                         token.liquidity_usd,
                         undefined,
@@ -698,11 +716,11 @@ export default function Landing() {
                       return (
                         <div
                           key={`pulse-${token.mint_address}`}
-                        className="hidden grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] items-center px-4 py-3 text-sm transition hover:bg-muted/25 md:grid md:gap-x-4"
+                          className="hidden grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))] items-center px-4 py-3 text-sm transition hover:bg-muted/25 md:grid md:gap-x-4"
                         >
                           <div>
-                            <div className="font-semibold">
-                              {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                            <div className="font-semibold whitespace-pre-line">
+                              {pulseLabel}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
@@ -722,6 +740,12 @@ export default function Landing() {
                     })}
                     <div className="space-y-3 p-4 md:hidden">
                       {topTokens.slice(0, 10).map((token) => {
+                        const trimmedSymbol = typeof token.symbol === 'string' ? token.symbol.trim() : ''
+                        const trimmedName = typeof token.name === 'string' ? token.name.trim() : ''
+                        const pulseLabel = trimmedSymbol
+                          ? `${trimmedSymbol}${trimmedName ? ` ${trimmedName}` : ''}`
+                          : trimmedName || `${token.mint_address.slice(0, 4)}…${token.mint_address.slice(-4)}`
+
                         const formattedLiquidity = formatCurrency(
                           token.liquidity_usd,
                           undefined,
@@ -738,8 +762,8 @@ export default function Landing() {
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div>
-                                <div className="text-sm font-semibold">
-                                  {token.symbol || token.name || token.mint_address.slice(0, 6)}
+                                <div className="text-sm font-semibold whitespace-pre-line">
+                                  {pulseLabel}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {token.mint_address.slice(0, 4)}…{token.mint_address.slice(-4)}
