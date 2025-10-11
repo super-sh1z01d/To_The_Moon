@@ -338,7 +338,7 @@ export default function Landing() {
     }
   }, [activeTokens, monitoringTokens])
 
-  const heroPreview = topTokens.slice(0, 3)
+  const heroPreview = topTokens.slice(0, 5)
 
   const heroStats = [
     {
