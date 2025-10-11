@@ -76,8 +76,9 @@ const isFresh = (dateString?: string | null) => {
 
 const TEXT = {
   en: {
-    heroTitle: 'Arbitrage Solana memecoins without blind spots',
-    heroSubtitle: 'Pump.fun → External DEX → Ready-made bundles for your bot',
+    heroTitle: 'Now you know what to spam!',
+    heroSubtitle:
+      'Arbitrage Solana memecoins without blind spots. Pump.fun → external DEXes → ready-made bundles for SolanaMevBot and NotArb bots.',
     ctaLogin: 'Sign in',
     ctaRegister: 'Create account',
     brand: 'To The Moon',
@@ -184,8 +185,9 @@ const TEXT = {
     },
   },
   ru: {
-    heroTitle: 'Арбитраж мемкоинов в Solana без слепых зон',
-    heroSubtitle: 'Pump.fun → Внешние DEX → Готовые связки для бота',
+    heroTitle: 'Теперь ты знаешь, что спамить!',
+    heroSubtitle:
+      'Арбитраж мемкоинов Solana без слепых зон. Pump.fun → внешние DEX → готовые связки для ботов SolanaMevBot и NotArb.',
     ctaLogin: 'Войти',
     ctaRegister: 'Зарегистрироваться',
     brand: 'To The Moon',
