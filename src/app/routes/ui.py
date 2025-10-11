@@ -11,12 +11,26 @@ router = APIRouter()
 FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 
 
+def _resolve_dist_file(name: str) -> Path:
+    file_path = FRONTEND_DIST / name
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"{name} not found")
+    return file_path
+
+
 @router.get("/", include_in_schema=False)
 async def landing_page():
     index_file = FRONTEND_DIST / "index.html"
     if not index_file.exists():
         raise HTTPException(status_code=404, detail="Landing page not built")
     return FileResponse(index_file, media_type="text/html")
+
+
+@router.get("/favicon.ico", include_in_schema=False)
+@router.get("/favicon.svg", include_in_schema=False)
+async def favicon() -> FileResponse:
+    file_path = _resolve_dist_file("favicon.svg")
+    return FileResponse(file_path, media_type="image/svg+xml")
 
 
 @router.get("/ui", response_class=HTMLResponse, include_in_schema=False)
