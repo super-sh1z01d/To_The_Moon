@@ -1,10 +1,22 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import HTMLResponse, FileResponse
 
 
 router = APIRouter()
+
+FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+
+
+@router.get("/", include_in_schema=False)
+async def landing_page():
+    index_file = FRONTEND_DIST / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="Landing page not built")
+    return FileResponse(index_file, media_type="text/html")
 
 
 @router.get("/ui", response_class=HTMLResponse, include_in_schema=False)
@@ -91,4 +103,3 @@ async def ui_page() -> str:
   </body>
  </html>
     """
-

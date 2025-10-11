@@ -82,14 +82,10 @@ const TEXT = {
       {
         title: 'REST API',
         description: 'Plug token feeds and pools directly into your execution stack.',
-        action: 'API Docs',
-        href: '/api-docs',
       },
       {
         title: 'NotArb & SolanaMevBot ready',
         description: 'Download fresh markets.json configs with pool bundles in one click.',
-        action: 'Download',
-        href: '/notarb/markets',
       },
       {
         title: 'Coming soon',
@@ -176,14 +172,10 @@ const TEXT = {
       {
         title: 'REST API',
         description: 'Подключай фиды токенов и пулов напрямую в свою инфраструктуру.',
-        action: 'Открыть документацию',
-        href: '/api-docs',
       },
       {
         title: 'Готово для NotArb и SolanaMevBot',
         description: 'Скачай актуальный markets.json с готовыми пулами.',
-        action: 'Скачать',
-        href: '/notarb/markets',
       },
       {
         title: 'Скоро',
@@ -299,6 +291,11 @@ export default function Landing() {
         <div className="pointer-events-none absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute -right-24 top-10 h-60 w-60 rounded-full bg-secondary/20 blur-3xl" />
         <div className="absolute right-4 top-4 z-20"><LanguageToggle /></div>
+        <div className="absolute right-4 top-4 z-20">
+          <div className="rounded-md border border-muted bg-background/70 px-3 py-1 shadow-sm backdrop-blur">
+            <LanguageToggle />
+          </div>
+        </div>
         <div className="relative mx-auto flex max-w-6xl flex-col gap-12 px-4 pb-20 pt-28 lg:px-8 lg:pt-32">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center">
             <div className="flex-1 space-y-6">
@@ -366,7 +363,8 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-4 py-16 lg:px-8">
+      <section className="relative mx-auto max-w-5xl px-4 py-16 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_50%_50%,rgba(59,130,246,0.12),transparent)]" />
         <div className="mb-10 text-center">
           <h2 className="text-3xl font-bold lg:text-4xl">{copy.valueTitle}</h2>
         </div>
@@ -408,7 +406,8 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 lg:px-8">
+      <section className="relative mx-auto max-w-6xl px-4 py-16 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(70%_70%_at_50%_50%,rgba(34,197,94,0.08),transparent)]" />
         <div className="grid gap-12 lg:grid-cols-[3fr_2fr]">
           <div>
             <h2 className="mb-6 text-3xl font-bold lg:text-4xl">{copy.liveTitle}</h2>
@@ -496,16 +495,14 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-4 py-16 lg:px-8">
+      <section className="relative mx-auto max-w-5xl px-4 py-16 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_30%_20%,rgba(139,92,246,0.12),transparent)]" />
         <h2 className="mb-10 text-center text-3xl font-bold lg:text-4xl">
           {copy.integrationsTitle}
         </h2>
         <div className="grid gap-6 md:grid-cols-3">
           {copy.integrations.map(
-            (
-              card: { title: string; description: string; action?: string; href?: string },
-              index: number
-            ) => {
+            (card: { title: string; description: string }, index: number) => {
               const Icon = [Plug, Bot, Sparkles][index] ?? Plug
               const cardContent = (
                 <div className="flex h-full flex-col rounded-xl border border-muted bg-card/70 p-6 shadow-sm transition hover:border-primary">
@@ -526,7 +523,8 @@ export default function Landing() {
       </section>
 
       <section className="bg-muted/40 py-16">
-        <div className="mx-auto max-w-4xl px-4 lg:px-8">
+        <div className="relative mx-auto max-w-4xl px-4 lg:px-8">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_70%_40%,rgba(250,204,21,0.15),transparent)]" />
           <h2 className="mb-10 text-center text-3xl font-bold lg:text-4xl">{copy.howToTitle}</h2>
           <div className="grid gap-8 md:grid-cols-3">
             {copy.steps.map(
