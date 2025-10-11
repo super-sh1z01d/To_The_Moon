@@ -76,9 +76,9 @@ const isFresh = (dateString?: string | null) => {
 
 const TEXT = {
   en: {
-    heroTitle: 'Now you know what to spam!',
+    heroTitle: 'Now you know\nwhat to spam!',
     heroSubtitle:
-      'Arbitrage Solana memecoins without blind spots. Pump.fun → external DEXes → ready-made bundles for SolanaMevBot and NotArb bots.',
+      'Arbitrage Solana memecoins without blind spots.\nPump.fun → external DEXes → ready-made bundles for SolanaMevBot and NotArb bots.',
     ctaLogin: 'Sign in',
     ctaRegister: 'Create account',
     brand: 'To The Moon',
