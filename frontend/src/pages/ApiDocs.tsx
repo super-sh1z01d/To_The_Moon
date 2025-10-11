@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useLanguage } from '@/hooks/useLanguage'
+import { usePageMetadata } from '@/hooks/usePageMetadata'
 
 type Language = 'en' | 'ru'
 
@@ -425,6 +427,26 @@ export default function ApiDocs() {
   const { language } = useLanguage()
   const lang = (language as Language) || 'en'
   const endpoints = API_ENDPOINTS[lang]
+  const docsMetadata = useMemo(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tothemoon.sh1z01d.ru'
+    return {
+      en: {
+        title: 'API Documentation | To The Moon',
+        description: 'Integrate To The Moon intelligence via REST endpoints, markets.json exports and WebSocket streams for Solana arbitrage bots.',
+        keywords: ['solana api', 'arbitrage data', 'markets json', 'websocket streams'],
+      },
+      ru: {
+        title: 'API документация | To The Moon',
+        description: 'Интегрируйте данные To The Moon через REST API, экспорт markets.json и WebSocket-потоки для арбитражных ботов.',
+        keywords: ['solana api', 'данные арбитража', 'markets json', 'websocket'],
+      },
+      canonical: `${origin}/app/api-docs`,
+      siteName: 'To The Moon',
+      ogType: 'article',
+    }
+  }, [])
+
+  usePageMetadata(docsMetadata)
 
   return (
     <div className="space-y-6">

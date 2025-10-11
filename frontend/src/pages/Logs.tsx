@@ -1,9 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
 import { clearLogs, getLogs, getLogsMeta, LogEntry } from '../lib/api'
+import { usePageMetadata } from '@/hooks/usePageMetadata'
 
 const LEVELS = ['DEBUG','INFO','WARNING','ERROR','CRITICAL']
 
 export default function Logs(){
+  const logsMetadata = useMemo(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tothemoon.sh1z01d.ru'
+    return {
+      en: {
+        title: 'System Logs | To The Moon',
+        description: 'Inspect ingestion jobs, scoring pipeline activity and webhook deliveries in real time.',
+        keywords: ['solana logs', 'pipeline monitoring', 'arbitrage diagnostics'],
+      },
+      ru: {
+        title: 'Системные логи | To The Moon',
+        description: 'Просматривайте выполнение пайплайна, загрузку данных и вебхуки в реальном времени.',
+        keywords: ['логи solana', 'мониторинг пайплайна', 'диагностика арбитража'],
+      },
+      canonical: `${origin}/app/logs`,
+      siteName: 'To The Moon',
+    }
+  }, [])
+
+  usePageMetadata(logsMetadata)
+
   const [availableLoggers, setAvailableLoggers] = useState<string[]>([])
   const [selectedLoggers, setSelectedLoggers] = useState<Record<string, boolean>>({})
   const [levels, setLevels] = useState<Record<string, boolean>>({INFO:true, WARNING:true, ERROR:true})

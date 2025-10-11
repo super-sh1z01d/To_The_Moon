@@ -19,6 +19,7 @@ import { useLanguage } from '@/hooks/useLanguage'
 import { useTokenStats } from '@/hooks/useTokenStats'
 import { useTokens } from '@/hooks/useTokens'
 import { cn, formatCurrency } from '@/lib/utils'
+import { usePageMetadata } from '@/hooks/usePageMetadata'
 
 type Lang = 'en' | 'ru'
 
@@ -285,6 +286,29 @@ export default function Landing() {
   const lang: Lang = language === 'ru' ? 'ru' : 'en'
   const copy = TEXT[lang]
   const currencyLocale = lang === 'ru' ? 'ru-RU' : 'en-US'
+
+  const landingMetadata = useMemo(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tothemoon.sh1z01d.ru'
+    return {
+      en: {
+        title: 'To The Moon | Solana Arbitrage Intelligence',
+        description:
+          'Track Pump.fun launches, external liquidity and live scores across Solana DEXes. Build bot-ready bundles and act before the crowd.',
+        keywords: ['solana arbitrage', 'pump fun pools', 'memecoin analytics', 'dex liquidity', 'bot bundles'],
+      },
+      ru: {
+        title: 'To The Moon | Арбитраж мемкоинов Solana без слепых зон',
+        description:
+          'Следи за минтами Pump.fun, появлением пулов и скорингом в реальном времени. Готовые бандлы и аналитика для арбитражных ботов.',
+        keywords: ['арбитраж solana', 'pump fun', 'аналитика мемкоинов', 'ликвидность dex', 'боты для торгов'],
+      },
+      canonical: `${origin}/`,
+      siteName: 'To The Moon',
+      ogType: 'website',
+    }
+  }, [])
+
+  usePageMetadata(landingMetadata)
 
   const { data: stats } = useTokenStats()
   const { data: activeTokens } = useTokens(ACTIVE_FILTER)

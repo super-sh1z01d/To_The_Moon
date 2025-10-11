@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTokens } from '@/hooks/useTokens'
 import { TokenTable } from '@/components/tokens/TokenTable'
 import { TokenFilters } from '@/components/tokens/TokenFilters'
@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorDisplay } from '@/components/ui/error-display'
 import { useTokenStats } from '@/hooks/useTokenStats'
 import { useLanguage } from '@/hooks/useLanguage'
+import { usePageMetadata } from '@/hooks/usePageMetadata'
 
 const STORAGE_KEY = 'dashboard_page_size'
 
@@ -16,6 +17,26 @@ export default function Dashboard() {
   const savedPageSize = localStorage.getItem(STORAGE_KEY)
   const initialPageSize = savedPageSize ? Number(savedPageSize) : 50
   const { t } = useLanguage()
+
+  const dashboardMetadata = useMemo(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tothemoon.sh1z01d.ru'
+    return {
+      en: {
+        title: 'Dashboard | To The Moon',
+        description: 'Monitor live Solana token scores, liquidity and pool activity inside the To The Moon dashboard.',
+        keywords: ['solana dashboard', 'token scores', 'liquidity tracking', 'arbitrage monitoring'],
+      },
+      ru: {
+        title: 'Дашборд | To The Moon',
+        description: 'Следите за скором, ликвидностью и активностью пулов токенов Solana в рабочем интерфейсе To The Moon.',
+        keywords: ['дашборд solana', 'скор токена', 'мониторинг ликвидности', 'арбитраж'],
+      },
+      canonical: `${origin}/app/`,
+      siteName: 'To The Moon',
+    }
+  }, [])
+
+  usePageMetadata(dashboardMetadata)
 
   const [filters, setFilters] = useState<Filters>({
     status: 'active',

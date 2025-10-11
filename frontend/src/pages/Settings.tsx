@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSettings, useSaveSettings } from '@/hooks/useSettings'
 import { SettingsGroup } from '@/components/settings/SettingsGroup'
 import { SettingField } from '@/components/settings/SettingField'
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 import { useLanguage } from '@/hooks/useLanguage'
+import { usePageMetadata } from '@/hooks/usePageMetadata'
 
 export default function Settings() {
   const [search, setSearch] = useState('')
@@ -14,6 +15,26 @@ export default function Settings() {
   const { mutateAsync: saveSettings, isPending: isSaving } = useSaveSettings()
   const [localSettings, setLocalSettings] = useState<Record<string, string>>({})
   const { t } = useLanguage()
+
+  const settingsMetadata = useMemo(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tothemoon.sh1z01d.ru'
+    return {
+      en: {
+        title: 'Settings | To The Moon',
+        description: 'Configure scoring models, risk thresholds and export parameters for your Solana arbitrage workflow.',
+        keywords: ['solana settings', 'scoring model', 'arbitrage configuration'],
+      },
+      ru: {
+        title: 'Настройки | To The Moon',
+        description: 'Настройте модели скоринга, пороги рисков и параметры экспорта для арбитражной стратегии в Solana.',
+        keywords: ['настройки скоринга', 'арбитраж solana', 'параметры ликвидности'],
+      },
+      canonical: `${origin}/app/settings`,
+      siteName: 'To The Moon',
+    }
+  }, [])
+
+  usePageMetadata(settingsMetadata)
 
   if (isLoading) {
     return (

@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Language, translate } from '@/lib/i18n'
 
 interface LanguageContextValue {
@@ -26,6 +26,10 @@ export function LanguageProvider({ children, defaultLanguage = 'en' }: LanguageP
     setLanguageState(next)
     localStorage.setItem(LOCAL_STORAGE_KEY, next)
   }, [])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('lang', language)
+  }, [language])
 
   const t = useCallback(
     (key: string, variables?: Record<string, string | number>) => translate(language, key, variables),

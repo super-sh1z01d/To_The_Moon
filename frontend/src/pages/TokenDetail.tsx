@@ -11,11 +11,37 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ErrorDisplay } from '@/components/ui/error-display'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
+import { usePageMetadata } from '@/hooks/usePageMetadata'
 
 export default function TokenDetail() {
   const { mint } = useParams<{ mint: string }>()
   const navigate = useNavigate()
   const { data: token, isLoading, error, refetch } = useTokenDetail(mint!)
+
+  const tokenMetadata = useMemo(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tothemoon.sh1z01d.ru'
+    const slug = mint ? `/app/token/${mint}` : '/app/token'
+    const canonical = `${origin}${slug}`
+    const tokenName = token?.symbol || token?.name || mint || 'Token'
+
+    return {
+      en: {
+        title: `${tokenName} | Token Insight — To The Moon`,
+        description: `View live score, liquidity and pool metrics for ${tokenName} on Solana. Updated continuously by the To The Moon pipeline.`,
+        keywords: ['solana token metrics', tokenName, 'liquidity dashboard'],
+      },
+      ru: {
+        title: `${tokenName} | Аналитика токена — To The Moon`,
+        description: `Скор, ликвидность и данные по пулам для ${tokenName} в сети Solana. Обновляется автоматически сервисом To The Moon.`,
+        keywords: ['метрики токена solana', tokenName, 'ликвидность'],
+      },
+      canonical,
+      siteName: 'To The Moon',
+      ogType: 'article',
+    }
+  }, [mint, token?.name, token?.symbol])
+
+  usePageMetadata(tokenMetadata)
 
   if (isLoading) {
     return (
