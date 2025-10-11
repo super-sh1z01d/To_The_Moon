@@ -1,10 +1,8 @@
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { TokenFilters as Filters } from '@/types/token'
-import { useDebounce } from '@/hooks/useDebounce'
-import { useEffect, useState } from 'react'
 import { useLanguage } from '@/hooks/useLanguage'
+import { useSettings } from '@/hooks/useSettings'
+import { useMemo } from 'react'
 
 interface TokenFiltersProps {
   filters: Filters
@@ -23,16 +21,38 @@ const STATUS_OPTIONS = [
 ] as const
 
 export function TokenFilters({ filters, onFilterChange, statusCounts }: TokenFiltersProps) {
-  const { t } = useLanguage()
-  const [search, setSearch] = useState(filters.search || '')
-  const debouncedSearch = useDebounce(search, 300)
+  const { t, language } = useLanguage()
+  const { data: settings } = useSettings()
 
-  useEffect(() => {
-    if (debouncedSearch !== filters.search) {
-      onFilterChange({ ...filters, search: debouncedSearch })
+  const scoreFormula = useMemo(() => {
+    const getWeight = (key: string, fallback: number) => {
+      const raw = settings?.[key]
+      const parsed = raw !== undefined ? Number.parseFloat(raw) : Number.NaN
+      return Number.isFinite(parsed) ? parsed : fallback
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch])
+
+    const wTx = getWeight('w_tx', 0.25)
+    const wVol = getWeight('w_vol', 0.25)
+    const wFresh = getWeight('w_fresh', 0.25)
+    const wOi = getWeight('w_oi', 0.25)
+
+    const parts =
+      language === 'ru'
+        ? [
+            `${wTx.toFixed(2)}·Транзакции`,
+            `${wVol.toFixed(2)}·Объём`,
+            `${wFresh.toFixed(2)}·Свежесть`,
+            `${wOi.toFixed(2)}·Дисбаланс ордеров`,
+          ]
+        : [
+            `${wTx.toFixed(2)}·TX`,
+            `${wVol.toFixed(2)}·Volume`,
+            `${wFresh.toFixed(2)}·Freshness`,
+            `${wOi.toFixed(2)}·Orderflow`,
+          ]
+
+    return `Score = ${parts.join(' + ')}`
+  }, [language, settings])
 
   const handleStatusChange = (status: string) => {
     onFilterChange({ ...filters, status: status === 'all' ? undefined : status })
@@ -66,15 +86,8 @@ export function TokenFilters({ filters, onFilterChange, statusCounts }: TokenFil
         })}
       </div>
 
-      {/* Search Input */}
-      <div className="flex-1 min-w-[200px]">
-        <Label htmlFor="search">{t('Search')}</Label>
-        <Input
-          id="search"
-          placeholder={t('Search by symbol or address...')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+        {scoreFormula}
       </div>
     </div>
   )
