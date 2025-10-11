@@ -495,10 +495,10 @@ export default function Landing() {
                   <LanguageSwitch language={lang} onSelect={(value) => setLanguage(value)} />
                 </div>
               </div>
-              <h1 className="text-4xl font-bold leading-tight tracking-tight md:text-5xl lg:text-6xl">
+              <h1 className="text-4xl font-bold leading-tight tracking-tight whitespace-pre-line md:text-5xl lg:text-6xl">
                 {copy.heroTitle}
               </h1>
-              <p className="max-w-2xl text-lg text-muted-foreground md:text-xl">
+              <p className="max-w-2xl whitespace-pre-line text-lg text-muted-foreground md:text-xl">
                 {copy.heroSubtitle}
               </p>
               <div className="flex flex-wrap gap-3">
