@@ -21,15 +21,21 @@ export function formatNumber(num: number): string {
 }
 
 // Format currency (USD)
-export function formatCurrency(amount: number | null | undefined, fallback = '—'): string {
+export function formatCurrency(
+  amount: number | null | undefined,
+  fallback = '—',
+  options?: Intl.NumberFormatOptions,
+  locale: string = 'en-US'
+): string {
   if (typeof amount !== 'number' || Number.isNaN(amount)) {
     return fallback
   }
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
+    ...options,
   }).format(amount)
 }
 
