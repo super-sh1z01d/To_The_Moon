@@ -26,11 +26,23 @@ async def landing_page():
     return FileResponse(index_file, media_type="text/html")
 
 
-@router.get("/favicon.ico", include_in_schema=False)
-@router.get("/favicon.svg", include_in_schema=False)
-async def favicon() -> FileResponse:
+FAVICON_PATHS = (
+    "/favicon.ico",
+    "/favicon.svg",
+    "/app/favicon.ico",
+    "/app/favicon.svg",
+)
+
+
+def _favicon_response() -> FileResponse:
     file_path = _resolve_dist_file("favicon.svg")
-    return FileResponse(file_path, media_type="image/svg+xml")
+    response = FileResponse(file_path, media_type="image/svg+xml")
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
+
+for _path in FAVICON_PATHS:
+    router.add_api_route(_path, _favicon_response, methods=["GET", "HEAD"], include_in_schema=False)
 
 
 @router.get("/ui", response_class=HTMLResponse, include_in_schema=False)
