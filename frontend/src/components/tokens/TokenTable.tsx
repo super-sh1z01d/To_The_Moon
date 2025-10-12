@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { Token } from '@/types/token'
-import { formatCurrency, formatPercentage, formatRelativeTime, getScoreColor } from '@/lib/utils'
+import type { Pool, Token } from '@/types/token'
+import { formatCurrency, formatRelativeTime, getScoreColor } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { ArrowUpDown } from 'lucide-react'
@@ -9,6 +9,7 @@ import { SCORE_DISPLAY_DECIMALS } from '@/lib/constants'
 import { useLanguage } from '@/hooks/useLanguage'
 import { TokenAvatar } from '@/components/tokens/TokenAvatar'
 import { getTokenIdentity } from '@/lib/token-format'
+import { getPoolTypeMeta } from '@/lib/pool-types'
 
 interface TokenTableProps {
   tokens: Token[]
@@ -44,20 +45,73 @@ function isFresh(dateString: string): boolean {
   return diffHours <= FRESHNESS_THRESHOLD_HOURS
 }
 
-// Aggregate pools by DEX and return counts
-function getDexCounts(pools: any[] | undefined): Record<string, number> {
-  if (!pools || pools.length === 0) {
-    return {}
+type PoolGroup = {
+  key: string
+  label: string
+  count: number
+  badgeClass: string
+}
+
+function normalizeKey(value: string | undefined | null): string | null {
+  if (typeof value !== 'string') {
+    return null
   }
-  
-  const dexCounts: Record<string, number> = {}
-  pools.forEach(pool => {
-    const dex = pool.dex || 'unknown'
-    const poolCount = typeof pool.count === 'number' ? pool.count : 1
-    dexCounts[dex] = (dexCounts[dex] || 0) + poolCount
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}
+
+function formatFallbackLabel(key: string): string {
+  if (!key || key === 'unknown') {
+    return 'Unknown pool'
+  }
+  return key
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function getPoolTypeGroups(pools: Pool[] | undefined): PoolGroup[] {
+  if (!Array.isArray(pools) || pools.length === 0) {
+    return []
+  }
+
+  const counts = new Map<string, { count: number; poolType: string | null }>()
+
+  pools.forEach((pool) => {
+    if (!pool) {
+      return
+    }
+    const poolType = normalizeKey(pool.pool_type)
+    const fallbackDex = normalizeKey(pool.dex) ?? 'unknown'
+    const key = poolType ?? fallbackDex
+    const increment = typeof pool.count === 'number' && Number.isFinite(pool.count) ? pool.count : 1
+    const bucket = counts.get(key)
+    if (bucket) {
+      bucket.count += increment
+      if (!bucket.poolType && poolType) {
+        bucket.poolType = poolType
+      }
+    } else {
+      counts.set(key, { count: increment, poolType })
+    }
   })
-  
-  return dexCounts
+
+  return Array.from(counts.entries())
+    .map(([key, { count, poolType }]) => {
+      const meta = getPoolTypeMeta(poolType)
+      const label = poolType ? meta.label : formatFallbackLabel(key)
+      return {
+        key,
+        count,
+        label,
+        badgeClass: meta.badgeClass,
+      }
+    })
+    .sort((a, b) => {
+      if (b.count === a.count) {
+        return a.label.localeCompare(b.label)
+      }
+      return b.count - a.count
+    })
 }
 
 export function TokenTable({ 
@@ -127,7 +181,7 @@ export function TokenTable({
               const tokenAgeSource = token.created_at || token.fetched_at
               const tokenAge = tokenAgeSource ? formatAge(tokenAgeSource) : '—'
               const tokenIsFresh = tokenAgeSource ? isFresh(tokenAgeSource) : false
-              const dexCounts = getDexCounts(token.pools)
+              const poolGroups = getPoolTypeGroups(token.pools)
               const lastUpdatedRaw = formatRelativeTime(token.last_processed_at || token.fetched_at)
               const lastUpdated =
                 lastUpdatedRaw === 'Unknown'
@@ -190,13 +244,17 @@ export function TokenTable({
                   <TableCell className="text-right">{formatCurrency(liquidityUsd)}</TableCell>
                   <TableCell className="text-right">{token.n_5m || 0}</TableCell>
                   <TableCell>
-                    {Object.keys(dexCounts).length === 0 ? (
+                    {poolGroups.length === 0 ? (
                       <span className="text-xs text-muted-foreground">{t('No data available')}</span>
                     ) : (
                       <div className="flex flex-col gap-1">
-                        {Object.entries(dexCounts).map(([dex, count]) => (
-                          <Badge key={dex} variant="outline" className="text-xs w-fit">
-                            {dex} <span className="ml-1 opacity-75">({count})</span>
+                        {poolGroups.map((group) => (
+                          <Badge
+                            key={group.key}
+                            variant="outline"
+                            className={`text-xs w-fit ${group.badgeClass}`}
+                          >
+                            {group.label} <span className="ml-1 opacity-75">({group.count})</span>
                           </Badge>
                         ))}
                       </div>

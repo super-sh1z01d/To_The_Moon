@@ -729,6 +729,7 @@ class TokensRepository:
             metrics = score_row.metrics if isinstance(score_row.metrics, dict) else {}
             pool_counts = None
             pool_type_fallback = None
+            pool_type_counts_result: Optional[dict[str, int]] = None
             pools_metric = metrics.get("pools") if isinstance(metrics, dict) else None
             if isinstance(pools_metric, list):
                 counts: dict[str, int] = {}
@@ -748,6 +749,7 @@ class TokensRepository:
                     candidates = sorted(pt for pt, cnt in pool_type_counts.items() if cnt == max_count)
                     if candidates:
                         pool_type_fallback = candidates[0]
+                    pool_type_counts_result = pool_type_counts
             latest_dict = {
                 "latest_score": score_row.score,
                 "latest_smoothed_score": score_row.smoothed_score,
@@ -758,6 +760,7 @@ class TokensRepository:
                 "latest_primary_dex": metrics.get("primary_dex"),
                 "latest_image_url": metrics.get("image_url"),
                 "latest_pool_type": metrics.get("primary_pool_type") or pool_type_fallback,
+                "latest_pool_type_counts": pool_type_counts_result,
                 "latest_pool_counts": pool_counts,
                 "latest_fetched_at": metrics.get("fetched_at"),
                 "latest_scoring_model": score_row.scoring_model,

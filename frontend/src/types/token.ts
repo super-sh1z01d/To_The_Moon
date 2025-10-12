@@ -4,6 +4,8 @@ export interface Pool {
   quote?: string
   solscan_url?: string
   count?: number
+  pool_type?: string
+  owner_program?: string
 }
 
 export interface ScoreComponents {
@@ -32,6 +34,7 @@ export interface Token {
   delta_p_15m: number
   n_5m: number
   primary_dex: string
+  primary_pool_type?: string | null
   pools?: Pool[]
   fetched_at: string
   scored_at: string
