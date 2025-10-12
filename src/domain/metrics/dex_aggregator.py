@@ -155,6 +155,8 @@ def aggregate_wsol_metrics(
                     "quote": (quote or {}).get("symbol"),
                     "is_wsol": True if qsym in _WSOL_SYMBOLS else False,
                     "is_usdc": True if qsym in _USDC_SYMBOLS else False,
+                    "pool_type": p.get("pool_type"),
+                    "owner_program": p.get("owner_program"),
                 }
                 
                 # Store pool with its liquidity for sorting
