@@ -571,7 +571,7 @@ class TokensRepository:
             # Используем materialized view для быстрого доступа к последним scores
             latest_scores_table = text("""
                 SELECT token_id, score, smoothed_score, liquidity_usd, delta_p_5m, delta_p_15m,
-                       n_5m, primary_dex, image_url, pool_counts, fetched_at, scoring_model, created_at
+                       n_5m, primary_dex, image_url, pool_type, pool_counts, fetched_at, scoring_model, created_at
                 FROM latest_token_scores
             """).columns(
                 token_id=Integer(),
@@ -583,6 +583,7 @@ class TokensRepository:
                 n_5m=Numeric(),
                 primary_dex=String(),
                 image_url=String(),
+                pool_type=String(),
                 pool_counts=JSON().with_variant(JSONB, "postgresql"),
                 fetched_at=DateTime(timezone=True),
                 scoring_model=String(),
@@ -598,6 +599,7 @@ class TokensRepository:
                 "latest_n_5m": latest_scores_table.c.n_5m.label("latest_n_5m"),
                 "latest_primary_dex": latest_scores_table.c.primary_dex.label("latest_primary_dex"),
                 "latest_image_url": latest_scores_table.c.image_url.label("latest_image_url"),
+                "latest_pool_type": latest_scores_table.c.pool_type.label("latest_pool_type"),
                 "latest_pool_counts": latest_scores_table.c.pool_counts.label("latest_pool_counts"),
                 "latest_fetched_at": latest_scores_table.c.fetched_at.label("latest_fetched_at"),
                 "latest_scoring_model": latest_scores_table.c.scoring_model.label("latest_scoring_model"),
@@ -726,27 +728,26 @@ class TokensRepository:
 
             metrics = score_row.metrics if isinstance(score_row.metrics, dict) else {}
             pool_counts = None
+            pool_type_fallback = None
             pools_metric = metrics.get("pools") if isinstance(metrics, dict) else None
             if isinstance(pools_metric, list):
                 counts: dict[str, int] = {}
+                pool_type_counts: dict[str, int] = {}
                 for item in pools_metric:
                     if not isinstance(item, dict):
                         continue
                     dex_key = str(item.get("dex")) if item.get("dex") is not None else "unknown"
                     counts[dex_key] = counts.get(dex_key, 0) + 1
-                if counts:
-                pool_counts = counts
-                pool_type_counts: dict[str, int] = {}
-                for item in pools_metric:
-                    if not isinstance(item, dict):
-                        continue
                     pt = item.get("pool_type")
                     if isinstance(pt, str) and pt:
                         pool_type_counts[pt] = pool_type_counts.get(pt, 0) + 1
+                if counts:
+                    pool_counts = counts
                 if pool_type_counts:
-                    primary_pool_type = sorted(
-                        [pt for pt, count in pool_type_counts.items() if count == max(pool_type_counts.values())]
-                    )[0]
+                    max_count = max(pool_type_counts.values())
+                    candidates = sorted(pt for pt, cnt in pool_type_counts.items() if cnt == max_count)
+                    if candidates:
+                        pool_type_fallback = candidates[0]
             latest_dict = {
                 "latest_score": score_row.score,
                 "latest_smoothed_score": score_row.smoothed_score,
@@ -756,6 +757,7 @@ class TokensRepository:
                 "latest_n_5m": metrics.get("n_5m"),
                 "latest_primary_dex": metrics.get("primary_dex"),
                 "latest_image_url": metrics.get("image_url"),
+                "latest_pool_type": metrics.get("primary_pool_type") or pool_type_fallback,
                 "latest_pool_counts": pool_counts,
                 "latest_fetched_at": metrics.get("fetched_at"),
                 "latest_scoring_model": score_row.scoring_model,
