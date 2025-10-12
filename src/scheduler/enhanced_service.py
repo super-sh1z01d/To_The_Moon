@@ -26,7 +26,7 @@ async def process_group_with_parallel_fetch(group: str) -> None:
     from src.adapters.db.base import SessionLocal
     from src.adapters.repositories.tokens_repo import TokensRepository
     from src.domain.settings.service import SettingsService
-    from src.domain.scoring.scoring_service import ScoringService
+    from src.domain.scoring.scoring_service import ScoringService, NoClassifiedPoolsError
     from src.adapters.services.dexscreener_client import DexScreenerClient
     
     with SessionLocal() as sess:
@@ -266,6 +266,9 @@ async def _process_tokens_parallel(
                 "data_quality_ok": metrics.get("data_quality_ok", True)
             }})
             
+        except NoClassifiedPoolsError:
+            log.debug(f"Pool classification skipped for {token.mint_address}")
+            continue
         except Exception as e:
             log.error(f"Error processing token {token.mint_address}: {e}")
             continue

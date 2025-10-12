@@ -42,6 +42,7 @@ class TokensRepository:
                 n_5m NUMERIC(20, 2),
                 primary_dex TEXT,
                 image_url TEXT,
+                pool_type TEXT,
                 pool_counts JSONB,
                 fetched_at TIMESTAMPTZ,
                 scoring_model VARCHAR(50),
@@ -53,6 +54,8 @@ class TokensRepository:
             """
             ALTER TABLE latest_token_scores
             ADD COLUMN IF NOT EXISTS image_url TEXT;
+            ALTER TABLE latest_token_scores
+            ADD COLUMN IF NOT EXISTS pool_type TEXT;
             """
         )
         index_sql = text(
@@ -269,6 +272,7 @@ class TokensRepository:
         fetched_at = None
         image_url = None
         pool_counts_json = None
+        pool_type = None
 
         if isinstance(metrics, dict):
             def _as_float(value: Optional[float]) -> Optional[float]:
@@ -301,17 +305,30 @@ class TokensRepository:
                 if image_candidate:
                     image_url = image_candidate
 
+            pool_type_candidate = metrics.get("primary_pool_type")
+            if isinstance(pool_type_candidate, str) and pool_type_candidate:
+                pool_type = pool_type_candidate
+
             pools_metric = metrics.get("pools")
             if isinstance(pools_metric, list):
                 counts: dict[str, int] = {}
+                type_counts: dict[str, int] = {}
                 for pool in pools_metric:
                     if not isinstance(pool, dict):
                         continue
                     dex_value = pool.get("dex")
                     dex_key = str(dex_value) if dex_value is not None else "unknown"
                     counts[dex_key] = counts.get(dex_key, 0) + 1
+                    pt = pool.get("pool_type")
+                    if isinstance(pt, str) and pt:
+                        type_counts[pt] = type_counts.get(pt, 0) + 1
                 if counts:
                     pool_counts_json = json.dumps(counts)
+                if not pool_type and type_counts:
+                    max_count = max(type_counts.values())
+                    candidates = sorted(pt for pt, cnt in type_counts.items() if cnt == max_count)
+                    if candidates:
+                        pool_type = candidates[0]
 
         upsert_sql = text(
             """
@@ -325,6 +342,7 @@ class TokensRepository:
                 n_5m,
                 primary_dex,
                 image_url,
+                pool_type,
                 pool_counts,
                 fetched_at,
                 scoring_model,
@@ -340,6 +358,7 @@ class TokensRepository:
                 :n_5m,
                 :primary_dex,
                 :image_url,
+                :pool_type,
                 :pool_counts,
                 :fetched_at,
                 :scoring_model,
@@ -354,6 +373,7 @@ class TokensRepository:
                 n_5m = EXCLUDED.n_5m,
                 primary_dex = EXCLUDED.primary_dex,
                 image_url = EXCLUDED.image_url,
+                pool_type = EXCLUDED.pool_type,
                 pool_counts = EXCLUDED.pool_counts,
                 fetched_at = EXCLUDED.fetched_at,
                 scoring_model = EXCLUDED.scoring_model,
@@ -372,6 +392,7 @@ class TokensRepository:
                 "n_5m": n_5m,
                 "primary_dex": primary_dex,
                 "image_url": image_url,
+                "pool_type": pool_type,
                 "pool_counts": pool_counts_json,
                 "fetched_at": fetched_at,
                 "scoring_model": scoring_model,
@@ -714,7 +735,18 @@ class TokensRepository:
                     dex_key = str(item.get("dex")) if item.get("dex") is not None else "unknown"
                     counts[dex_key] = counts.get(dex_key, 0) + 1
                 if counts:
-                    pool_counts = counts
+                pool_counts = counts
+                pool_type_counts: dict[str, int] = {}
+                for item in pools_metric:
+                    if not isinstance(item, dict):
+                        continue
+                    pt = item.get("pool_type")
+                    if isinstance(pt, str) and pt:
+                        pool_type_counts[pt] = pool_type_counts.get(pt, 0) + 1
+                if pool_type_counts:
+                    primary_pool_type = sorted(
+                        [pt for pt, count in pool_type_counts.items() if count == max(pool_type_counts.values())]
+                    )[0]
             latest_dict = {
                 "latest_score": score_row.score,
                 "latest_smoothed_score": score_row.smoothed_score,

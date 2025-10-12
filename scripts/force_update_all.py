@@ -16,6 +16,7 @@ from src.domain.settings.service import SettingsService
 from src.adapters.services.dexscreener_client import DexScreenerClient
 from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
 from src.domain.scoring.scorer import compute_score, compute_smoothed_score
+from src.domain.pools.pool_type_service import PoolTypeService
 
 
 def main():
@@ -30,6 +31,7 @@ def main():
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
         settings = SettingsService(sess)
+        pool_service = PoolTypeService(sess)
         
         # Получаем настройки
         smoothing_alpha = float(settings.get("score_smoothing_alpha") or 0.3)
@@ -69,13 +71,20 @@ def main():
                     errors += 1
                     continue
                 
+                enriched_pairs = pool_service.enrich_pairs(pairs)
+                if not enriched_pairs:
+                    print("❌ нет классифицированных пулов")
+                    errors += 1
+                    continue
+
                 # Агрегируем метрики с фильтрацией
                 metrics = aggregate_wsol_metrics(
-                    token.mint_address, 
-                    pairs,
+                    token.mint_address,
+                    enriched_pairs,
                     min_liquidity_usd=min_pool_liquidity,
                     max_price_change=max_price_change
                 )
+                pool_service.insert_primary_pool_type(metrics)
                 
                 # Вычисляем скоры
                 score, _ = compute_score(metrics, weights)
@@ -100,6 +109,8 @@ def main():
                 errors += 1
                 log.error("token_update_failed", extra={"extra": {"mint": token.mint_address, "error": str(e)}})
         
+        pool_service.close()
+
         print()
         print(f"📈 ИТОГИ ПРИНУДИТЕЛЬНОГО ОБНОВЛЕНИЯ:")
         print(f"   ✅ Обновлено: {updated} токенов")

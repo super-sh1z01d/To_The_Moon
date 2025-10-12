@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Tuple
 
 from src.adapters.db.models import Token
 from src.adapters.repositories.tokens_repo import TokensRepository as TokenRepository
-from src.domain.scoring.scoring_service import ScoringService
+from src.domain.scoring.scoring_service import ScoringService, NoClassifiedPoolsError
 from src.scheduler.parallel_processor import get_parallel_processor, get_adaptive_batch_processor
 # load_processor will be imported with fallback
 
@@ -319,6 +319,9 @@ class OptimizedTokenProcessor:
                     }
                 })
                 
+            except NoClassifiedPoolsError:
+                log.debug("pool_classification_skipped", extra={"extra": {"group": group, "mint": t.mint_address}})
+                continue
             except Exception as e:
                 log.error("scoring_failed", extra={
                     "extra": {

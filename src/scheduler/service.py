@@ -13,7 +13,7 @@ from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
 from src.domain.scoring.scorer import compute_score
-from src.domain.scoring.scoring_service import ScoringService
+from src.domain.scoring.scoring_service import ScoringService, NoClassifiedPoolsError
 from src.domain.settings.service import SettingsService
 
 
@@ -225,6 +225,12 @@ async def _process_group(group: str) -> None:
                         "model": active_model
                     }})
                 
+            except NoClassifiedPoolsError:
+                log.debug(
+                    "pool_classification_skipped",
+                    extra={"extra": {"group": group, "mint": t.mint_address}}
+                )
+                continue
             except Exception as e:
                 log.error(
                     "token_scoring_error",

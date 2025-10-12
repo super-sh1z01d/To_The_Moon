@@ -235,9 +235,12 @@ async def process_tokens_with_parallel_fetch(
                 "model": scoring_service.settings.get("scoring_model_active") or "legacy"
             }})
             
-        except Exception as e:
-            log.error(f"Error processing token {token.mint_address}: {e}")
-            continue
+            except NoClassifiedPoolsError:
+                log.debug(f"Pool classification skipped for {token.mint_address}")
+                continue
+            except Exception as e:
+                log.error(f"Error processing token {token.mint_address}: {e}")
+                continue
     
     total_time = time.time() - start_time
     log.info(f"Parallel token processing complete: {processed} processed, {updated} updated, {total_time:.2f}s total")
@@ -269,7 +272,7 @@ def enable_parallel_processing_in_service():
             with service.SessionLocal() as sess:
                 from src.adapters.repositories.tokens_repo import TokensRepository
                 from src.domain.settings.service import SettingsService
-                from src.domain.scoring.scoring_service import ScoringService
+                from src.domain.scoring.scoring_service import ScoringService, NoClassifiedPoolsError
                 from src.adapters.services.dexscreener_client import DexScreenerClient
                 
                 repo = TokensRepository(sess)

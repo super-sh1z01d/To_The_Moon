@@ -12,7 +12,7 @@ import psutil
 
 from src.adapters.db.models import Token
 from src.adapters.repositories.tokens_repo import TokensRepository
-from src.domain.scoring.scoring_service import ScoringService
+from src.domain.scoring.scoring_service import ScoringService, NoClassifiedPoolsError
 
 log = logging.getLogger("simple_optimizations")
 
@@ -181,6 +181,9 @@ async def process_group_optimized_simple(
                 
                 updated += 1
                 
+            except NoClassifiedPoolsError:
+                log.debug(f"Pool classification skipped for {token.mint_address}")
+                continue
             except Exception as e:
                 log.error(f"Scoring failed for {token.mint_address}: {e}")
                 continue

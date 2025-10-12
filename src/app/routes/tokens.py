@@ -11,6 +11,7 @@ from src.adapters.db.deps import get_db
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.settings.service import SettingsService
 from src.adapters.services.dexscreener_client import DexScreenerClient
+from src.domain.pools.pool_type_service import PoolTypeService
 
 
 router = APIRouter(prefix="/tokens", tags=["tokens"])
@@ -339,12 +340,21 @@ async def refresh_token(mint: str, db: Session = Depends(get_db)) -> RefreshResu
     
     # Aggregate metrics with data filtering
     from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
-    metrics = aggregate_wsol_metrics(
-        mint, 
-        pairs, 
-        min_liquidity_usd=min_pool_liquidity,
-        max_price_change=max_price_change
-    )
+    pool_service = PoolTypeService(db)
+    try:
+        enriched_pairs = pool_service.enrich_pairs(pairs)
+        if not enriched_pairs:
+            raise HTTPException(status_code=422, detail="no classified pools")
+
+        metrics = aggregate_wsol_metrics(
+            mint,
+            enriched_pairs,
+            min_liquidity_usd=min_pool_liquidity,
+            max_price_change=max_price_change
+        )
+        pool_service.insert_primary_pool_type(metrics)
+    finally:
+        pool_service.close()
     
     from src.domain.scoring.scorer import compute_score, compute_smoothed_score
     score, _ = compute_score(metrics, weights)

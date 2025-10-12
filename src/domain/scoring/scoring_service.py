@@ -15,6 +15,13 @@ from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.settings.service import SettingsService
 from src.domain.metrics.enhanced_dex_aggregator import aggregate_enhanced_metrics
 from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
+from src.domain.pools.pool_type_service import PoolTypeService
+
+
+class NoClassifiedPoolsError(Exception):
+    """Raised when no pools with known type are available for scoring."""
+
+    pass
 
 # Legacy scoring
 from src.domain.scoring.scorer import compute_score, compute_smoothed_score
@@ -38,10 +45,17 @@ class ScoringService:
         self.repository = repository
         self.settings = settings_service
         self.logger = logging.getLogger("scoring_service")
-        
+
         # Initialize services for hybrid momentum model
         self.ewma_service = EWMAService(repository)
         self.hybrid_model = HybridMomentumModel(settings_service, self.ewma_service)
+        self.pool_type_service = PoolTypeService(repository.db)
+
+    def close(self) -> None:
+        try:
+            self.pool_type_service.close()
+        except Exception:  # pragma: no cover - defensive
+            pass
     
     def calculate_token_score(
         self, 
@@ -66,7 +80,17 @@ class ScoringService:
                 return self._calculate_hybrid_momentum_score(token, pairs)
             else:
                 return self._calculate_legacy_score(token, pairs)
-                
+
+        except NoClassifiedPoolsError as e:
+            self.logger.debug(
+                "no_classified_pools",
+                extra={
+                    "token_id": token.id,
+                    "mint_address": token.mint_address,
+                    "error": str(e)
+                }
+            )
+            raise
         except Exception as e:
             self.logger.error(
                 "scoring_calculation_error",
@@ -104,13 +128,18 @@ class ScoringService:
                 min_liquidity = float(self.settings.get("min_pool_liquidity_usd") or "500")
             # NOTE: max_price_change_5m removed - not used in Hybrid Momentum model
             
+            enriched_pairs = self.pool_type_service.enrich_pairs(pairs)
+            if not enriched_pairs:
+                raise NoClassifiedPoolsError("no pools with resolved types")
+
             metrics = aggregate_enhanced_metrics(
                 token.mint_address,
-                pairs,
+                enriched_pairs,
                 token.created_at,
                 min_liquidity_usd=min_liquidity
             )
-            
+            self.pool_type_service.insert_primary_pool_type(metrics)
+
             # Calculate score using hybrid momentum model
             result = self.hybrid_model.calculate_score(token, metrics)
             
@@ -173,12 +202,17 @@ class ScoringService:
             }
             
             # Get legacy metrics
+            enriched_pairs = self.pool_type_service.enrich_pairs(pairs)
+            if not enriched_pairs:
+                raise NoClassifiedPoolsError("no pools with resolved types")
+
             metrics = aggregate_wsol_metrics(
                 token.mint_address,
-                pairs,
+                enriched_pairs,
                 min_liquidity_usd=min_liquidity,
                 max_price_change=max_price_change
             )
+            self.pool_type_service.insert_primary_pool_type(metrics)
             
             # Calculate legacy score
             score, components = compute_score(metrics, weights)
