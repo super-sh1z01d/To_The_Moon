@@ -10,6 +10,8 @@ import time
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 
+from src.domain.scoring.scoring_service import NoClassifiedPoolsError
+
 log = logging.getLogger("enhanced_service")
 
 
@@ -26,7 +28,7 @@ async def process_group_with_parallel_fetch(group: str) -> None:
     from src.adapters.db.base import SessionLocal
     from src.adapters.repositories.tokens_repo import TokensRepository
     from src.domain.settings.service import SettingsService
-    from src.domain.scoring.scoring_service import ScoringService, NoClassifiedPoolsError
+    from src.domain.scoring.scoring_service import ScoringService
     from src.adapters.services.dexscreener_client import DexScreenerClient
     
     with SessionLocal() as sess:
