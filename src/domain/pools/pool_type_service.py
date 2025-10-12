@@ -86,18 +86,82 @@ class PoolTypeService:
 
         return enriched_pairs
 
+    def _resolve_metadata(self, addresses: List[str]) -> Dict[str, Dict[str, str]]:
+        """Fetch or populate pool metadata for the provided addresses."""
+        if not addresses:
+            return {}
+
+        metadata = self.repo.get_many(addresses)
+        missing = [
+            addr
+            for addr in addresses
+            if addr not in metadata or metadata[addr].get("pool_type") in (None, UNKNOWN_POOL_TYPE)
+        ]
+
+        if missing:
+            owner_map = self.rpc_client.get_account_owners(missing)
+            upserts: List[tuple[str, str, str]] = []
+            for addr in missing:
+                owner = owner_map.get(addr)
+                if not owner:
+                    continue
+                pool_type = PROGRAM_ID_MAP.get(owner, UNKNOWN_POOL_TYPE)
+                metadata[addr] = {"owner_program": owner, "pool_type": pool_type}
+                upserts.append((addr, owner, pool_type))
+
+            if upserts:
+                self.repo.bulk_upsert(upserts)
+
+        return {addr: metadata.get(addr, {}) for addr in addresses}
+
+    def annotate_metrics_pools(self, metrics: dict) -> List[dict]:
+        """Ensure metrics['pools'] contains classified pools and strip unknown ones."""
+        pools = metrics.get("pools")
+        if not isinstance(pools, list):
+            return []
+
+        addresses = [
+            str(pool.get("address"))
+            for pool in pools
+            if isinstance(pool, dict) and pool.get("address")
+        ]
+        metadata = self._resolve_metadata(addresses)
+
+        classified: List[dict] = []
+        for pool in pools:
+            if not isinstance(pool, dict):
+                continue
+            addr = pool.get("address")
+            info = metadata.get(str(addr)) if addr else None
+            pool_type = pool.get("pool_type")
+            owner_program = pool.get("owner_program")
+
+            if info:
+                resolved_type = info.get("pool_type")
+                resolved_owner = info.get("owner_program")
+            else:
+                resolved_type = pool_type
+                resolved_owner = owner_program
+
+            if not resolved_type or resolved_type == UNKNOWN_POOL_TYPE:
+                continue
+
+            pool["pool_type"] = resolved_type
+            if resolved_owner:
+                pool["owner_program"] = resolved_owner
+            classified.append(pool)
+
+        metrics["pools"] = classified
+        return classified
+
     def insert_primary_pool_type(self, metrics: dict) -> Optional[str]:
         """Determine and embed primary pool type into metrics (for legacy table)."""
-        pool_type_counts = Counter()
-        pools = metrics.get("pools")
-
-        if isinstance(pools, list):
-            for pool in pools:
-                if not isinstance(pool, dict):
-                    continue
-                pool_type = pool.get("pool_type")
-                if isinstance(pool_type, str) and pool_type:
-                    pool_type_counts[pool_type] += 1
+        pools = self.annotate_metrics_pools(metrics)
+        pool_type_counts = Counter(
+            pool.get("pool_type")
+            for pool in pools
+            if isinstance(pool, dict) and isinstance(pool.get("pool_type"), str)
+        )
 
         primary_pool_type: Optional[str] = None
         if pool_type_counts:
