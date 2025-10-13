@@ -701,6 +701,7 @@ class TokensRepository:
                                     pools.append({"dex": dex, "count": count})
                     except (json.JSONDecodeError, TypeError) as e:
                         self._log.warning(f"Failed to parse pool_counts_json: {e}, type={type(pool_counts_json)}, value={pool_counts_json}")
+                self._log.error(f"READ DEBUG FINAL: token_id={token.id}, pools_list={pools}, len={len(pools)}")
                 row_dict["latest_pools"] = pools
                 processed_rows.append((token, row_dict))
 
