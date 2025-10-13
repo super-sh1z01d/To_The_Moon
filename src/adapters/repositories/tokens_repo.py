@@ -310,9 +310,9 @@ class TokensRepository:
                 pool_type = pool_type_candidate
 
             pools_metric = metrics.get("pools")
-            self._log.debug(f"Processing pools for token {token_id}: pools_metric type={type(pools_metric)}, is_list={isinstance(pools_metric, list)}, value={pools_metric}")
+            self._log.info(f"DEBUG insert_score_snapshot: Processing pools for token {token_id}: pools_metric type={type(pools_metric)}, is_list={isinstance(pools_metric, list)}, len={len(pools_metric) if isinstance(pools_metric, list) else 'N/A'}")
             if isinstance(pools_metric, list):
-                self._log.debug(f"Processing {len(pools_metric)} pools for token {token_id}")
+                self._log.info(f"DEBUG insert_score_snapshot: Processing {len(pools_metric)} pools for token {token_id}, first pool: {pools_metric[0] if pools_metric else 'empty'}")
                 counts: dict[str, int] = {}
                 type_counts: dict[str, int] = {}
                 for pool in pools_metric:
@@ -332,9 +332,9 @@ class TokensRepository:
                     payload["types"] = type_counts
                 if payload:
                     pool_counts_json = json.dumps(payload)
-                    self._log.info(f"Generated pool_counts_json for token {token_id}: {pool_counts_json}")
+                    self._log.info(f"DEBUG insert_score_snapshot: Generated pool_counts_json for token {token_id}: {pool_counts_json}")
                 else:
-                    self._log.warning(f"No pool counts generated for token {token_id}, counts={counts}, type_counts={type_counts}")
+                    self._log.warning(f"DEBUG insert_score_snapshot: No pool counts generated for token {token_id}, counts={counts}, type_counts={type_counts}, pools_metric_len={len(pools_metric)}")
 
                 if not pool_type and type_counts:
                     max_count = max(type_counts.values())
@@ -342,7 +342,7 @@ class TokensRepository:
                     if candidates:
                         pool_type = candidates[0]
             else:
-                self._log.warning(f"pools_metric is not a list for token {token_id}, type={type(pools_metric)}")
+                self._log.warning(f"DEBUG insert_score_snapshot: pools_metric is not a list for token {token_id}, type={type(pools_metric)}, metrics_keys={list(metrics.keys()) if isinstance(metrics, dict) else 'not_dict'}")
 
         upsert_sql = text(
             """
