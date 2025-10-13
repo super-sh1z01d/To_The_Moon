@@ -276,10 +276,6 @@ class TokensRepository:
         pool_counts_json = None
         pool_type = None
 
-        # TEMP DEBUG: Set a test value to verify the path works
-        pool_counts_json = json.dumps({"test": {"debug": 1}})
-        self._log.error(f"TEMP DEBUG: Set pool_counts_json to test value for token {token_id}")
-
         if isinstance(metrics, dict):
             def _as_float(value: Optional[float]) -> Optional[float]:
                 try:
