@@ -650,31 +650,31 @@ class TokensRepository:
             q = q.offset(offset).limit(limit)
 
             rows = self.db.execute(q).fetchall()
-        processed_rows = []
-        for token, row in rows:
-            row_dict = dict(row._mapping)
-            # Handle pool_counts JSON
-            pool_counts_json = row_dict.pop("latest_pool_counts", None)
-            pools = []
-            if pool_counts_json:
-                try:
-                    pool_counts_data = json.loads(pool_counts_json)
-                    if isinstance(pool_counts_data, dict):
-                        # New format: {"dex": {...}, "types": {...}}
-                        if "dex" in pool_counts_data and isinstance(pool_counts_data["dex"], dict):
-                            for dex, count in pool_counts_data["dex"].items():
-                                pools.append({"dex": dex, "count": count})
-                        if "types" in pool_counts_data and isinstance(pool_counts_data["types"], dict):
-                            for pt, count in pool_counts_data["types"].items():
-                                pools.append({"pool_type": pt, "count": count})
-                        # Old format: {"dex": count}
-                        elif "dex" not in pool_counts_data and "types" not in pool_counts_data:
-                            for dex, count in pool_counts_data.items():
-                                pools.append({"dex": dex, "count": count})
-                except (json.JSONDecodeError, TypeError):
-                    pass  # Ignore if not a valid JSON or not a dict
-            row_dict["latest_pools"] = pools
-            processed_rows.append((token, row_dict))
+            processed_rows = []
+            for token, row in rows:
+                row_dict = dict(row._mapping)
+                # Handle pool_counts JSON
+                pool_counts_json = row_dict.pop("latest_pool_counts", None)
+                pools = []
+                if pool_counts_json:
+                    try:
+                        pool_counts_data = json.loads(pool_counts_json)
+                        if isinstance(pool_counts_data, dict):
+                            # New format: {"dex": {...}, "types": {...}}
+                            if "dex" in pool_counts_data and isinstance(pool_counts_data["dex"], dict):
+                                for dex, count in pool_counts_data["dex"].items():
+                                    pools.append({"dex": dex, "count": count})
+                            if "types" in pool_counts_data and isinstance(pool_counts_data["types"], dict):
+                                for pt, count in pool_counts_data["types"].items():
+                                    pools.append({"pool_type": pt, "count": count})
+                            # Old format: {"dex": count}
+                            elif "dex" not in pool_counts_data and "types" not in pool_counts_data:
+                                for dex, count in pool_counts_data.items():
+                                    pools.append({"dex": dex, "count": count})
+                    except (json.JSONDecodeError, TypeError):
+                        pass  # Ignore if not a valid JSON or not a dict
+                row_dict["latest_pools"] = pools
+                processed_rows.append((token, row_dict))
 
             return processed_rows
         except ProgrammingError as exc:
