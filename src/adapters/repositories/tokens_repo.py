@@ -56,6 +56,8 @@ class TokensRepository:
             ADD COLUMN IF NOT EXISTS image_url TEXT;
             ALTER TABLE latest_token_scores
             ADD COLUMN IF NOT EXISTS pool_type TEXT;
+            ALTER TABLE latest_token_scores
+            ADD COLUMN IF NOT EXISTS pool_counts JSONB;
             """
         )
         index_sql = text(
