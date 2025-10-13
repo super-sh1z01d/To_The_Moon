@@ -310,7 +310,8 @@ class TokensRepository:
                 pool_type = pool_type_candidate
 
             pools_metric = metrics.get("pools")
-            self._log.info(f"DEBUG insert_score_snapshot: Processing pools for token {token_id}: pools_metric type={type(pools_metric)}, is_list={isinstance(pools_metric, list)}, len={len(pools_metric) if isinstance(pools_metric, list) else 'N/A'}")
+            # CRITICAL DEBUG: Log everything about pools
+            self._log.error(f"CRITICAL DEBUG: token {token_id}, pools_metric={pools_metric}, type={type(pools_metric)}, is_list={isinstance(pools_metric, list)}")
             if isinstance(pools_metric, list):
                 self._log.info(f"DEBUG insert_score_snapshot: Processing {len(pools_metric)} pools for token {token_id}, first pool: {pools_metric[0] if pools_metric else 'empty'}")
                 counts: dict[str, int] = {}
