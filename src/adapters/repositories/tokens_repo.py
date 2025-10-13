@@ -651,8 +651,14 @@ class TokensRepository:
 
             rows = self.db.execute(q).fetchall()
             processed_rows = []
-            for token, row in rows:
+            for row in rows:
+                # First element is Token object, rest are labeled columns
+                token = row[0]
+                # Build dict from all columns using _mapping
                 row_dict = dict(row._mapping)
+                # Remove the Token object from dict (it's stored separately)
+                row_dict.pop("Token", None)
+
                 # Handle pool_counts JSON
                 pool_counts_json = row_dict.pop("latest_pool_counts", None)
                 pools = []
