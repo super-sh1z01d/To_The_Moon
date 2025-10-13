@@ -43,6 +43,7 @@ class TokenItem(BaseModel):
     delta_p_15m: Optional[float] = None
     n_5m: Optional[int] = None
     primary_dex: Optional[str] = None
+    primary_pool_type: Optional[str] = Field(default=None, description="Dominant classified pool type")
     pools: Optional[list[PoolItem]] = Field(default=None, description="List of DEX pools")
     fetched_at: Optional[str] = Field(default=None, description="Last time token data was fetched from external APIs")
     scored_at: Optional[str] = Field(default=None, description="Last time token score was calculated and saved")
@@ -80,6 +81,8 @@ class PoolItem(BaseModel):
     quote: Optional[str] = Field(default=None)
     solscan_url: Optional[str] = Field(default=None)
     count: Optional[int] = Field(default=None)
+    pool_type: Optional[str] = Field(default=None, description="Normalized pool type (e.g. raydium_clmm)")
+    owner_program: Optional[str] = Field(default=None, description="Solana program owning the pool")
 
 
 class TokenStats(BaseModel):
@@ -155,6 +158,8 @@ async def list_tokens(
                 delta_p_15m=latest.get("latest_delta_p_15m"),
                 n_5m=latest.get("latest_n_5m"),
                 primary_dex=latest.get("latest_primary_dex"),
+                pool_type=latest.get("latest_pool_type"),
+                pool_type_counts=latest.get("latest_pool_type_counts"),
                 image_url=latest.get("latest_image_url"),
                 pool_counts=latest.get("latest_pool_counts"),
                 fetched_at=latest.get("latest_fetched_at"),
@@ -170,21 +175,39 @@ async def list_tokens(
         smoothed_components = None
 
         pools = None
-        pool_counts = getattr(latest_data, "pool_counts", None)
-        if isinstance(pool_counts, dict):
+        pool_type_counts = getattr(latest_data, "pool_type_counts", None)
+        if isinstance(pool_type_counts, dict) and pool_type_counts:
             try:
                 pools = [
                     PoolItem.model_construct(
                         address=None,
-                        dex=dex,
+                        dex=None,
                         quote=None,
                         solscan_url=None,
                         count=int(count) if count is not None else None,
+                        pool_type=pool_type,
                     )
-                    for dex, count in pool_counts.items()
+                    for pool_type, count in pool_type_counts.items()
                 ]
             except Exception:
                 pools = None
+
+        if pools is None:
+            pool_counts = getattr(latest_data, "pool_counts", None)
+            if isinstance(pool_counts, dict):
+                try:
+                    pools = [
+                        PoolItem.model_construct(
+                            address=None,
+                            dex=dex,
+                            quote=None,
+                            solscan_url=None,
+                            count=int(count) if count is not None else None,
+                        )
+                        for dex, count in pool_counts.items()
+                    ]
+                except Exception:
+                    pools = None
 
         liquidity_usd = getattr(latest_data, "liquidity_usd", None)
         delta_p_5m = getattr(latest_data, "delta_p_5m", None)
@@ -215,6 +238,7 @@ async def list_tokens(
                 delta_p_15m=float(delta_p_15m) if delta_p_15m is not None else None,
                 n_5m=int(n_5m) if n_5m is not None else None,
                 primary_dex=getattr(latest_data, "primary_dex", None),
+                primary_pool_type=getattr(latest_data, "pool_type", None),
                 image_url=getattr(latest_data, "image_url", None),
                 pools=pools,
                 fetched_at=fetched_at,
@@ -279,9 +303,14 @@ async def get_token_detail(mint: str, db: Session = Depends(get_db), history_lim
         exclude = {"pumpfun"}
         pools = [
             PoolItem(
-                address=p.get("address"), dex=p.get("dex"), quote=p.get("quote"),
-                solscan_url=(f"https://solscan.io/address/{p.get('address')}" if p.get('address') else None)
-            ) for p in (snap.metrics.get("pools") or [])
+                address=p.get("address"),
+                dex=p.get("dex"),
+                quote=p.get("quote"),
+                solscan_url=(f"https://solscan.io/address/{p.get('address')}" if p.get('address') else None),
+                pool_type=p.get("pool_type"),
+                owner_program=p.get("owner_program"),
+            )
+            for p in (snap.metrics.get("pools") or [])
             if isinstance(p, dict) and p.get("is_wsol") and str(p.get("dex") or "") not in exclude
         ]
     return TokenDetail(
@@ -422,6 +451,8 @@ async def get_token_pools(mint: str, db: Session = Depends(get_db)) -> list[Pool
                 dex=p.get("dex") if isinstance(p, dict) else None,
                 quote=p.get("quote") if isinstance(p, dict) else None,
                 solscan_url=(f"https://solscan.io/address/{addr}" if addr else None),
+                pool_type=p.get("pool_type") if isinstance(p, dict) else None,
+                owner_program=p.get("owner_program") if isinstance(p, dict) else None,
             )
         )
     return items

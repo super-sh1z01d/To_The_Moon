@@ -8,6 +8,9 @@ export type PoolItem = {
   dex?: string
   quote?: string
   solscan_url?: string
+  pool_type?: string
+  owner_program?: string
+  count?: number
 }
 
 export async function getTokens(minScore: number, limit=50, offset=0, sort:'score_desc'|'score_asc'='score_desc', statuses: string[] = ['active','monitoring']): Promise<TokensResponse> {

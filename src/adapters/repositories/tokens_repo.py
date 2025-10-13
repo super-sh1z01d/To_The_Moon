@@ -676,7 +676,7 @@ class TokensRepository:
             row_dict["latest_pools"] = pools
             processed_rows.append((token, row_dict))
 
-            return results
+            return processed_rows
         except ProgrammingError as exc:
             # materialized view отсутствует (например, не применён sql-скрипт) — откатываем и используем безопасный фолбэк
             self.db.rollback()
@@ -782,44 +782,23 @@ class TokensRepository:
                     if candidates:
                         pool_type_fallback = candidates[0]
                     pool_type_counts_result = pool_type_counts
-                pool_type_fallback = candidates[0] if len(candidates) == 1 else "multiple"
-
-        # Fallback to use the most frequent pool type if primary_pool_type is missing
-        pools = []
-        if counts:
-            for dex, count in counts.items():
-                pools.append({"dex": dex, "count": count})
-        if pool_type_counts:
-            for pt, count in pool_type_counts.items():
-                pools.append({"pool_type": pt, "count": count})
-
-        return {
-            "mint_address": token.mint_address,
-            "name": token.name,
-            "symbol": token.symbol,
-            "status": token.status.value,
-            "score": score_row.score,
-            "last_processed_at": token.last_processed_at,
-            "solscan_url": token.solscan_url,
-            "image_url": token.image_url,
-            "created_at": token.created_at,
-            "spam_metrics": token.spam_metrics,
-            "raw_components": score_row.raw_components,
-            "smoothed_components": score_row.smoothed_components,
-            "latest_score": score_row.score,
-            "latest_smoothed_score": score_row.smoothed_score,
-            "latest_liquidity_usd": metrics.get("L_tot"),
-            "latest_delta_p_5m": metrics.get("delta_p_5m"),
-            "latest_delta_p_15m": metrics.get("delta_p_15m"),
-            "latest_n_5m": metrics.get("n_5m"),
-            "latest_primary_dex": metrics.get("primary_dex"),
-            "latest_image_url": metrics.get("image_url"),
-            "latest_pool_type": metrics.get("primary_pool_type") or pool_type_fallback,
-            "latest_pools": pools,
-            "latest_fetched_at": metrics.get("fetched_at"),
-            "latest_scoring_model": score_row.scoring_model,
-            "latest_created_at": score_row.created_at,
-        }
+            latest_dict = {
+                "latest_score": score_row.score,
+                "latest_smoothed_score": score_row.smoothed_score,
+                "latest_liquidity_usd": metrics.get("L_tot"),
+                "latest_delta_p_5m": metrics.get("delta_p_5m"),
+                "latest_delta_p_15m": metrics.get("delta_p_15m"),
+                "latest_n_5m": metrics.get("n_5m"),
+                "latest_primary_dex": metrics.get("primary_dex"),
+                "latest_image_url": metrics.get("image_url"),
+                "latest_pool_type": metrics.get("primary_pool_type") or pool_type_fallback,
+                "latest_pool_type_counts": pool_type_counts_result,
+                "latest_pool_counts": pool_counts,
+                "latest_fetched_at": metrics.get("fetched_at"),
+                "latest_scoring_model": score_row.scoring_model,
+                "latest_created_at": score_row.created_at,
+            }
+            results.append((token, latest_dict))
 
     def count_non_archived_with_latest_scores(self, statuses: Optional[List[str]] = None, min_score: Optional[float] = None) -> int:
         # Оптимизированный count без сложных JOIN если min_score не задан
