@@ -675,6 +675,7 @@ class TokensRepository:
 
                 # Handle pool_counts JSON (can be dict if already parsed by PostgreSQL JSONB or string if JSON)
                 pool_counts_json = row_dict.pop("latest_pool_counts", None)
+                self._log.error(f"READ DEBUG: token_id={token.id}, pool_counts_json={pool_counts_json}, type={type(pool_counts_json)}")
                 pools = []
                 if pool_counts_json:
                     try:
