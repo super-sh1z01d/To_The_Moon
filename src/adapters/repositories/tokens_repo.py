@@ -322,8 +322,15 @@ class TokensRepository:
                     pt = pool.get("pool_type")
                     if isinstance(pt, str) and pt:
                         type_counts[pt] = type_counts.get(pt, 0) + 1
+
+                payload: dict[str, dict[str, int]] = {}
                 if counts:
-                    pool_counts_json = json.dumps(counts)
+                    payload["dex"] = counts
+                if type_counts:
+                    payload["types"] = type_counts
+                if payload:
+                    pool_counts_json = json.dumps(payload)
+
                 if not pool_type and type_counts:
                     max_count = max(type_counts.values())
                     candidates = sorted(pt for pt, cnt in type_counts.items() if cnt == max_count)
@@ -640,16 +647,34 @@ class TokensRepository:
                     Token.id.desc(),
                 )
             
-            if offset:
-                q = q.offset(offset)
-            if limit:
-                q = q.limit(limit)
+            q = q.offset(offset).limit(limit)
 
-            results: List[Tuple[Token, Optional[Any]]] = []
-            for row in q.all():
-                token = row[0]
-                latest_dict = {key: getattr(row, key) for key in latest_columns}
-                results.append((token, latest_dict))
+            rows = self.db.execute(q).fetchall()
+        processed_rows = []
+        for token, row in rows:
+            row_dict = dict(row._mapping)
+            # Handle pool_counts JSON
+            pool_counts_json = row_dict.pop("latest_pool_counts", None)
+            pools = []
+            if pool_counts_json:
+                try:
+                    pool_counts_data = json.loads(pool_counts_json)
+                    if isinstance(pool_counts_data, dict):
+                        # New format: {"dex": {...}, "types": {...}}
+                        if "dex" in pool_counts_data and isinstance(pool_counts_data["dex"], dict):
+                            for dex, count in pool_counts_data["dex"].items():
+                                pools.append({"dex": dex, "count": count})
+                        if "types" in pool_counts_data and isinstance(pool_counts_data["types"], dict):
+                            for pt, count in pool_counts_data["types"].items():
+                                pools.append({"pool_type": pt, "count": count})
+                        # Old format: {"dex": count}
+                        elif "dex" not in pool_counts_data and "types" not in pool_counts_data:
+                            for dex, count in pool_counts_data.items():
+                                pools.append({"dex": dex, "count": count})
+                except (json.JSONDecodeError, TypeError):
+                    pass  # Ignore if not a valid JSON or not a dict
+            row_dict["latest_pools"] = pools
+            processed_rows.append((token, row_dict))
 
             return results
         except ProgrammingError as exc:
@@ -729,6 +754,7 @@ class TokensRepository:
             metrics = score_row.metrics if isinstance(score_row.metrics, dict) else {}
             pool_counts = None
             pool_type_fallback = None
+            pool_type_counts_result: Optional[dict[str, int]] = None
             pools_metric = metrics.get("pools") if isinstance(metrics, dict) else None
             if isinstance(pools_metric, list):
                 counts: dict[str, int] = {}
@@ -741,31 +767,59 @@ class TokensRepository:
                     pt = item.get("pool_type")
                     if isinstance(pt, str) and pt:
                         pool_type_counts[pt] = pool_type_counts.get(pt, 0) + 1
+                payload: dict[str, dict[str, int]] = {}
                 if counts:
-                    pool_counts = counts
+                    payload["dex"] = counts
+                if pool_type_counts:
+                    payload["types"] = pool_type_counts
+                
+                if payload:
+                    pool_counts = payload
+
                 if pool_type_counts:
                     max_count = max(pool_type_counts.values())
                     candidates = sorted(pt for pt, cnt in pool_type_counts.items() if cnt == max_count)
                     if candidates:
                         pool_type_fallback = candidates[0]
-            latest_dict = {
-                "latest_score": score_row.score,
-                "latest_smoothed_score": score_row.smoothed_score,
-                "latest_liquidity_usd": metrics.get("L_tot"),
-                "latest_delta_p_5m": metrics.get("delta_p_5m"),
-                "latest_delta_p_15m": metrics.get("delta_p_15m"),
-                "latest_n_5m": metrics.get("n_5m"),
-                "latest_primary_dex": metrics.get("primary_dex"),
-                "latest_image_url": metrics.get("image_url"),
-                "latest_pool_type": metrics.get("primary_pool_type") or pool_type_fallback,
-                "latest_pool_counts": pool_counts,
-                "latest_fetched_at": metrics.get("fetched_at"),
-                "latest_scoring_model": score_row.scoring_model,
-                "latest_created_at": score_row.created_at,
-            }
-            results.append((token, latest_dict))
+                    pool_type_counts_result = pool_type_counts
+                pool_type_fallback = candidates[0] if len(candidates) == 1 else "multiple"
 
-        return results
+        # Fallback to use the most frequent pool type if primary_pool_type is missing
+        pools = []
+        if counts:
+            for dex, count in counts.items():
+                pools.append({"dex": dex, "count": count})
+        if pool_type_counts:
+            for pt, count in pool_type_counts.items():
+                pools.append({"pool_type": pt, "count": count})
+
+        return {
+            "mint_address": token.mint_address,
+            "name": token.name,
+            "symbol": token.symbol,
+            "status": token.status.value,
+            "score": score_row.score,
+            "last_processed_at": token.last_processed_at,
+            "solscan_url": token.solscan_url,
+            "image_url": token.image_url,
+            "created_at": token.created_at,
+            "spam_metrics": token.spam_metrics,
+            "raw_components": score_row.raw_components,
+            "smoothed_components": score_row.smoothed_components,
+            "latest_score": score_row.score,
+            "latest_smoothed_score": score_row.smoothed_score,
+            "latest_liquidity_usd": metrics.get("L_tot"),
+            "latest_delta_p_5m": metrics.get("delta_p_5m"),
+            "latest_delta_p_15m": metrics.get("delta_p_15m"),
+            "latest_n_5m": metrics.get("n_5m"),
+            "latest_primary_dex": metrics.get("primary_dex"),
+            "latest_image_url": metrics.get("image_url"),
+            "latest_pool_type": metrics.get("primary_pool_type") or pool_type_fallback,
+            "latest_pools": pools,
+            "latest_fetched_at": metrics.get("fetched_at"),
+            "latest_scoring_model": score_row.scoring_model,
+            "latest_created_at": score_row.created_at,
+        }
 
     def count_non_archived_with_latest_scores(self, statuses: Optional[List[str]] = None, min_score: Optional[float] = None) -> int:
         # Оптимизированный count без сложных JOIN если min_score не задан
