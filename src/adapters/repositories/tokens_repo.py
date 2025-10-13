@@ -399,6 +399,8 @@ class TokensRepository:
                 created_at = EXCLUDED.created_at
             """
         )
+        self._log.error(f"BEFORE UPSERT: token {token_id}, pool_counts_json={pool_counts_json}, pool_type={pool_type}")
+
         self.db.execute(
             upsert_sql,
             {
@@ -418,7 +420,9 @@ class TokensRepository:
                 "created_at": now,
             },
         )
-        
+
+        self._log.error(f"AFTER UPSERT: token {token_id}, committed successfully")
+
         self.db.commit()
         self.db.refresh(snap)
         logging.getLogger("tokens_repo").info(
