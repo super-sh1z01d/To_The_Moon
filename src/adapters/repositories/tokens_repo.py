@@ -666,12 +666,19 @@ class TokensRepository:
                 # Remove the Token object from dict (it's stored separately)
                 row_dict.pop("Token", None)
 
-                # Handle pool_counts JSON
+                # Handle pool_counts JSON (can be dict if already parsed by PostgreSQL JSONB or string if JSON)
                 pool_counts_json = row_dict.pop("latest_pool_counts", None)
                 pools = []
                 if pool_counts_json:
                     try:
-                        pool_counts_data = json.loads(pool_counts_json)
+                        # Handle both JSON string and already-parsed dict from JSONB
+                        if isinstance(pool_counts_json, str):
+                            pool_counts_data = json.loads(pool_counts_json)
+                        elif isinstance(pool_counts_json, dict):
+                            pool_counts_data = pool_counts_json
+                        else:
+                            pool_counts_data = None
+
                         if isinstance(pool_counts_data, dict):
                             # New format: {"dex": {...}, "types": {...}}
                             if "dex" in pool_counts_data and isinstance(pool_counts_data["dex"], dict):
@@ -684,8 +691,8 @@ class TokensRepository:
                             elif "dex" not in pool_counts_data and "types" not in pool_counts_data:
                                 for dex, count in pool_counts_data.items():
                                     pools.append({"dex": dex, "count": count})
-                    except (json.JSONDecodeError, TypeError):
-                        pass  # Ignore if not a valid JSON or not a dict
+                    except (json.JSONDecodeError, TypeError) as e:
+                        self._log.warning(f"Failed to parse pool_counts_json: {e}, type={type(pool_counts_json)}, value={pool_counts_json}")
                 row_dict["latest_pools"] = pools
                 processed_rows.append((token, row_dict))
 
