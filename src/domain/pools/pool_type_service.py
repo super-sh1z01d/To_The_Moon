@@ -118,16 +118,26 @@ class PoolTypeService:
         """Ensure metrics['pools'] contains classified pools and strip unknown ones."""
         pools = metrics.get("pools")
         if not isinstance(pools, list):
+            self._log.debug("No pools list found in metrics")
             return []
+
+        self._log.debug(f"Processing {len(pools)} pools for classification")
 
         addresses = [
             str(pool.get("address"))
             for pool in pools
             if isinstance(pool, dict) and pool.get("address")
         ]
+
+        if not addresses:
+            self._log.warning("No pool addresses found to classify")
+            return []
+
         metadata = self._resolve_metadata(addresses)
+        self._log.debug(f"Resolved metadata for {len(metadata)} addresses")
 
         classified: List[dict] = []
+        unknown_count = 0
         for pool in pools:
             if not isinstance(pool, dict):
                 continue
@@ -144,6 +154,8 @@ class PoolTypeService:
                 resolved_owner = owner_program
 
             if not resolved_type or resolved_type == UNKNOWN_POOL_TYPE:
+                unknown_count += 1
+                self._log.debug(f"Pool {addr} has unknown type, skipping")
                 continue
 
             pool["pool_type"] = resolved_type
@@ -151,6 +163,7 @@ class PoolTypeService:
                 pool["owner_program"] = resolved_owner
             classified.append(pool)
 
+        self._log.info(f"Classified {len(classified)} pools, {unknown_count} unknown")
         metrics["pools"] = classified
         return classified
 
