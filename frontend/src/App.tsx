@@ -10,6 +10,7 @@ import Settings from './pages/Settings'
 import TokenDetail from './pages/TokenDetail'
 import Logs from './pages/Logs'
 import ApiDocs from './pages/ApiDocs'
+import Landing from './pages/Landing'
 
 import { AuthProvider } from './contexts/AuthContext';
 
@@ -22,16 +23,21 @@ export default function App(){
         <AuthProvider>
           <ModalProvider>
             <ThemeProvider defaultTheme="system">
-              <MainLayout>
-                <Routes>
-                  <Route path="/" element={<Dashboard/>} />
-                  <Route path="/settings" element={<Settings/>} />
-                  <Route path="/logs" element={<Logs/>} />
-                  <Route path="/api-docs" element={<ApiDocs/>} />
-                  <Route path="/token/:mint" element={<TokenDetail/>} />
-                  <Route path="*" element={<div className="text-center py-12">Страница не найдена</div>} />
-                </Routes>
-              </MainLayout>
+              <Routes>
+                <Route path="/" element={<Landing/>} />
+                <Route path="/app/*" element={
+                  <MainLayout>
+                    <Routes>
+                      <Route path="/" element={<Dashboard/>} />
+                      <Route path="/settings" element={<Settings/>} />
+                      <Route path="/logs" element={<Logs/>} />
+                      <Route path="/api-docs" element={<ApiDocs/>} />
+                      <Route path="/token/:mint" element={<TokenDetail/>} />
+                      <Route path="*" element={<div className="text-center py-12">Страница не найдена</div>} />
+                    </Routes>
+                  </MainLayout>
+                } />
+              </Routes>
               <Toaster />
             </ThemeProvider>
           </ModalProvider>

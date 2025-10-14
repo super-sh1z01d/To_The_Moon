@@ -23,6 +23,9 @@ import { usePageMetadata } from '@/hooks/usePageMetadata'
 import type { Pool } from '@/types/token'
 import { TokenAvatar } from '@/components/tokens/TokenAvatar'
 import { getTokenIdentity } from '@/lib/token-format'
+import { useAuth } from '@/hooks/useAuth'
+import { useModal } from '@/contexts/ModalContext'
+import { useNavigate } from 'react-router-dom'
 
 type Lang = 'en' | 'ru'
 
@@ -334,9 +337,28 @@ function LanguageSwitch({ language, onSelect }: { language: Lang; onSelect: (lan
 
 export default function Landing() {
   const { language, setLanguage } = useLanguage()
+  const { isAuthenticated } = useAuth()
+  const { openModal } = useModal()
+  const navigate = useNavigate()
   const lang: Lang = language === 'ru' ? 'ru' : 'en'
   const copy = TEXT[lang]
   const currencyLocale = lang === 'ru' ? 'ru-RU' : 'en-US'
+
+  const handleLogin = () => {
+    if (isAuthenticated) {
+      navigate('/app/')
+    } else {
+      openModal('login')
+    }
+  }
+
+  const handleRegister = () => {
+    if (isAuthenticated) {
+      navigate('/app/')
+    } else {
+      openModal('register')
+    }
+  }
 
   const landingMetadata = useMemo(() => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tothemoon.sh1z01d.ru'
@@ -502,16 +524,12 @@ export default function Landing() {
                 {copy.heroSubtitle}
               </p>
               <div className="flex flex-wrap gap-3">
-                <Button size="lg" asChild>
-                  <a className="flex items-center whitespace-nowrap" href="/app/">
-                    {copy.ctaLogin}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </a>
+                <Button size="lg" onClick={handleLogin} className="flex items-center whitespace-nowrap">
+                  {copy.ctaLogin}
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-                <Button size="lg" variant="outline" asChild>
-                  <a className="whitespace-nowrap" href="/app/">
-                    {copy.ctaRegister}
-                  </a>
+                <Button size="lg" variant="outline" onClick={handleRegister} className="whitespace-nowrap">
+                  {copy.ctaRegister}
                 </Button>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -999,11 +1017,9 @@ export default function Landing() {
                 <h3 className="text-xl font-semibold">{copy.subscribe.title}</h3>
                 <p className="text-sm text-muted-foreground">{copy.subscribe.description}</p>
               </div>
-              <Button size="lg" variant="secondary" asChild>
-                <a href="/app/">
-                  <Send className="mr-2 h-4 w-4" />
-                  {copy.subscribe.button}
-                </a>
+              <Button size="lg" variant="secondary" onClick={() => navigate('/app/')}>
+                <Send className="mr-2 h-4 w-4" />
+                {copy.subscribe.button}
               </Button>
             </div>
           </div>
@@ -1033,11 +1049,11 @@ export default function Landing() {
         <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-12 text-center lg:px-8">
           <p className="text-sm text-muted-foreground">{copy.footer.beta}</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Button asChild>
-              <a href="/app/">{copy.footer.login}</a>
+            <Button onClick={handleLogin}>
+              {copy.footer.login}
             </Button>
-            <Button variant="outline" asChild>
-              <a href="/app/">{copy.footer.register}</a>
+            <Button variant="outline" onClick={handleRegister}>
+              {copy.footer.register}
             </Button>
           </div>
         </div>
