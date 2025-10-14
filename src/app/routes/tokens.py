@@ -174,40 +174,14 @@ async def list_tokens(
         raw_components = None
         smoothed_components = None
 
-        pools = None
-        pool_type_counts = getattr(latest_data, "pool_type_counts", None)
-        if isinstance(pool_type_counts, dict) and pool_type_counts:
+        processed_pools_data = latest.get("pools")
+        pools: Optional[list[PoolItem]] = None
+        if isinstance(processed_pools_data, list):
             try:
-                pools = [
-                    PoolItem.model_construct(
-                        address=None,
-                        dex=None,
-                        quote=None,
-                        solscan_url=None,
-                        count=int(count) if count is not None else None,
-                        pool_type=pool_type,
-                    )
-                    for pool_type, count in pool_type_counts.items()
-                ]
-            except Exception:
+                pools = [PoolItem(**p) for p in processed_pools_data]
+            except Exception as e:
+                # Log the error if needed, for now, just reset to None
                 pools = None
-
-        if pools is None:
-            pool_counts = getattr(latest_data, "pool_counts", None)
-            if isinstance(pool_counts, dict):
-                try:
-                    pools = [
-                        PoolItem.model_construct(
-                            address=None,
-                            dex=dex,
-                            quote=None,
-                            solscan_url=None,
-                            count=int(count) if count is not None else None,
-                        )
-                        for dex, count in pool_counts.items()
-                    ]
-                except Exception:
-                    pools = None
 
         liquidity_usd = getattr(latest_data, "liquidity_usd", None)
         delta_p_5m = getattr(latest_data, "delta_p_5m", None)
