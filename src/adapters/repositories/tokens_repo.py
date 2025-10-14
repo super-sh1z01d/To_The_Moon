@@ -674,29 +674,29 @@ class TokensRepository:
                 row_dict.pop("Token", None)
 
                 # Handle pool_counts JSON (can be dict if already parsed by PostgreSQL JSONB or string if JSON)
-                    pool_counts_json = row_dict.get("latest_pool_counts") # Use get, don't pop
-                    self._log.error(f"READ DEBUG: token_id={token.id}, pool_counts_json={pool_counts_json}, type={type(pool_counts_json)}")
-                    pools = []
-                    if pool_counts_json:
-                        try:
-                            # If it's a string, load it as JSON
-                            if isinstance(pool_counts_json, str):
-                                data = json.loads(pool_counts_json)
-                            # If it's already a dict (parsed by JSONB), use it directly
-                            elif isinstance(pool_counts_json, dict):
-                                data = pool_counts_json
-                            else:
-                                data = {}
+                pool_counts_json = row_dict.get("latest_pool_counts") # Use get, don't pop
+                self._log.error(f"READ DEBUG: token_id={token.id}, pool_counts_json={pool_counts_json}, type={type(pool_counts_json)}")
+                pools = []
+                if pool_counts_json:
+                    try:
+                        # If it's a string, load it as JSON
+                        if isinstance(pool_counts_json, str):
+                            data = json.loads(pool_counts_json)
+                        # If it's already a dict (parsed by JSONB), use it directly
+                        elif isinstance(pool_counts_json, dict):
+                            data = pool_counts_json
+                        else:
+                            data = {}
 
-                            # Extract counts from the "dex" key
-                            if "dex" in data and isinstance(data["dex"], dict):
-                                for dex, count in data["dex"].items():
-                                    if dex and isinstance(dex, str):
-                                        pools.append({"dex": dex, "count": count})
-                        except (json.JSONDecodeError, TypeError) as e:
-                            self._log.warning(f"Failed to parse pool_counts_json: {e}, type={type(pool_counts_json)}, value={pool_counts_json}")
-                    self._log.error(f"READ DEBUG FINAL: token_id={token.id}, pools_list={pools}, len={len(pools)}")
-                    row_dict["pools"] = pools # Store under the simple key 'pools' 
+                        # Extract counts from the "dex" key
+                        if "dex" in data and isinstance(data["dex"], dict):
+                            for dex, count in data["dex"].items():
+                                if dex and isinstance(dex, str):
+                                    pools.append({"dex": dex, "count": count})
+                    except (json.JSONDecodeError, TypeError) as e:
+                        self._log.warning(f"Failed to parse pool_counts_json: {e}, type={type(pool_counts_json)}, value={pool_counts_json}")
+                self._log.error(f"READ DEBUG FINAL: token_id={token.id}, pools_list={pools}, len={len(pools)}")
+                row_dict["pools"] = pools # Store under the simple key 'pools' 
                 processed_rows.append((token, row_dict))
 
             return processed_rows
