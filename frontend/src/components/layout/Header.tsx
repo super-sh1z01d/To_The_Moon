@@ -3,15 +3,18 @@ import { Button } from '@/components/ui/button'
 import { ThemeToggle } from './ThemeToggle'
 import { LanguageToggle } from './LanguageToggle'
 import { useLanguage } from '@/hooks/useLanguage'
+import { useAuth } from '@/hooks/useAuth'
+import { useModal } from '@/contexts/ModalContext'
 
 interface HeaderProps {
   title: string
   onMenuClick?: () => void
-  actions?: React.ReactNode
 }
 
-export function Header({ title, onMenuClick, actions }: HeaderProps) {
+export function Header({ title, onMenuClick }: HeaderProps) {
   const { t } = useLanguage()
+  const { isAuthenticated, logout } = useAuth()
+  const { openModal } = useModal()
 
   return (
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -31,7 +34,14 @@ export function Header({ title, onMenuClick, actions }: HeaderProps) {
           <h1 className="text-base font-semibold lg:hidden">{title}</h1>
           
           <div className="flex items-center space-x-2 ml-auto">
-            {actions}
+            {isAuthenticated ? (
+              <Button variant="outline" onClick={logout}>Logout</Button>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => openModal('login')}>Login</Button>
+                <Button onClick={() => openModal('register')}>Register</Button>
+              </>
+            )}
             <LanguageToggle />
             <ThemeToggle />
           </div>

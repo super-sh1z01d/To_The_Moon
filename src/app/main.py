@@ -16,6 +16,7 @@ from src.core.json_logging import configure_logging
 from src.scheduler.service import init_scheduler
 from .spa import mount_spa
 from .routes.meta import router as meta_router
+from .routes.auth import router as auth_router
 from .routes.settings import router as settings_router
 from .routes.tokens import router as tokens_router
 from .routes.ui import router as ui_router
@@ -244,6 +245,7 @@ def create_app() -> FastAPI:
 
     # Routers
     app.include_router(meta_router)
+    app.include_router(auth_router)
     app.include_router(settings_router)
     app.include_router(tokens_router)
     app.include_router(ui_router)

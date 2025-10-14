@@ -11,23 +11,31 @@ import TokenDetail from './pages/TokenDetail'
 import Logs from './pages/Logs'
 import ApiDocs from './pages/ApiDocs'
 
+import { AuthProvider } from './contexts/AuthContext';
+
+import { ModalProvider } from './contexts/ModalContext';
+
 export default function App(){
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider defaultLanguage="en">
-        <ThemeProvider defaultTheme="system">
-          <MainLayout>
-            <Routes>
-              <Route path="/" element={<Dashboard/>} />
-              <Route path="/settings" element={<Settings/>} />
-              <Route path="/logs" element={<Logs/>} />
-              <Route path="/api-docs" element={<ApiDocs/>} />
-              <Route path="/token/:mint" element={<TokenDetail/>} />
-              <Route path="*" element={<div className="text-center py-12">Страница не найдена</div>} />
-            </Routes>
-          </MainLayout>
-          <Toaster />
-        </ThemeProvider>
+        <AuthProvider>
+          <ModalProvider>
+            <ThemeProvider defaultTheme="system">
+              <MainLayout>
+                <Routes>
+                  <Route path="/" element={<Dashboard/>} />
+                  <Route path="/settings" element={<Settings/>} />
+                  <Route path="/logs" element={<Logs/>} />
+                  <Route path="/api-docs" element={<ApiDocs/>} />
+                  <Route path="/token/:mint" element={<TokenDetail/>} />
+                  <Route path="*" element={<div className="text-center py-12">Страница не найдена</div>} />
+                </Routes>
+              </MainLayout>
+              <Toaster />
+            </ThemeProvider>
+          </ModalProvider>
+        </AuthProvider>
       </LanguageProvider>
     </QueryClientProvider>
   )

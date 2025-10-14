@@ -23,6 +23,7 @@ export default defineConfig({
       '/tokens': 'http://localhost:8000',
       '/admin': 'http://localhost:8000',
       '/logs': 'http://localhost:8000',
+      '/auth': 'http://localhost:8000',
     }
   }
 })
