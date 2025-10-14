@@ -687,11 +687,11 @@ class TokensRepository:
                         else:
                             data = {}
 
-                        # Extract counts from the "dex" key
-                        if "dex" in data and isinstance(data["dex"], dict):
-                            for dex, count in data["dex"].items():
-                                if dex and isinstance(dex, str):
-                                    pools.append({"dex": dex, "count": count})
+                        # Extract counts from the "types" key, which contains the RPC-derived pool type
+                        if "types" in data and isinstance(data["types"], dict):
+                            for pool_type, count in data["types"].items():
+                                if pool_type and isinstance(pool_type, str):
+                                    pools.append({"pool_type": pool_type, "count": count})
                     except (json.JSONDecodeError, TypeError) as e:
                         self._log.warning(f"Failed to parse pool_counts_json: {e}, type={type(pool_counts_json)}, value={pool_counts_json}")
                 row_dict["pools"] = pools # Store under the simple key 'pools' 
