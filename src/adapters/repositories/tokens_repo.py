@@ -692,9 +692,10 @@ class TokensRepository:
                             for dex, count in data["dex"].items():
                                 if dex and isinstance(dex, str):
                                     pools.append({"dex": dex, "count": count})
-                                            except (json.JSONDecodeError, TypeError) as e:
-                                                self._log.warning(f"Failed to parse pool_counts_json: {e}, type={type(pool_counts_json)}, value={pool_counts_json}")
-                                        row_dict["pools"] = pools # Store under the simple key 'pools'                 processed_rows.append((token, row_dict))
+                    except (json.JSONDecodeError, TypeError) as e:
+                        self._log.warning(f"Failed to parse pool_counts_json: {e}, type={type(pool_counts_json)}, value={pool_counts_json}")
+                row_dict["pools"] = pools # Store under the simple key 'pools' 
+                processed_rows.append((token, row_dict))
 
             return processed_rows
         except ProgrammingError as exc:
