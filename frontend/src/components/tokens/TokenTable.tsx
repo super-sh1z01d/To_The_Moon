@@ -170,7 +170,6 @@ export function TokenTable({
               <TableHead className="w-[120px] text-right">{t('Liquidity')}</TableHead>
               <TableHead className="w-[80px] text-right">{t('5m TX Count')}</TableHead>
               <TableHead className="w-[120px]">{t('Dex Pools')}</TableHead>
-              <TableHead className="w-[140px]">{t('Last Update')}</TableHead>
               <TableHead className="w-[80px]">{t('Solscan')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -182,13 +181,6 @@ export function TokenTable({
               const tokenAge = tokenAgeSource ? formatAge(tokenAgeSource) : '—'
               const tokenIsFresh = tokenAgeSource ? isFresh(tokenAgeSource) : false
               const poolGroups = getPoolTypeGroups(token.pools)
-              const lastUpdatedRaw = formatRelativeTime(token.last_processed_at || token.fetched_at)
-              const lastUpdated =
-                lastUpdatedRaw === 'Unknown'
-                  ? t('Unknown')
-                  : lastUpdatedRaw === 'Invalid date'
-                  ? t('Invalid date')
-                  : lastUpdatedRaw
               
               const { label, fallback, shortMint } = getTokenIdentity(
                 token.symbol,
@@ -252,16 +244,13 @@ export function TokenTable({
                           <Badge
                             key={group.key}
                             variant="outline"
-                            className={`text-xs w-fit ${group.badgeClass}`}
+                            className={`text-xs w-fit whitespace-nowrap ${group.badgeClass}`}
                           >
                             {group.label} <span className="ml-1 opacity-75">({group.count})</span>
                           </Badge>
                         ))}
                       </div>
                     )}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {lastUpdated}
                   </TableCell>
                   <TableCell>
                     <Button
