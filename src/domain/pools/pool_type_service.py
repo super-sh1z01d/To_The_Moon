@@ -150,8 +150,10 @@ class PoolTypeService:
                 resolved_type = info.get("pool_type")
                 resolved_owner = info.get("owner_program")
             else:
-                resolved_type = pool_type
-                resolved_owner = owner_program
+                # If there is no RPC-derived info, the type is unknown.
+                # Do not fall back to the dexscreener type.
+                resolved_type = UNKNOWN_POOL_TYPE
+                resolved_owner = None
 
             if not resolved_type or resolved_type == UNKNOWN_POOL_TYPE:
                 unknown_count += 1
