@@ -10,10 +10,10 @@ interface SidebarProps {
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'API Docs', href: '/api-docs', icon: FileText },
-  { name: 'Settings', href: '/settings', icon: Settings },
-  { name: 'Logs', href: '/logs', icon: FileText },
+  { name: 'Dashboard', href: '/app/', icon: Home },
+  { name: 'API Docs', href: '/app/api-docs', icon: FileText },
+  { name: 'Settings', href: '/app/settings', icon: Settings },
+  { name: 'Logs', href: '/app/logs', icon: FileText },
 ]
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
