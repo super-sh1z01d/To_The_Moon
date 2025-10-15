@@ -54,6 +54,17 @@ type PoolGroup = {
   badgeClass: string
 }
 
+// Color map for pool type badges
+const POOL_COLOR_CLASSES: Record<string, string> = {
+  blue: 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
+  indigo: 'bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300',
+  emerald: 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300',
+  pink: 'bg-pink-50 dark:bg-pink-950/20 border-pink-200 dark:border-pink-800 text-pink-700 dark:text-pink-300',
+  purple: 'bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
+  orange: 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300',
+  gray: 'bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300',
+}
+
 function normalizeKey(value: string | undefined | null): string | null {
   if (typeof value !== 'string') {
     return null
@@ -253,20 +264,23 @@ export function TokenTable({
                     ) : (
                       <div className="flex flex-col gap-1.5">
                         <div className="flex flex-wrap gap-1">
-                          {poolGroups.slice(0, 3).map((group) => (
-                            <Badge
-                              key={group.key}
-                              variant="secondary"
-                              className="text-[10px] px-1.5 py-0 h-5"
-                            >
-                              {group.label} <span className="ml-0.5 font-semibold">×{group.count}</span>
-                            </Badge>
-                          ))}
-                          {poolGroups.length > 3 && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
-                              +{poolGroups.length - 3}
-                            </Badge>
-                          )}
+                          {poolGroups.map((group) => {
+                            const meta = getPoolTypeMeta(group.key)
+                            // Extract color from badgeClass (e.g., "border-blue-500" -> "blue")
+                            const colorMatch = meta.badgeClass.match(/border-(\w+)-/)
+                            const color = colorMatch ? colorMatch[1] : 'gray'
+                            const colorClasses = POOL_COLOR_CLASSES[color] || POOL_COLOR_CLASSES.gray
+
+                            return (
+                              <Badge
+                                key={group.key}
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 h-5 ${colorClasses}`}
+                              >
+                                {group.label} <span className="ml-0.5 font-semibold">×{group.count}</span>
+                              </Badge>
+                            )
+                          })}
                         </div>
                         <Button
                           size="sm"
@@ -275,7 +289,7 @@ export function TokenTable({
                           onClick={(e) => handlePoolConfigsClick(e, token.mint_address, token.symbol || undefined)}
                         >
                           <FileCode className="mr-1 h-3 w-3" />
-                          {t('View Configs')}
+                          {t('Copy Config')}
                         </Button>
                       </div>
                     )}

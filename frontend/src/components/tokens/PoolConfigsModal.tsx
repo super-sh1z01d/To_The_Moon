@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Download, Loader2 } from 'lucide-react'
+import { Copy, Loader2, Check } from 'lucide-react'
 import { useLanguage } from '@/hooks/useLanguage'
 
 interface PoolConfigsModalProps {
@@ -22,6 +22,7 @@ export function PoolConfigsModal({ open, onClose, mintAddress, tokenSymbol }: Po
   const [configs, setConfigs] = useState<PoolConfigs | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [copiedSection, setCopiedSection] = useState<string | null>(null)
 
   useEffect(() => {
     if (open && mintAddress) {
@@ -47,16 +48,14 @@ export function PoolConfigsModal({ open, onClose, mintAddress, tokenSymbol }: Po
     }
   }
 
-  const handleDownload = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+  const handleCopy = async (content: string, section: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopiedSection(section)
+      setTimeout(() => setCopiedSection(null), 2000)
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err)
+    }
   }
 
   return (
@@ -96,13 +95,19 @@ export function PoolConfigsModal({ open, onClose, mintAddress, tokenSymbol }: Po
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleDownload(
-                    configs.solana_mev_bot,
-                    `${tokenSymbol || mintAddress}_solanamevbot.toml`
-                  )}
+                  onClick={() => handleCopy(configs.solana_mev_bot, 'solanamevbot')}
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('Download')}
+                  {copiedSection === 'solanamevbot' ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      {t('Copied!')}
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" />
+                      {t('Copy')}
+                    </>
+                  )}
                 </Button>
               </div>
               <div className="flex-1 overflow-auto">
@@ -120,13 +125,19 @@ export function PoolConfigsModal({ open, onClose, mintAddress, tokenSymbol }: Po
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleDownload(
-                    configs.not_arb,
-                    `${tokenSymbol || mintAddress}_notarb.py`
-                  )}
+                  onClick={() => handleCopy(configs.not_arb, 'notarb')}
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  {t('Download')}
+                  {copiedSection === 'notarb' ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      {t('Copied!')}
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" />
+                      {t('Copy')}
+                    </>
+                  )}
                 </Button>
               </div>
               <div className="flex-1 overflow-auto">

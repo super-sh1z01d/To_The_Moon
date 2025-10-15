@@ -210,6 +210,9 @@ export const translations: Translations = {
     'Python list format for NotArb': 'Формат Python списка для NotArb',
     'Download': 'Скачать',
     'View Configs': 'Конфиги',
+    'Copy': 'Копировать',
+    'Copy Config': 'Копировать',
+    'Copied!': 'Скопировано!',
     'Failed to fetch pool configurations': 'Не удалось загрузить конфигурации пулов',
   },
 }
