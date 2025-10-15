@@ -3,6 +3,7 @@ import { Home, Settings, FileText, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/hooks/useLanguage'
+import { useAuth } from '@/hooks/useAuth'
 
 interface SidebarProps {
   isOpen: boolean
@@ -10,14 +11,20 @@ interface SidebarProps {
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/app/', icon: Home },
-  { name: 'API Docs', href: '/app/api-docs', icon: FileText },
-  { name: 'Settings', href: '/app/settings', icon: Settings },
-  { name: 'Logs', href: '/app/logs', icon: FileText },
+  { name: 'Dashboard', href: '/app/', icon: Home, requiredRole: null },
+  { name: 'API Docs', href: '/app/api-docs', icon: FileText, requiredRole: null },
+  { name: 'Settings', href: '/app/settings', icon: Settings, requiredRole: 'admin' as const },
+  { name: 'Logs', href: '/app/logs', icon: FileText, requiredRole: 'admin' as const },
 ]
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { t } = useLanguage()
+  const { user } = useAuth()
+
+  const filteredNavigation = navigation.filter(item => {
+    if (!item.requiredRole) return true
+    return user?.role === 'admin'
+  })
 
   return (
     <>
@@ -49,7 +56,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
         
         <nav className="space-y-1 p-4">
-          {navigation.map((item) => (
+          {filteredNavigation.map((item) => (
             <NavLink
               key={item.name}
               to={item.href}

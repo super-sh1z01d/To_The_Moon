@@ -3,9 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from src.app.logs_buffer import LOG_BUFFER, SEEN_LOGGERS
+from src.domain.users.auth_service import get_current_admin_user
+from src.domain.users.schemas import User
 
 
 router = APIRouter(prefix="/logs", tags=["logs"])
@@ -18,6 +20,7 @@ def get_logs(
     loggers: Optional[str] = Query(None, description="Comma-separated logger names to include"),
     contains: Optional[str] = Query(None, description="Substring to search in message/payload"),
     since: Optional[str] = Query(None, description="ISO timestamp; return logs with ts >= since"),
+    current_admin: User = Depends(get_current_admin_user)
 ) -> List[Dict[str, Any]]:
     items = list(LOG_BUFFER)
 
@@ -65,7 +68,7 @@ def get_logs(
 
 
 @router.get("/meta", response_model=dict)
-def get_logs_meta() -> Dict[str, Any]:
+def get_logs_meta(current_admin: User = Depends(get_current_admin_user)) -> Dict[str, Any]:
     return {
         "loggers": sorted(SEEN_LOGGERS),
         "hint": "Use /logs?levels=INFO,ERROR&loggers=scheduler,validator&contains=foo&limit=200",
@@ -73,7 +76,7 @@ def get_logs_meta() -> Dict[str, Any]:
 
 
 @router.delete("/", response_model=dict)
-def clear_logs() -> Dict[str, Any]:
+def clear_logs(current_admin: User = Depends(get_current_admin_user)) -> Dict[str, Any]:
     count = len(LOG_BUFFER)
     LOG_BUFFER.clear()
     return {"cleared": count}

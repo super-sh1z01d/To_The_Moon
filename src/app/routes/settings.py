@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from src.adapters.db.deps import get_db
 from src.domain.settings.service import SettingsService
 from src.domain.settings.defaults import DEFAULT_SETTINGS
+from src.domain.users.auth_service import get_current_admin_user
+from src.domain.users.schemas import User
 
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -19,19 +21,28 @@ class SettingItem(BaseModel):
 
 
 @router.get("/", response_model=dict[str, str])
-async def list_settings(db: Session = Depends(get_db)) -> dict[str, str]:
+async def list_settings(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+) -> dict[str, str]:
     svc = SettingsService(db)
     return svc.get_all()
 
 
 @router.get("/defaults", response_model=dict[str, str])
-async def list_default_settings() -> dict[str, str]:
+async def list_default_settings(
+    current_admin: User = Depends(get_current_admin_user)
+) -> dict[str, str]:
     # Возвращаем дефолтные значения без учёта БД
     return DEFAULT_SETTINGS.copy()
 
 
 @router.get("/{key}", response_model=SettingItem)
-async def get_setting(key: str, db: Session = Depends(get_db)) -> SettingItem:
+async def get_setting(
+    key: str,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+) -> SettingItem:
     svc = SettingsService(db)
     # Возвращаем значение из кэша/БД, либо дефолт, если ключ известен
     if key not in DEFAULT_SETTINGS and svc.get(key) is None:
@@ -47,7 +58,12 @@ class SettingValue(BaseModel):
 
 
 @router.put("/{key}", response_model=SettingItem)
-async def put_setting(key: str, payload: SettingValue, db: Session = Depends(get_db)) -> SettingItem:
+async def put_setting(
+    key: str,
+    payload: SettingValue,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+) -> SettingItem:
     svc = SettingsService(db)
     
     try:
@@ -64,7 +80,10 @@ async def put_setting(key: str, payload: SettingValue, db: Session = Depends(get
 
 
 @router.get("/validation/errors", response_model=list[str])
-async def get_validation_errors(db: Session = Depends(get_db)) -> list[str]:
+async def get_validation_errors(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+) -> list[str]:
     """Get list of current setting validation errors."""
     svc = SettingsService(db)
     return svc.validate_all_settings()
@@ -77,7 +96,10 @@ class WeightsResponse(BaseModel):
 
 
 @router.get("/weights", response_model=WeightsResponse)
-async def get_weights(db: Session = Depends(get_db)) -> WeightsResponse:
+async def get_weights(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+) -> WeightsResponse:
     """Get all scoring model weights."""
     svc = SettingsService(db)
     
@@ -94,8 +116,9 @@ class ModelSwitchRequest(BaseModel):
 
 @router.post("/model/switch")
 async def switch_scoring_model(
-    request: ModelSwitchRequest, 
-    db: Session = Depends(get_db)
+    request: ModelSwitchRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
 ) -> dict[str, str]:
     """Switch active scoring model."""
     svc = SettingsService(db)

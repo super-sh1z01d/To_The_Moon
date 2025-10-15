@@ -2,21 +2,28 @@ import { NavLink } from 'react-router-dom'
 import { Home, Settings, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/hooks/useLanguage'
+import { useAuth } from '@/hooks/useAuth'
 
 const navigation = [
-  { name: 'Dashboard', href: '/app/', icon: Home },
-  { name: 'API Docs', href: '/app/api-docs', icon: FileText },
-  { name: 'Settings', href: '/app/settings', icon: Settings },
-  { name: 'Logs', href: '/app/logs', icon: FileText },
+  { name: 'Dashboard', href: '/app/', icon: Home, requiredRole: null },
+  { name: 'API Docs', href: '/app/api-docs', icon: FileText, requiredRole: null },
+  { name: 'Settings', href: '/app/settings', icon: Settings, requiredRole: 'admin' as const },
+  { name: 'Logs', href: '/app/logs', icon: FileText, requiredRole: 'admin' as const },
 ]
 
 export function MobileNav() {
   const { t } = useLanguage()
+  const { user } = useAuth()
+
+  const filteredNavigation = navigation.filter(item => {
+    if (!item.requiredRole) return true
+    return user?.role === 'admin'
+  })
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background md:hidden">
       <div className="flex items-center justify-around">
-        {navigation.map((item) => (
+        {filteredNavigation.map((item) => (
           <NavLink
             key={item.name}
             to={item.href}

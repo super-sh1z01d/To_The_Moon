@@ -13,8 +13,8 @@ import ApiDocs from './pages/ApiDocs'
 import Landing from './pages/Landing'
 
 import { AuthProvider } from './contexts/AuthContext';
-
 import { ModalProvider } from './contexts/ModalContext';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 export default function App(){
   return (
@@ -26,16 +26,26 @@ export default function App(){
               <Routes>
                 <Route path="/" element={<Landing/>} />
                 <Route path="/app/*" element={
-                  <MainLayout>
-                    <Routes>
-                      <Route path="/" element={<Dashboard/>} />
-                      <Route path="/settings" element={<Settings/>} />
-                      <Route path="/logs" element={<Logs/>} />
-                      <Route path="/api-docs" element={<ApiDocs/>} />
-                      <Route path="/token/:mint" element={<TokenDetail/>} />
-                      <Route path="*" element={<div className="text-center py-12">Страница не найдена</div>} />
-                    </Routes>
-                  </MainLayout>
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <Routes>
+                        <Route path="/" element={<Dashboard/>} />
+                        <Route path="/api-docs" element={<ApiDocs/>} />
+                        <Route path="/token/:mint" element={<TokenDetail/>} />
+                        <Route path="/settings" element={
+                          <ProtectedRoute requiredRole="admin">
+                            <Settings/>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/logs" element={
+                          <ProtectedRoute requiredRole="admin">
+                            <Logs/>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="*" element={<div className="text-center py-12">Страница не найдена</div>} />
+                      </Routes>
+                    </MainLayout>
+                  </ProtectedRoute>
                 } />
               </Routes>
               <Toaster />
