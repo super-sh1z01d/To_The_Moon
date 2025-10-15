@@ -18,9 +18,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('authToken');
-    if (storedToken) {
-      setToken(storedToken);
+    // Check for token in URL (from OAuth callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+
+    if (tokenFromUrl) {
+      // Save token and remove from URL
+      localStorage.setItem('authToken', tokenFromUrl);
+      setToken(tokenFromUrl);
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Check localStorage
+      const storedToken = localStorage.getItem('authToken');
+      if (storedToken) {
+        setToken(storedToken);
+      }
     }
     setIsLoading(false);
   }, []);

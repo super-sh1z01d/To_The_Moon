@@ -83,6 +83,11 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    hashed_password: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Nullable for OAuth users
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False)
+
+    # OAuth fields
+    google_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
+    auth_provider: Mapped[str] = mapped_column(String(20), default="email", nullable=False)  # "email" or "google"
+    profile_picture: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
