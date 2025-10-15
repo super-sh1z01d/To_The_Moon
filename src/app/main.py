@@ -1,14 +1,15 @@
 import logging
 import time
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.sessions import SessionMiddleware
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
-import os
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env'))
 
 from src.core.config import get_config
@@ -44,6 +45,10 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Session middleware for OAuth (required by authlib)
+    secret_key = os.getenv('SECRET_KEY', 'a_very_secret_key_that_should_be_in_a_config_file')
+    app.add_middleware(SessionMiddleware, secret_key=secret_key)
 
     @app.middleware("http")
     async def access_logger(request: Request, call_next):  # noqa: D401
