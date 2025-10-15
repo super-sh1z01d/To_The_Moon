@@ -104,10 +104,10 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
             data={"sub": user.email}, expires_delta=access_token_expires
         )
 
-        # Redirect to frontend with token
+        # Redirect to frontend with token in fragment (more secure than query param)
         frontend_url = os.getenv('FRONTEND_URL', 'https://tothemoon.sh1z01d.ru')
         return RedirectResponse(
-            url=f"{frontend_url}/app/?token={access_token}",
+            url=f"{frontend_url}/app/#token={access_token}",
             status_code=status.HTTP_303_SEE_OTHER
         )
 

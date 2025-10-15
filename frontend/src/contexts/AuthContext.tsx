@@ -18,15 +18,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for token in URL (from OAuth callback)
-    const urlParams = new URLSearchParams(window.location.search);
-    const tokenFromUrl = urlParams.get('token');
+    // Check for token in URL fragment (from OAuth callback)
+    const hash = window.location.hash.substring(1); // Remove the '#'
+    const params = new URLSearchParams(hash);
+    const tokenFromHash = params.get('token');
 
-    if (tokenFromUrl) {
+    if (tokenFromHash) {
       // Save token and remove from URL
-      localStorage.setItem('authToken', tokenFromUrl);
-      setToken(tokenFromUrl);
-      // Clean URL
+      localStorage.setItem('authToken', tokenFromHash);
+      setToken(tokenFromHash);
+      // Clean URL hash
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
       // Check localStorage
