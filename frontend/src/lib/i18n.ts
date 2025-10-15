@@ -204,6 +204,13 @@ export const translations: Translations = {
     'System mode': 'Системная тема',
     'Current theme: {theme}': 'Текущая тема: {theme}',
     'Error': 'Ошибка',
+    'Pool Configurations': 'Конфигурации пулов',
+    'Download pool configurations for {token}': 'Скачать конфигурации пулов для {token}',
+    'TOML configuration for SolanaMevBot': 'TOML конфигурация для SolanaMevBot',
+    'Python list format for NotArb': 'Формат Python списка для NotArb',
+    'Download': 'Скачать',
+    'View Configs': 'Конфиги',
+    'Failed to fetch pool configurations': 'Не удалось загрузить конфигурации пулов',
   },
 }
 

@@ -430,3 +430,88 @@ async def get_token_pools(mint: str, db: Session = Depends(get_db)) -> list[Pool
             )
         )
     return items
+
+
+class PoolConfigs(BaseModel):
+    solana_mev_bot: str = Field(description="Config in SolanaMevBot TOML format")
+    not_arb: str = Field(description="Config in NotArb Python list format")
+
+
+@router.get("/{mint}/pool-configs", response_model=PoolConfigs)
+async def get_pool_configs(mint: str, db: Session = Depends(get_db)) -> PoolConfigs:
+    """Get pool configurations for SolanaMevBot and NotArb formats."""
+    repo = TokensRepository(db)
+    token = repo.get_by_mint(mint)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="token not found")
+
+    snap = repo.get_latest_snapshot(token.id)
+    pools = []
+    if snap and snap.metrics and isinstance(snap.metrics, dict) and "pools" in snap.metrics:
+        exclude = {"pumpfun"}
+        pools = [
+            p for p in (snap.metrics.get("pools") or [])
+            if isinstance(p, dict) and p.get("is_wsol") and str(p.get("dex") or "") not in exclude
+        ]
+
+    # Group pools by pool_type
+    pool_groups = {
+        "pump_pool_list": [],
+        "raydium_clmm_pool_list": [],
+        "whirlpool_pool_list": [],
+        "meteora_dlmm_pool_list": [],
+        "meteora_dammv2_pool_list": [],
+    }
+
+    for pool in pools:
+        addr = pool.get("address")
+        pool_type = pool.get("pool_type", "").lower()
+
+        if not addr:
+            continue
+
+        if "pump" in pool_type or "pumpfun" in pool_type:
+            pool_groups["pump_pool_list"].append(addr)
+        elif "raydium" in pool_type and "clmm" in pool_type:
+            pool_groups["raydium_clmm_pool_list"].append(addr)
+        elif "whirlpool" in pool_type or "orca" in pool_type:
+            pool_groups["whirlpool_pool_list"].append(addr)
+        elif "meteora" in pool_type and "dlmm" in pool_type:
+            pool_groups["meteora_dlmm_pool_list"].append(addr)
+        elif "meteora" in pool_type and ("damm" in pool_type or "dynamic" in pool_type):
+            pool_groups["meteora_dammv2_pool_list"].append(addr)
+
+    # Build SolanaMevBot TOML config
+    symbol = token.symbol or "TOKEN"
+    solana_mev_config_lines = [
+        f"#{symbol}",
+        "[[routing.mint_config_list]]",
+        f'mint = "{mint}"',
+    ]
+
+    for key, addresses in pool_groups.items():
+        if addresses:
+            addr_str = '", "'.join(addresses)
+            solana_mev_config_lines.append(f'{key} = ["{addr_str}"]')
+
+    solana_mev_config = "\n".join(solana_mev_config_lines)
+
+    # Build NotArb Python list format
+    not_arb_lines = []
+    for pool in pools:
+        addr = pool.get("address")
+        pool_type = pool.get("pool_type", "Unknown")
+        quote = pool.get("quote", "SOL")
+
+        if addr:
+            # Map pool_type to readable format
+            type_name = pool_type.replace("_", " ").title() if pool_type else "Unknown"
+            comment = f"#{symbol}-{quote} {type_name}"
+            not_arb_lines.append(f'"{addr}", {comment}')
+
+    not_arb_config = "\n".join(not_arb_lines)
+
+    return PoolConfigs(
+        solana_mev_bot=solana_mev_config,
+        not_arb=not_arb_config
+    )

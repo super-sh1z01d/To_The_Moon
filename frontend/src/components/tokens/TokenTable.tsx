@@ -1,15 +1,17 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Pool, Token } from '@/types/token'
 import { formatCurrency, formatRelativeTime, getScoreColor } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { ArrowUpDown } from 'lucide-react'
+import { ArrowUpDown, FileCode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SCORE_DISPLAY_DECIMALS } from '@/lib/constants'
 import { useLanguage } from '@/hooks/useLanguage'
 import { TokenAvatar } from '@/components/tokens/TokenAvatar'
 import { getTokenIdentity } from '@/lib/token-format'
 import { getPoolTypeMeta } from '@/lib/pool-types'
+import { PoolConfigsModal } from '@/components/tokens/PoolConfigsModal'
 
 interface TokenTableProps {
   tokens: Token[]
@@ -114,15 +116,20 @@ function getPoolTypeGroups(pools: Pool[] | undefined): PoolGroup[] {
     })
 }
 
-export function TokenTable({ 
-  tokens, 
+export function TokenTable({
+  tokens,
   isLoading,
   onSort,
   sortColumn,
-  sortDirection 
+  sortDirection
 }: TokenTableProps) {
   const navigate = useNavigate()
   const { t } = useLanguage()
+  const [poolConfigsModal, setPoolConfigsModal] = useState<{ open: boolean; mintAddress: string; symbol?: string }>({
+    open: false,
+    mintAddress: '',
+    symbol: undefined,
+  })
 
   const handleRowClick = (mint: string) => {
     navigate(`/token/${mint}`)
@@ -132,6 +139,11 @@ export function TokenTable({
     if (onSort) {
       onSort(column)
     }
+  }
+
+  const handlePoolConfigsClick = (e: React.MouseEvent, mintAddress: string, symbol?: string) => {
+    e.stopPropagation()
+    setPoolConfigsModal({ open: true, mintAddress, symbol: symbol || undefined })
   }
 
   if (isLoading) {
@@ -239,16 +251,32 @@ export function TokenTable({
                     {poolGroups.length === 0 ? (
                       <span className="text-xs text-muted-foreground">{t('No data available')}</span>
                     ) : (
-                      <div className="flex flex-col gap-1">
-                        {poolGroups.map((group) => (
-                          <Badge
-                            key={group.key}
-                            variant="outline"
-                            className={`text-xs w-fit whitespace-nowrap ${group.badgeClass}`}
-                          >
-                            {group.label} <span className="ml-1 opacity-75">({group.count})</span>
-                          </Badge>
-                        ))}
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex flex-wrap gap-1">
+                          {poolGroups.slice(0, 3).map((group) => (
+                            <Badge
+                              key={group.key}
+                              variant="secondary"
+                              className="text-[10px] px-1.5 py-0 h-5"
+                            >
+                              {group.label} <span className="ml-0.5 font-semibold">×{group.count}</span>
+                            </Badge>
+                          ))}
+                          {poolGroups.length > 3 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                              +{poolGroups.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs"
+                          onClick={(e) => handlePoolConfigsClick(e, token.mint_address, token.symbol || undefined)}
+                        >
+                          <FileCode className="mr-1 h-3 w-3" />
+                          {t('View Configs')}
+                        </Button>
                       </div>
                     )}
                   </TableCell>
@@ -270,6 +298,12 @@ export function TokenTable({
           </TableBody>
         </Table>
       </div>
+      <PoolConfigsModal
+        open={poolConfigsModal.open}
+        onClose={() => setPoolConfigsModal({ open: false, mintAddress: '', symbol: undefined })}
+        mintAddress={poolConfigsModal.mintAddress}
+        tokenSymbol={poolConfigsModal.symbol}
+      />
     </div>
   )
 }
