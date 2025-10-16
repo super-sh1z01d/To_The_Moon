@@ -42,11 +42,11 @@ export function Header({ title, onMenuClick }: HeaderProps) {
 
           <div className="flex items-center space-x-2 ml-auto">
             {isAuthenticated ? (
-              <Button variant="outline" onClick={handleLogout}>Logout</Button>
+              <Button variant="outline" onClick={handleLogout}>{t('Logout')}</Button>
             ) : (
               <>
-                <Button variant="ghost" onClick={() => openModal('login')}>Login</Button>
-                <Button onClick={() => openModal('register')}>Register</Button>
+                <Button variant="ghost" onClick={() => openModal('login')}>{t('Login')}</Button>
+                <Button onClick={() => openModal('register')}>{t('Register')}</Button>
               </>
             )}
             <LanguageToggle />

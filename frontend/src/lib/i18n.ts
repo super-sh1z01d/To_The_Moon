@@ -215,6 +215,7 @@ export const translations: Translations = {
     // Auth modals
     'Login': 'Вход',
     'Register': 'Регистрация',
+    'Logout': 'Выход',
     'Continue with Google': 'Войти через Google',
     'Or continue with email': 'Или продолжить с email',
     'Email': 'Email',
