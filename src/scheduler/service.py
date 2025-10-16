@@ -445,30 +445,14 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
     # Реактивация архивных токенов каждые 10 минут (если включено в настройках)
     from src.scheduler.tasks import process_archived_tokens_async
 
-    def archived_tokens_task():
-        """Обработка архивных токенов с проверкой настроек."""
-        try:
-            with SessionLocal() as sess:
-                settings = SettingsService(sess)
-                enabled = str(settings.get("process_archived_tokens") or "false").lower() == "true"
-
-                if not enabled:
-                    return
-
-                # Get settings for archived processing
-                max_age_days = int(settings.get("archived_max_age_days") or 7)
-
-                # Run async task
-                asyncio.create_task(process_archived_tokens_async(limit=20))
-        except Exception as e:
-            log.error(f"archived_tokens_task_error: {e}")
-
     scheduler.add_job(
-        archived_tokens_task,
+        process_archived_tokens_async,
         IntervalTrigger(minutes=10),
         id="archived_tokens_processor",
         max_instances=1,
-        coalesce=True
+        kwargs={"limit": 20},
+        coalesce=True,
+        misfire_grace_time=60
     )
 
     # Мониторинг обработки токенов каждые 5 минут
