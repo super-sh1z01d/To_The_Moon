@@ -5,6 +5,7 @@ import { ErrorDisplay } from '@/components/ui/error-display'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatRelativeTime } from '@/lib/utils'
+import { API_BASE_URL } from '@/lib/constants'
 
 interface User {
   id: number
@@ -38,8 +39,8 @@ export default function Users() {
       setIsLoading(true)
       setError(null)
 
-      const token = localStorage.getItem('token')
-      const response = await fetch('/admin/users', {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
