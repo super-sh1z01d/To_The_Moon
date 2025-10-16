@@ -232,7 +232,7 @@ export const translations: Translations = {
     'How It Works': 'Как это работает',
     'New Pump.Fun tokens that migrated to Pump.Fun AMM pool automatically appear in the system with Monitoring status': 'Новые токены Pump.Fun, которые совершили миграцию в пул Pump.Fun AMM, автоматически попадают в систему со статусом Monitoring',
     'When minimum liquidity on external DEXs is reached, token transitions to Active status and starts receiving score': 'При достижении минимальной ликвидности на внешних DEX токен переходит в статус Active и начинает получать оценку',
-    'Score (0-3) shows current token activity based on transactions, trading volume, data freshness and buy/sell balance': 'Скор (0-3) показывает текущую активность токена на основе транзакций, объёма торгов, свежести данных и баланса покупок/продаж',
+    'Score (0-3) shows current token activity based on transactions, trading volume, token freshness and buy/sell balance': 'Скор (0-3) показывает текущую активность токена на основе транзакций, объёма торгов, свежести токена и баланса покупок/продаж',
     'Tokens with low score (<0.3) for more than 5 hours are automatically archived': 'Токены с низким скором (<0.3) более 5 часов автоматически архивируются',
     'Higher score indicates more active trading right now and arbitrage opportunities, but does not guarantee profitability. Always do your own research!': 'Более высокий скор означает более активную торговлю прямо сейчас и арбитражные возможности, но не гарантирует прибыльность. Всегда проводите собственное исследование!',
     'Support the Project': 'Поддержать проект',
