@@ -217,8 +217,8 @@ export default function Settings() {
         </SettingsGroup>
 
         {/* Token Lifecycle */}
-        <SettingsGroup 
-          title={t('Token Lifecycle')} 
+        <SettingsGroup
+          title={t('Token Lifecycle')}
           description={t('Activation, archival, and monitoring parameters')}
         >
           <SettingField
@@ -260,6 +260,39 @@ export default function Settings() {
             type="number"
             unit={t('hours')}
             description={t('Archive monitoring tokens after this timeout')}
+          />
+        </SettingsGroup>
+
+        {/* Archived Token Reactivation */}
+        <SettingsGroup
+          title={t('Archived Token Reactivation')}
+          description={t('Configure archived token processing and reactivation')}
+        >
+          <SettingField
+            label={t('Process Archived Tokens')}
+            value={getValue('process_archived_tokens', 'false')}
+            onChange={(v) => handleChange('process_archived_tokens', v)}
+            type="select"
+            options={[
+              { value: 'true', label: t('Enabled') },
+              { value: 'false', label: t('Disabled') }
+            ]}
+            description={t('Enable archived token processing (disabled by default for safety)')}
+          />
+          <SettingField
+            label={t('Archived Min Transactions 5m')}
+            value={getValue('archived_min_txns_5m', '300')}
+            onChange={(v) => handleChange('archived_min_txns_5m', v)}
+            type="number"
+            description={t('Minimum transactions in last 5 minutes for reactivation')}
+          />
+          <SettingField
+            label={t('Archived Max Age Days')}
+            value={getValue('archived_max_age_days', '7')}
+            onChange={(v) => handleChange('archived_max_age_days', v)}
+            type="number"
+            unit={t('days')}
+            description={t('Maximum age in days for archived tokens to be considered')}
           />
         </SettingsGroup>
 
