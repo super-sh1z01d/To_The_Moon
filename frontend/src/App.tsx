@@ -11,6 +11,7 @@ import TokenDetail from './pages/TokenDetail'
 import Logs from './pages/Logs'
 import ApiDocs from './pages/ApiDocs'
 import Landing from './pages/Landing'
+import Users from './pages/Users'
 
 import { AuthProvider } from './contexts/AuthContext';
 import { ModalProvider } from './contexts/ModalContext';
@@ -43,6 +44,11 @@ export default function App(){
                         <Route path="/logs" element={
                           <ProtectedRoute requiredRole="admin">
                             <Logs/>
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/users" element={
+                          <ProtectedRoute requiredRole="admin">
+                            <Users/>
                           </ProtectedRoute>
                         } />
                         <Route path="*" element={<div className="text-center py-12">Страница не найдена</div>} />

@@ -239,6 +239,23 @@ export const translations: Translations = {
     'The service is free and under active development. If you find it useful, we would appreciate your support:': 'Сервис бесплатный и находится в активной разработке. Если он оказался вам полезен, мы будем благодарны за поддержку:',
     'Wallet address copied!': 'Адрес кошелька скопирован!',
     'Failed to copy': 'Не удалось скопировать',
+    // Users page
+    'Users': 'Пользователи',
+    'Total users': 'Всего пользователей',
+    'User ID': 'ID',
+    'Role': 'Роль',
+    'Auth Provider': 'Метод входа',
+    'User Active': 'Активен',
+    'User Inactive': 'Неактивен',
+    'User Created At': 'Дата регистрации',
+    'user': 'пользователь',
+    'admin': 'администратор',
+    'email': 'Email/Пароль',
+    'google': 'Google',
+    'Yes': 'Да',
+    'No': 'Нет',
+    'Failed to load users': 'Не удалось загрузить пользователей',
+    'Loading users...': 'Загрузка пользователей...',
   },
 }
 

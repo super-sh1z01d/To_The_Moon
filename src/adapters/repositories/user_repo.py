@@ -32,3 +32,8 @@ def create_oauth_user(db: Session, email: str, google_id: str, profile_picture: 
     db.commit()
     db.refresh(db_user)
     return db_user
+
+
+def get_all_users(db: Session) -> list[User]:
+    """Получить всех пользователей, отсортированных по дате создания (новые первыми)."""
+    return db.query(User).order_by(User.created_at.desc()).all()

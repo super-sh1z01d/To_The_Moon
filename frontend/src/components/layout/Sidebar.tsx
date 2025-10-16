@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Settings, FileText, X } from 'lucide-react'
+import { Home, Settings, FileText, X, Users as UsersIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/hooks/useLanguage'
@@ -14,6 +14,7 @@ const navigation = [
   { name: 'Dashboard', href: '/app/', icon: Home, requiredRole: null },
   { name: 'API Docs', href: '/app/api-docs', icon: FileText, requiredRole: null },
   { name: 'Settings', href: '/app/settings', icon: Settings, requiredRole: 'admin' as const },
+  { name: 'Users', href: '/app/users', icon: UsersIcon, requiredRole: 'admin' as const },
   { name: 'Logs', href: '/app/logs', icon: FileText, requiredRole: 'admin' as const },
 ]
 
