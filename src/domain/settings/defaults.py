@@ -63,11 +63,16 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "arbitrage_min_tx_5m": "50",              # Minimum transactions for arbitrage calculation
     "arbitrage_optimal_tx_5m": "200",         # Optimal transactions for arbitrage bots
     "arbitrage_acceleration_weight": "0.3",   # Weight of acceleration component in arbitrage mode
-    
+
     # Filtering thresholds (set to 0 to disable harsh filtering)
     "min_tx_threshold_5m": "0",              # Minimum transactions per 5 minutes (0 = disabled)
     "min_tx_threshold_1h": "0",              # Minimum transactions per hour (0 = disabled)
     "min_volume_threshold_5m": "0",          # Minimum volume per 5 minutes USD (0 = disabled)
     "min_volume_threshold_1h": "0",          # Minimum volume per hour USD (0 = disabled)
     "min_orderflow_volume_5m": "0",          # Minimum orderflow volume per 5 minutes USD (0 = disabled)
+
+    # Archived token reactivation
+    "process_archived_tokens": "false",      # Enable archived token processing (disabled by default for safety)
+    "archived_min_txns_5m": "300",           # Minimum transactions in last 5 minutes for archived token reactivation
+    "archived_max_age_days": "7",            # Maximum age in days for archived tokens to be considered for reactivation
 }

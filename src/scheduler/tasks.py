@@ -525,3 +525,165 @@ def run_spam_monitor() -> None:
         asyncio.run(monitor_spam_once())
     except Exception as e:
         log.error(f"Failed to run spam monitor: {e}")
+
+
+async def process_archived_tokens_async(limit: int = 20) -> None:
+    """
+    Безопасная обработка архивных токенов с более строгими условиями активации.
+
+    Условия активации для archived токенов (все должны выполняться):
+    1) Больше одного внешнего пула
+    2) Pump.fun и хотя бы один внешний пул
+    3) Ликвидность внешнего пула больше заданного порога
+    4) Более 300 транзакций за последние 5 минут
+
+    Безопасность:
+    - Работает только при CPU < 70%
+    - Малый batch size (20 токенов)
+    - Обрабатывает самые свежие архивные токены (max 7 дней)
+    """
+    logv = logging.getLogger("archived_processor")
+
+    # Проверка системной нагрузки
+    try:
+        from src.monitoring.metrics import get_load_processor
+        load_processor = get_load_processor()
+        current_load = load_processor.get_current_load()
+
+        cpu_percent = current_load.get("cpu_percent", 100)
+        memory_percent = current_load.get("memory_percent", 100)
+
+        # Не запускаем при высокой нагрузке
+        if cpu_percent > 70 or memory_percent > 85:
+            logv.info(
+                "archived_processing_skipped_high_load",
+                extra={"cpu": cpu_percent, "memory": memory_percent}
+            )
+            return
+
+    except Exception as e:
+        logv.warning(f"Failed to check system load: {e}")
+        return  # Безопасность: не запускаем если не можем проверить нагрузку
+
+    from src.adapters.services.dexscreener_batch_client import get_batch_client
+    batch_client = await get_batch_client()
+
+    with SessionLocal() as sess:
+        repo = TokensRepository(sess)
+        settings = SettingsService(sess)
+
+        # Проверяем, включена ли обработка архивных токенов
+        process_archived_enabled = settings.get("process_archived_tokens") == "true"
+        if not process_archived_enabled:
+            logv.debug("archived_processing_disabled_in_settings")
+            return
+
+        try:
+            threshold = float(settings.get("activation_min_liquidity_usd") or 500.0)
+            min_txns_5m = int(settings.get("archived_min_txns_5m") or 300)
+            max_archive_age_days = int(settings.get("archived_max_age_days") or 7)
+        except Exception:
+            threshold = 500.0
+            min_txns_5m = 300
+            max_archive_age_days = 7
+
+        # Получаем свежие архивные токены (не старше N дней)
+        cutoff_date = datetime.now(tz=timezone.utc) - timedelta(days=max_archive_age_days)
+        archived = repo.list_archived_since(cutoff_date, limit=limit)
+
+        if not archived:
+            logv.debug("no_archived_tokens_to_process")
+            return
+
+        logv.info(
+            "archived_processing_started",
+            extra={
+                "tokens_count": len(archived),
+                "threshold": threshold,
+                "min_txns_5m": min_txns_5m,
+                "max_age_days": max_archive_age_days,
+                "cpu": cpu_percent,
+                "memory": memory_percent
+            }
+        )
+
+        # Получаем данные по всем токенам batch-запросом
+        archived_pairs = await batch_client.get_pairs_for_mints([t.mint_address for t in archived])
+
+        promoted = 0
+        checked = 0
+
+        for t in archived:
+            pairs = archived_pairs.get(t.mint_address) or []
+
+            if not pairs:
+                continue
+
+            checked += 1
+
+            # Проверяем строгие условия активации для архивных токенов
+            from src.domain.validation.dex_rules import check_archived_token_activation
+
+            if check_archived_token_activation(
+                t.mint_address,
+                pairs,
+                min_liquidity_usd=threshold,
+                min_txns_5m=min_txns_5m
+            ):
+                # Обновляем метаданные токена
+                name = None
+                symbol = None
+                for p in pairs:
+                    base = (p.get("baseToken") or {})
+                    if str(base.get("address")) == t.mint_address:
+                        name = name or base.get("name")
+                        symbol = symbol or base.get("symbol")
+                        if name and symbol:
+                            break
+
+                repo.update_token_fields(t, name=name, symbol=symbol)
+
+                # Переводим в monitoring (не сразу в active для проверки)
+                repo.set_monitoring(t)
+                promoted += 1
+
+                # Record status transition
+                try:
+                    from src.monitoring.token_monitor import get_token_monitor
+                    token_monitor = get_token_monitor()
+                    token_monitor.record_status_transition(
+                        mint_address=t.mint_address,
+                        from_status="archived",
+                        to_status="monitoring",
+                        reason="archived_reactivation"
+                    )
+                except Exception as e:
+                    logv.warning(f"Failed to record token transition: {e}")
+
+                logv.info(
+                    "archived_token_promoted",
+                    extra={
+                        "mint": t.mint_address,
+                        "threshold": threshold,
+                        "min_txns_5m": min_txns_5m
+                    }
+                )
+
+        logv.info(
+            "archived_processing_completed",
+            extra={
+                "checked": checked,
+                "promoted": promoted,
+                "success_rate": f"{(promoted/checked*100):.1f}%" if checked > 0 else "0%"
+            }
+        )
+
+
+def process_archived_tokens_once(limit: int = 20) -> None:
+    """Sync wrapper for archived tokens processing."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(process_archived_tokens_async(limit=limit))
+    else:
+        loop.create_task(process_archived_tokens_async(limit=limit))

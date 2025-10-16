@@ -580,6 +580,20 @@ class TokensRepository:
         )
         return list(q.all())
 
+    def list_archived_since(self, cutoff_date, limit: int = 100) -> list[Token]:
+        """
+        Get archived tokens created after cutoff_date (newest first).
+        Used for reactivating recently archived tokens that may have regained activity.
+        """
+        q = (
+            self.db.query(Token)
+            .filter(Token.status == "archived")
+            .filter(Token.created_at >= cutoff_date)
+            .order_by(Token.created_at.desc())  # Newest archived first
+            .limit(limit)
+        )
+        return list(q.all())
+
     def list_non_archived_with_latest_scores(
         self,
         statuses: Optional[List[str]] = None,
