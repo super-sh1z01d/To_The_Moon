@@ -15,8 +15,11 @@ import Landing from './pages/Landing'
 import { AuthProvider } from './contexts/AuthContext';
 import { ModalProvider } from './contexts/ModalContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { useYandexMetrika } from './hooks/useYandexMetrika';
 
 export default function App(){
+  // Инициализация отслеживания переходов в Яндекс Метрике
+  useYandexMetrika();
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider defaultLanguage="en">
