@@ -3,7 +3,7 @@ import { Setting, SettingsMap } from '@/types/settings'
 import { API_BASE_URL, REFRESH_INTERVALS } from '@/lib/constants'
 
 function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem('authToken')
   return token ? { 'Authorization': `Bearer ${token}` } : {}
 }
 
