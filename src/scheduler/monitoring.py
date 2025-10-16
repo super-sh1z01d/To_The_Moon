@@ -1283,12 +1283,12 @@ class PriorityProcessor:
     def get_prioritized_tokens(self, repo, group: str, limit: int, system_load: Dict[str, float]):
         """Get tokens ordered by priority with load-based adjustments."""
         try:
-            # Get ALL tokens (both active and monitoring) for proper hot/cold filtering by score
-            # Use higher limits to ensure we don't miss tokens as the database grows
+            # Get ONLY active tokens for scoring/processing
+            # Monitoring tokens are handled by enforce_activation_async task
+            # and don't need score calculation (activation is based on pool conditions, not score)
             active_limit = 5000  # Increased from 1000 to handle growth
             active_tokens = repo.list_by_status("active", limit=active_limit)
-            monitoring_tokens = repo.list_by_status("monitoring", limit=limit)
-            base_tokens = active_tokens + monitoring_tokens
+            base_tokens = active_tokens
             
             if not base_tokens:
                 return []
