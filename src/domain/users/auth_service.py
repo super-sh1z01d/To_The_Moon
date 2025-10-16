@@ -14,7 +14,7 @@ from src.domain.users.schemas import TokenData, User
 # --- Configuration --- (Should be in a config file)
 SECRET_KEY = "a_very_secret_key_that_should_be_in_a_config_file"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 20160  # 2 weeks (14 days * 24 hours * 60 minutes)
 
 # --- Security Schemes ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
