@@ -12,7 +12,7 @@ def get_user_by_google_id(db: Session, google_id: str) -> User | None:
 
 
 def create_user(db: Session, user: UserCreate, hashed_password: str) -> User:
-    db_user = User(email=user.email, hashed_password=hashed_password, auth_provider="email")
+    db_user = User(email=user.email, hashed_password=hashed_password, auth_provider="email", role="user")
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -25,7 +25,8 @@ def create_oauth_user(db: Session, email: str, google_id: str, profile_picture: 
         google_id=google_id,
         auth_provider="google",
         profile_picture=profile_picture,
-        hashed_password=None
+        hashed_password=None,
+        role="user"
     )
     db.add(db_user)
     db.commit()
