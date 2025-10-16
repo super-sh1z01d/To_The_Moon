@@ -620,6 +620,8 @@ async def process_archived_tokens_async(limit: int = 20) -> None:
             pairs = archived_pairs.get(t.mint_address) or []
 
             if not pairs:
+                # Обновляем timestamp даже если нет данных, чтобы не проверять снова
+                repo.update_token_timestamp(t.id)
                 continue
 
             checked += 1
@@ -647,7 +649,7 @@ async def process_archived_tokens_async(limit: int = 20) -> None:
                 repo.update_token_fields(t, name=name, symbol=symbol)
 
                 # Переводим в monitoring (не сразу в active для проверки)
-                repo.set_monitoring(t)
+                repo.set_monitoring(t)  # Автоматически обновляет last_updated_at
                 promoted += 1
 
                 # Record status transition
@@ -671,6 +673,9 @@ async def process_archived_tokens_async(limit: int = 20) -> None:
                         "min_txns_5m": min_txns_5m
                     }
                 )
+            else:
+                # Токен не прошел проверку - обновляем timestamp для ротации
+                repo.update_token_timestamp(t.id)
 
         logv.info(
             "archived_processing_completed",

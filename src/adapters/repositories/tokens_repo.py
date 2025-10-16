@@ -582,14 +582,20 @@ class TokensRepository:
 
     def list_archived_since(self, cutoff_date, limit: int = 100) -> list[Token]:
         """
-        Get archived tokens created after cutoff_date (newest first).
-        Used for reactivating recently archived tokens that may have regained activity.
+        Get archived tokens created after cutoff_date for reactivation checks.
+
+        Tokens are ordered by last check time (oldest first) to ensure round-robin processing:
+        - Uses last_updated_at (updated when token is checked)
+        - Falls back to created_at for never-checked tokens
+        - This ensures all tokens get checked periodically, not just the newest ones
         """
         q = (
             self.db.query(Token)
             .filter(Token.status == "archived")
             .filter(Token.created_at >= cutoff_date)
-            .order_by(Token.created_at.desc())  # Newest archived first
+            .order_by(
+                func.coalesce(Token.last_updated_at, Token.created_at).asc()  # Oldest checks first
+            )
             .limit(limit)
         )
         return list(q.all())
