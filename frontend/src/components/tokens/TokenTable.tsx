@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import type { Pool, Token } from '@/types/token'
 import { formatCurrency, formatRelativeTime, getScoreColor } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -134,7 +133,6 @@ export function TokenTable({
   sortColumn,
   sortDirection
 }: TokenTableProps) {
-  const navigate = useNavigate()
   const { t } = useLanguage()
   const [poolConfigsModal, setPoolConfigsModal] = useState<{ open: boolean; mintAddress: string; symbol?: string }>({
     open: false,
@@ -142,18 +140,13 @@ export function TokenTable({
     symbol: undefined,
   })
 
-  const handleRowClick = (mint: string) => {
-    navigate(`/token/${mint}`)
-  }
-
   const handleSort = (column: string) => {
     if (onSort) {
       onSort(column)
     }
   }
 
-  const handlePoolConfigsClick = (e: React.MouseEvent, mintAddress: string, symbol?: string) => {
-    e.stopPropagation()
+  const handlePoolConfigsClick = (mintAddress: string, symbol?: string) => {
     setPoolConfigsModal({ open: true, mintAddress, symbol: symbol || undefined })
   }
 
@@ -214,8 +207,7 @@ export function TokenTable({
               return (
                 <TableRow
                   key={token.mint_address}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleRowClick(token.mint_address)}
+                  className="hover:bg-muted/50"
                 >
                   <TableCell className="font-medium">
                     <div className="flex items-start gap-3">
@@ -286,7 +278,7 @@ export function TokenTable({
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs"
-                          onClick={(e) => handlePoolConfigsClick(e, token.mint_address, token.symbol || undefined)}
+                          onClick={() => handlePoolConfigsClick(token.mint_address, token.symbol || undefined)}
                         >
                           <FileCode className="mr-1 h-3 w-3" />
                           {t('Copy Config')}
