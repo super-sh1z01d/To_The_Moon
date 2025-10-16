@@ -370,19 +370,20 @@ thead th{ position: sticky; top: 0; z-index: 1 }
   margin: 16px 0;
 }
 
-.formula-card {
-  margin-bottom: 16px;
+/* System Description */
+.system-description {
+  margin-bottom: 20px;
 }
 
-.formula-header {
+.description-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
-.formula-title {
-  font-size: 14px;
+.description-title {
+  font-size: 16px;
   font-weight: 600;
   color: var(--color-gray-900);
 }
@@ -395,74 +396,99 @@ thead th{ position: sticky; top: 0; z-index: 1 }
   animation: pulse 2s infinite;
 }
 
-.formula-display {
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-  font-size: clamp(14px, 4vw, 16px);
-  background: var(--color-gray-900);
-  color: white;
-  padding: 12px;
-  border-radius: var(--border-radius-sm);
+.description-list {
+  margin: 12px 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+.description-list li {
   margin: 8px 0;
-  text-align: center;
+  font-size: 14px;
+  color: var(--color-gray-900);
 }
 
-.weight-tx { 
-  color: var(--color-info); 
-  font-weight: 700; 
-}
-
-.weight-fresh { 
-  color: var(--color-success); 
-  font-weight: 700; 
-}
-
-.formula-meta {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--color-gray-600);
-}
-
-.components-status {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px;
-}
-
-.component-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
+.description-disclaimer {
+  margin: 12px 0 0;
+  padding: 12px;
   background: var(--color-gray-50);
+  border-left: 3px solid var(--color-warning);
   border-radius: var(--border-radius-sm);
-  font-size: 12px;
+  font-size: 13px;
+  color: var(--color-gray-600);
+  line-height: 1.5;
 }
 
-.component-indicator {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
+/* Donation Section */
+.donation-section {
+  padding-top: 16px;
+  border-top: 1px solid var(--color-gray-200);
 }
 
-.component-indicator.active { background: var(--color-success); }
-.component-indicator.disabled { background: var(--color-gray-200); }
-
-.component-name {
-  flex: 1;
-  font-weight: 500;
+.donation-header {
+  margin-bottom: 8px;
 }
 
-.component-weight {
+.donation-title {
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-gray-900);
 }
 
-.component-item.disabled {
-  opacity: 0.6;
+.donation-text {
+  margin: 8px 0 12px;
+  font-size: 13px;
+  color: var(--color-gray-600);
+  line-height: 1.5;
+}
+
+.wallet-address-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--border-radius-sm);
+  padding: 10px 12px;
+}
+
+.wallet-address {
+  flex: 1;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  font-size: 12px;
+  color: var(--color-gray-900);
+  word-break: break-all;
+  background: transparent;
+  padding: 0;
+}
+
+.copy-button {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: white;
+  border: 1px solid var(--color-gray-200);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.copy-button:hover {
+  background: var(--color-gray-100);
+  border-color: var(--color-info);
+}
+
+.copy-button .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-gray-600);
+}
+
+.copy-button:hover .icon {
+  color: var(--color-info);
 }
 
 /* EnhancedScoreCell Styles */

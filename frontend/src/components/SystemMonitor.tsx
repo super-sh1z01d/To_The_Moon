@@ -1,92 +1,65 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { Copy, Check } from 'lucide-react'
+import { useLanguage } from '@/hooks/useLanguage'
+import { toast } from 'sonner'
 
-interface SystemConfig {
-  formula: string
-  txOptimum: number
-  ewmaAlpha: number
-  mode: string
-  components: {
-    tx: { active: boolean, weight: number }
-    vol: { active: boolean, weight: number }
-    fresh: { active: boolean, weight: number }
-    oi: { active: boolean, weight: number }
-  }
-}
+const WALLET_ADDRESS = 'DpStbQPHnZwHGw1nfxmnWai4e5unpBrUrhjsAkxL5zTq'
 
 export default function SystemMonitor() {
-  const [config, setConfig] = useState<SystemConfig | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  
-  useEffect(() => {
-    // Симуляция загрузки конфигурации
-    // В реальности здесь будет API вызов
-    setTimeout(() => {
-      setConfig({
-        formula: "Score = 0.6×TX + 0.4×FRESH",
-        txOptimum: 150,
-        ewmaAlpha: 0.8,
-        mode: "arbitrage_activity",
-        components: {
-          tx: { active: true, weight: 60 },
-          vol: { active: false, weight: 0 },
-          fresh: { active: true, weight: 40 },
-          oi: { active: false, weight: 0 }
-        }
-      })
-      setIsLoading(false)
-    }, 500)
-  }, [])
+  const { t } = useLanguage()
+  const [copied, setCopied] = useState(false)
 
-  if (isLoading) {
-    return <div className="monitor-skeleton" />
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(WALLET_ADDRESS)
+      setCopied(true)
+      toast.success(t('Wallet address copied!'))
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      toast.error(t('Failed to copy'))
+    }
   }
-
-  if (!config) return null
 
   return (
     <div className="system-monitor">
-      {/* Компактная формула */}
-      <div className="formula-card">
-        <div className="formula-header">
-          <span className="formula-title">Активная формула</span>
+      {/* System Description */}
+      <div className="system-description">
+        <div className="description-header">
+          <span className="description-title">{t('How It Works')}</span>
           <div className="status-dot healthy" />
         </div>
-        
-        <div className="formula-display">
-          Score = <span className="weight-tx">0.6</span>×TX + <span className="weight-fresh">0.4</span>×FRESH
-        </div>
-        
-        <div className="formula-meta">
-          <span className="meta-item">TX оптимум: {config.txOptimum}</span>
-          <span className="meta-item">EWMA α: {config.ewmaAlpha}</span>
-          <span className="meta-item">Режим: {config.mode}</span>
-        </div>
+
+        <ul className="description-list">
+          <li>{t('New Pump.Fun tokens that migrated to Pump.Fun AMM pool automatically appear in the system with Monitoring status')}</li>
+          <li>{t('When minimum liquidity on external DEXs is reached, token transitions to Active status and starts receiving score')}</li>
+          <li>{t('Score (0-3) shows current token activity based on transactions, trading volume, data freshness and buy/sell balance')}</li>
+          <li>{t('Tokens with low score (<0.3) for more than 5 hours are automatically archived')}</li>
+        </ul>
+
+        <p className="description-disclaimer">
+          {t('Higher score indicates more active trading right now and arbitrage opportunities, but does not guarantee profitability. Always do your own research!')}
+        </p>
       </div>
 
-      {/* Компоненты статуса */}
-      <div className="components-status">
-        <div className={`component-item ${config.components.tx.active ? 'active' : 'disabled'}`}>
-          <div className={`component-indicator ${config.components.tx.active ? 'active' : 'disabled'}`} />
-          <span className="component-name">TX Activity</span>
-          <span className="component-weight">{config.components.tx.weight}%</span>
+      {/* Donation Section */}
+      <div className="donation-section">
+        <div className="donation-header">
+          <span className="donation-title">{t('Support the Project')}</span>
         </div>
-        
-        <div className={`component-item ${config.components.fresh.active ? 'active' : 'disabled'}`}>
-          <div className={`component-indicator ${config.components.fresh.active ? 'active' : 'disabled'}`} />
-          <span className="component-name">Freshness</span>
-          <span className="component-weight">{config.components.fresh.weight}%</span>
-        </div>
-        
-        <div className={`component-item ${config.components.vol.active ? 'active' : 'disabled'}`}>
-          <div className={`component-indicator ${config.components.vol.active ? 'active' : 'disabled'}`} />
-          <span className="component-name">Volume</span>
-          <span className="component-weight">{config.components.vol.weight}%</span>
-        </div>
-        
-        <div className={`component-item ${config.components.oi.active ? 'active' : 'disabled'}`}>
-          <div className={`component-indicator ${config.components.oi.active ? 'active' : 'disabled'}`} />
-          <span className="component-name">Orderflow</span>
-          <span className="component-weight">{config.components.oi.weight}%</span>
+
+        <p className="donation-text">
+          {t('The service is free and under active development. If you find it useful, we would appreciate your support:')}
+        </p>
+
+        <div className="wallet-address-container">
+          <code className="wallet-address">{WALLET_ADDRESS}</code>
+          <button
+            onClick={copyToClipboard}
+            className="copy-button"
+            title={t('Copy')}
+          >
+            {copied ? <Check className="icon" /> : <Copy className="icon" />}
+          </button>
         </div>
       </div>
     </div>
