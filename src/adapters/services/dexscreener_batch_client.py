@@ -192,7 +192,7 @@ async def get_batch_client() -> DexScreenerBatchClient:
             _batch_client = DexScreenerBatchClient(
                 timeout=15.0,  # Increased from 5.0 to 15.0 seconds
                 max_batch_size=20,  # Reduced from 30 to 20 tokens per batch
-                cache_ttl=5.0  # Increased cache TTL to reduce API calls
+                cache_ttl=3.0  # Balanced cache TTL for fresh data while preventing duplicate requests
             )
         return _batch_client
 
