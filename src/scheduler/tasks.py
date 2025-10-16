@@ -529,13 +529,15 @@ def run_spam_monitor() -> None:
 
 async def process_archived_tokens_async(limit: int = 20) -> None:
     """
-    Безопасная обработка архивных токенов с более строгими условиями активации.
+    Безопасная обработка архивных токенов с условиями реактивации.
 
-    Условия активации для archived токенов (все должны выполняться):
-    1) Больше одного внешнего пула
-    2) Pump.fun и хотя бы один внешний пул
-    3) Ликвидность внешнего пула больше заданного порога
-    4) Более 300 транзакций за последние 5 минут
+    Условия реактивации для archived токенов (все должны выполняться):
+    1) Пулы (ИЛИ):
+       - Pump.fun/pumpswap + хотя бы один внешний пул с ликвидностью >= 50 USD
+       ИЛИ
+       - Два или более внешних пулов с ликвидностью >= 50 USD
+
+    2) Объем транзакций: >= 300 транзакций за последние 5 минут
 
     Безопасность:
     - Работает только при CPU < 70%
@@ -579,11 +581,12 @@ async def process_archived_tokens_async(limit: int = 20) -> None:
             return
 
         try:
-            threshold = float(settings.get("activation_min_liquidity_usd") or 500.0)
+            # Используем отдельную настройку для archived токенов (порог ниже)
+            threshold = float(settings.get("archived_min_liquidity_usd") or 50.0)
             min_txns_5m = int(settings.get("archived_min_txns_5m") or 300)
             max_archive_age_days = int(settings.get("archived_max_age_days") or 7)
         except Exception:
-            threshold = 500.0
+            threshold = 50.0
             min_txns_5m = 300
             max_archive_age_days = 7
 
