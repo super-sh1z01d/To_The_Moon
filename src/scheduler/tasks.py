@@ -166,6 +166,29 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                     f"activation_check_result: mint={t.mint_address[:8]}... batch={len(batch_pairs)} final={len(pairs)} result={activation_result} threshold={threshold}"
                 )
                 
+                # Update pool metrics for monitoring tokens (needed for frontend display)
+                try:
+                    from src.domain.metrics.enhanced_dex_aggregator import aggregate_enhanced_metrics
+                    from src.domain.pools.pool_type_service import PoolTypeService
+                    pool_type_service = PoolTypeService(repo.db)
+                    enriched_pairs = pool_type_service.enrich_pairs(pairs)
+                    if enriched_pairs:
+                        metrics = aggregate_enhanced_metrics(
+                            t.mint_address,
+                            enriched_pairs,
+                            t.created_at,
+                            min_liquidity_usd=50.0  # Use activation threshold
+                        )
+                        pool_type_service.insert_primary_pool_type(metrics)
+                        repo.update_pool_metrics_only(t.id, metrics)
+                        logv.debug(
+                            "monitoring_pool_metrics_updated",
+                            extra={"mint": t.mint_address, "liquidity": metrics.get("L_tot")}
+                        )
+                    pool_type_service.close()
+                except Exception as e:
+                    logv.warning(f"Failed to update pool metrics for monitoring token {t.mint_address}: {e}")
+
                 if activation_result:
                     name = None
                     symbol = None
@@ -179,7 +202,7 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                     repo.update_token_fields(t, name=name, symbol=symbol)
                     repo.set_active(t)
                     promoted += 1
-                    
+
                     # Record status transition for monitoring
                     try:
                         from src.monitoring.token_monitor import get_token_monitor
@@ -192,7 +215,7 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
                         )
                     except Exception as e:
                         logv.warning(f"Failed to record token transition: {e}")
-                    
+
                     logv.info(
                         "activated_by_liquidity",
                         extra={"extra": {"mint": t.mint_address, "threshold": threshold}},

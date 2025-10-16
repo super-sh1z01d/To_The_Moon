@@ -475,12 +475,115 @@ class TokensRepository:
     def update_token_timestamp(self, token_id: int) -> None:
         """Update token's last_updated_at timestamp without changing other fields."""
         from datetime import datetime, timezone
-        
+
         token = self.db.query(Token).filter(Token.id == token_id).first()
         if token:
             token.last_updated_at = datetime.now(tz=timezone.utc)
             self.db.add(token)
             self.db.commit()
+
+    def update_pool_metrics_only(self, token_id: int, metrics: dict[str, Any]) -> None:
+        """
+        Update pool metrics (liquidity, primary_dex, pool_counts) without updating score.
+        Used for monitoring tokens that don't need score calculation.
+        """
+        from datetime import datetime, timezone
+
+        def _as_float(value: Optional[float]) -> Optional[float]:
+            try:
+                return float(value) if value is not None else None
+            except Exception:
+                return None
+
+        # Extract metrics
+        liquidity_usd = _as_float(metrics.get("L_tot"))
+        primary_dex = metrics.get("primary_dex")
+        pool_type = metrics.get("primary_pool_type")
+
+        # Extract fetched_at
+        fetched_at_raw = metrics.get("fetched_at")
+        fetched_at = None
+        if fetched_at_raw:
+            try:
+                if isinstance(fetched_at_raw, str):
+                    fetched_at = datetime.fromisoformat(
+                        fetched_at_raw.replace("Z", "+00:00")
+                    )
+                else:
+                    fetched_at = fetched_at_raw
+            except Exception:
+                fetched_at = None
+
+        # Extract pool_counts from pools list
+        pool_counts_json = None
+        pools_metric = metrics.get("pools")
+        if isinstance(pools_metric, list):
+            counts: dict[str, int] = {}
+            type_counts: dict[str, int] = {}
+            for pool in pools_metric:
+                if not isinstance(pool, dict):
+                    continue
+                dex_value = pool.get("dex")
+                dex_key = str(dex_value) if dex_value is not None else "unknown"
+                counts[dex_key] = counts.get(dex_key, 0) + 1
+                pt = pool.get("pool_type")
+                if isinstance(pt, str) and pt:
+                    type_counts[pt] = type_counts.get(pt, 0) + 1
+
+            payload: dict[str, dict[str, int]] = {}
+            if counts:
+                payload["dex"] = counts
+            if type_counts:
+                payload["types"] = type_counts
+            if payload:
+                pool_counts_json = json.dumps(payload)
+
+        # Get current score values if they exist
+        current = self.db.execute(
+            text("SELECT score, smoothed_score, scoring_model FROM latest_token_scores WHERE token_id = :token_id"),
+            {"token_id": token_id}
+        ).fetchone()
+
+        # Upsert: preserve scores, update pool metrics
+        upsert_sql = text("""
+            INSERT INTO latest_token_scores (
+                token_id, score, smoothed_score, liquidity_usd, primary_dex,
+                pool_type, pool_counts, fetched_at, scoring_model, created_at
+            ) VALUES (
+                :token_id, :score, :smoothed_score, :liquidity_usd, :primary_dex,
+                :pool_type, :pool_counts, :fetched_at, :scoring_model, NOW()
+            )
+            ON CONFLICT (token_id) DO UPDATE SET
+                liquidity_usd = EXCLUDED.liquidity_usd,
+                primary_dex = EXCLUDED.primary_dex,
+                pool_type = EXCLUDED.pool_type,
+                pool_counts = EXCLUDED.pool_counts,
+                fetched_at = EXCLUDED.fetched_at,
+                created_at = EXCLUDED.created_at
+        """)
+
+        self.db.execute(
+            upsert_sql,
+            {
+                "token_id": token_id,
+                "score": current.score if current else None,
+                "smoothed_score": current.smoothed_score if current else None,
+                "liquidity_usd": liquidity_usd,
+                "primary_dex": primary_dex,
+                "pool_type": pool_type,
+                "pool_counts": pool_counts_json,
+                "fetched_at": fetched_at,
+                "scoring_model": current.scoring_model if current else None,
+            }
+        )
+
+        # Update token's last_updated_at
+        token = self.db.query(Token).filter(Token.id == token_id).first()
+        if token:
+            token.last_updated_at = datetime.now(tz=timezone.utc)
+            self.db.add(token)
+
+        self.db.commit()
 
     def get_previous_smoothed_score(self, token_id: int) -> Optional[float]:
         """Получить предыдущий сглаженный скор для вычисления нового сглаженного значения."""
