@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { registerUser } from '@/lib/auth';
+import { useLanguageContext } from '@/components/layout/LanguageProvider';
 
 interface RegisterModalProps {
   isOpen: boolean;
@@ -17,11 +18,12 @@ export function RegisterModal({ isOpen, onClose, onSwitchToLogin }: RegisterModa
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const { t } = useLanguageContext();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError(t('Passwords do not match'));
       return;
     }
     setError(null);
@@ -30,7 +32,7 @@ export function RegisterModal({ isOpen, onClose, onSwitchToLogin }: RegisterModa
       await registerUser(email, password);
       setSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to register');
+      setError(err.message || t('Failed to register'));
     }
   };
 
@@ -38,35 +40,35 @@ export function RegisterModal({ isOpen, onClose, onSwitchToLogin }: RegisterModa
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Register</DialogTitle>
+          <DialogTitle>{t('Register')}</DialogTitle>
         </DialogHeader>
         {success ? (
           <div className="text-center space-y-4">
-            <p>Registration successful!</p>
-            <Button onClick={onSwitchToLogin}>Click here to login</Button>
+            <p>{t('Registration successful!')}</p>
+            <Button onClick={onSwitchToLogin}>{t('Click here to login')}</Button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('Email')}</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('Password')}</Label>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Label htmlFor="confirm-password">{t('Confirm Password')}</Label>
               <Input id="confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full">Register</Button>
+            <Button type="submit" className="w-full">{t('Register')}</Button>
           </form>
         )}
         <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
+          {t('Already have an account?')}{" "}
           <Button variant="link" onClick={onSwitchToLogin} className="p-0 h-auto">
-            Login
+            {t('Login')}
           </Button>
         </p>
       </DialogContent>

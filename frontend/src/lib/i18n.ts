@@ -212,6 +212,21 @@ export const translations: Translations = {
     'Copy Config': 'Копировать',
     'Copied!': 'Скопировано!',
     'Failed to fetch pool configurations': 'Не удалось загрузить конфигурации пулов',
+    // Auth modals
+    'Login': 'Вход',
+    'Register': 'Регистрация',
+    'Continue with Google': 'Войти через Google',
+    'Or continue with email': 'Или продолжить с email',
+    'Email': 'Email',
+    'Password': 'Пароль',
+    'Confirm Password': 'Подтвердить пароль',
+    'Don\'t have an account?': 'Нет аккаунта?',
+    'Already have an account?': 'Уже есть аккаунт?',
+    'Failed to login': 'Не удалось войти',
+    'Failed to register': 'Не удалось зарегистрироваться',
+    'Passwords do not match': 'Пароли не совпадают',
+    'Registration successful!': 'Регистрация прошла успешно!',
+    'Click here to login': 'Нажмите здесь, чтобы войти',
   },
 }
 
