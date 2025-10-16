@@ -153,16 +153,21 @@ def check_activation_conditions(mint: str, pairs: list[dict[str, Any]], min_liqu
 def check_archived_token_activation(
     mint: str,
     pairs: list[dict[str, Any]],
-    min_liquidity_usd: float = 500.0,
+    min_liquidity_usd: float = 50.0,
     min_txns_5m: int = 300
 ) -> bool:
     """
-    Условия активации для архивных токенов (более строгие):
-    Все условия должны выполняться (И):
-    1) Больше одного внешнего пула с ликвидностью
-    2) Pump.fun и хотя бы один внешний пул
-    3) Ликвидность внешнего пула больше заданного порога
-    4) Более 300 транзакций за последние 5 минут
+    Условия реактивации для архивных токенов.
+    Все условия должны выполняться одновременно (И):
+
+    1) Пулы (ИЛИ):
+       - Pump.fun/pumpswap + хотя бы один внешний пул с ликвидностью >= 50 USD
+       ИЛИ
+       - Два или более внешних пулов с ликвидностью >= 50 USD
+
+    2) Минимальная ликвидность внешнего пула: >= 50 USD
+
+    3) Объем транзакций: >= 300 транзакций за последние 5 минут
     """
     import logging
     logger = logging.getLogger("archived_activation")
@@ -211,20 +216,22 @@ def check_archived_token_activation(
     # Проверяем объем транзакций
     has_sufficient_volume = check_transaction_volume(pairs, min_txns_5m)
 
-    # Все 4 условия должны выполняться (И):
-    condition_1 = external_pools_with_liquidity > 1  # Больше одного внешнего пула
-    condition_2 = has_pumpfun_wsol and external_pools_found >= 1  # Pump.fun + внешний пул
-    condition_3 = external_pools_with_liquidity >= 1  # Ликвидность > порога
-    condition_4 = has_sufficient_volume  # >300 транзакций за 5 минут
+    # Условие 1: (Pump.fun + внешний пул) ИЛИ (2+ внешних пулов)
+    pools_condition = (has_pumpfun_wsol and external_pools_with_liquidity >= 1) or (external_pools_with_liquidity >= 2)
 
-    result = condition_1 and condition_2 and condition_3 and condition_4
+    # Условие 2: >= 300 транзакций за 5 минут
+    volume_condition = has_sufficient_volume
+
+    # Результат: оба условия должны выполняться
+    result = pools_condition and volume_condition
 
     logger.info(
         f"archived_activation_check: mint={mint[:8]}... "
-        f"ext_pools={external_pools_with_liquidity} "
         f"pumpfun={has_pumpfun_wsol} "
+        f"ext_pools_liq={external_pools_with_liquidity} "
+        f"ext_pools_total={external_pools_found} "
         f"volume_ok={has_sufficient_volume} "
-        f"c1={condition_1} c2={condition_2} c3={condition_3} c4={condition_4} "
+        f"pools_ok={pools_condition} "
         f"result={result}"
     )
 
