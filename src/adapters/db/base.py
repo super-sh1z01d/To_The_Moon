@@ -14,14 +14,13 @@ class Base(DeclarativeBase):
 
 def make_engine() -> Engine:
     cfg = get_config()
-    url = cfg.database_url or "sqlite:///dev.db"
-    connect_args = {}
-    if url.startswith("sqlite"):
-        # Allow usage across threads in dev
-        connect_args = {"check_same_thread": False}
-    return create_engine(url, poolclass=NullPool, connect_args=connect_args)
+    url = (cfg.database_url or "").strip()
+    if not url:
+        raise RuntimeError("DATABASE_URL must be set (PostgreSQL only)")
+    if not url.startswith("postgresql"):
+        raise RuntimeError("Only PostgreSQL is supported. DATABASE_URL must start with 'postgresql'.")
+    return create_engine(url, poolclass=NullPool)
 
 
 engine = make_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-

@@ -27,8 +27,7 @@ def upgrade() -> None:
     op.create_index('idx_token_scores_smoothed', 'token_scores', ['smoothed_score'], unique=False)
     op.create_index('idx_token_scores_token_created', 'token_scores', ['token_id', 'created_at'], unique=False)
     
-    # For PostgreSQL: Convert JSON to JSONB (will be no-op for SQLite)
-    # This is handled by the model definition with .with_variant()
+    # JSON columns are handled as PostgreSQL JSONB in application models.
 
 
 def downgrade() -> None:

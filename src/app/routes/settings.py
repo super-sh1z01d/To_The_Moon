@@ -37,6 +37,39 @@ async def list_default_settings(
     return DEFAULT_SETTINGS.copy()
 
 
+class SettingValue(BaseModel):
+    value: Optional[str]
+
+
+@router.get("/validation/errors", response_model=list[str])
+async def get_validation_errors(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+) -> list[str]:
+    """Get list of current setting validation errors."""
+    svc = SettingsService(db)
+    return svc.validate_all_settings()
+
+
+class WeightsResponse(BaseModel):
+    hybrid_momentum: dict[str, float] = Field(description="Hybrid momentum model weights")
+    active_model: str = Field(description="Currently active scoring model")
+
+
+@router.get("/weights", response_model=WeightsResponse)
+async def get_weights(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin_user)
+) -> WeightsResponse:
+    """Get all scoring model weights."""
+    svc = SettingsService(db)
+    
+    return WeightsResponse(
+        hybrid_momentum=svc.get_hybrid_momentum_weights(),
+        active_model="hybrid_momentum"
+    )
+
+
 @router.get("/{key}", response_model=SettingItem)
 async def get_setting(
     key: str,
@@ -53,10 +86,6 @@ async def get_setting(
     return SettingItem(key=key, value=value)
 
 
-class SettingValue(BaseModel):
-    value: Optional[str]
-
-
 @router.put("/{key}", response_model=SettingItem)
 async def put_setting(
     key: str,
@@ -65,6 +94,12 @@ async def put_setting(
     current_admin: User = Depends(get_current_admin_user)
 ) -> SettingItem:
     svc = SettingsService(db)
+
+    if key == "scoring_model_active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="setting 'scoring_model_active' is read-only in v2",
+        )
     
     try:
         svc.set(key, payload.value)
@@ -77,66 +112,3 @@ async def put_setting(
     # После обновления возвращаем актуальное значение
     value = svc.get(key)
     return SettingItem(key=key, value=value)
-
-
-@router.get("/validation/errors", response_model=list[str])
-async def get_validation_errors(
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
-) -> list[str]:
-    """Get list of current setting validation errors."""
-    svc = SettingsService(db)
-    return svc.validate_all_settings()
-
-
-class WeightsResponse(BaseModel):
-    hybrid_momentum: dict[str, float] = Field(description="Hybrid momentum model weights")
-    legacy: dict[str, float] = Field(description="Legacy model weights")
-    active_model: str = Field(description="Currently active scoring model")
-
-
-@router.get("/weights", response_model=WeightsResponse)
-async def get_weights(
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
-) -> WeightsResponse:
-    """Get all scoring model weights."""
-    svc = SettingsService(db)
-    
-    return WeightsResponse(
-        hybrid_momentum=svc.get_hybrid_momentum_weights(),
-        legacy=svc.get_legacy_weights(),
-        active_model=svc.get("scoring_model_active") or "hybrid_momentum"
-    )
-
-
-class ModelSwitchRequest(BaseModel):
-    model: str = Field(description="Model to switch to: 'legacy' or 'hybrid_momentum'")
-
-
-@router.post("/model/switch")
-async def switch_scoring_model(
-    request: ModelSwitchRequest,
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin_user)
-) -> dict[str, str]:
-    """Switch active scoring model."""
-    svc = SettingsService(db)
-    
-    if request.model not in ["legacy", "hybrid_momentum"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid model. Must be 'legacy' or 'hybrid_momentum'"
-        )
-    
-    try:
-        svc.set("scoring_model_active", request.model)
-        return {
-            "message": f"Switched to {request.model} scoring model",
-            "active_model": request.model
-        }
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )

@@ -1,26 +1,46 @@
 from __future__ import annotations
 
 import asyncio
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from src.scheduler.service import _process_group
-from src.scheduler.tasks import archive_once, enforce_activation_once
+from src.scheduler.tasks import archive_once
 from src.domain.users.auth_service import get_current_admin_user
 from src.domain.users.schemas import User
 from src.adapters.db.deps import get_db
+from src.adapters.db.base import SessionLocal
+from src.adapters.repositories.queue_repo import QueueRepository
+from src.adapters.repositories.tokens_repo import TokensRepository
 from src.adapters.repositories import user_repo
+from src.core.config import get_config
+from src.domain.settings.service import SettingsService
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+class QueueCanaryPayload(BaseModel):
+    percent: int = Field(description="Canary percentage for v2 job seeding", ge=0, le=100)
+
+
 @router.post("/recalculate")
 async def recalculate_all(current_admin: User = Depends(get_current_admin_user)) -> dict:
-    # Запускаем оба процесса асинхронно, не дожидаясь (fire-and-forget)
-    asyncio.create_task(_process_group("hot"))
-    asyncio.create_task(_process_group("cold"))
-    return {"status": "started"}
+    cfg = get_config()
+    if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
+        return {
+            "status": "disabled",
+            "message": "queue v2 pipeline is disabled by feature flags",
+        }
+
+    async def _run_v2_once() -> None:
+        from src.pipeline.worker import PipelineWorker
+
+        worker = PipelineWorker(seed_period_seconds=1.0)
+        await worker.run_iteration()
+
+    asyncio.create_task(_run_v2_once())
+    return {"status": "started", "mode": "queue_v2"}
 
 
 @router.post("/archive")
@@ -37,12 +57,111 @@ async def run_archiver(current_admin: User = Depends(get_current_admin_user)) ->
 @router.post("/activation")
 async def run_activation(current_admin: User = Depends(get_current_admin_user)) -> dict:
     """Принудительно запустить проверку активации токенов."""
-    def run_activation():
-        enforce_activation_once(limit_monitoring=100, limit_active=100)
+    cfg = get_config()
+    if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
+        return {
+            "status": "disabled",
+            "message": "queue v2 pipeline is disabled by feature flags",
+        }
 
-    # Запускаем в отдельном потоке, чтобы не блокировать API
-    asyncio.get_event_loop().run_in_executor(None, run_activation)
-    return {"status": "activation_started"}
+    from src.pipeline.worker import JOB_ACTIVATION
+
+    with SessionLocal() as sess:
+        token_repo = TokensRepository(sess)
+        settings = SettingsService(sess)
+        queue_repo = QueueRepository(sess)
+
+        monitoring_limit = int(settings.get("pipeline_activation_batch") or 120)
+        active_limit = int(settings.get("pipeline_active_check_batch") or 80)
+
+        monitoring = token_repo.list_by_status("monitoring", limit=monitoring_limit)
+        active = token_repo.list_by_status("active", limit=active_limit)
+
+        jobs = []
+        for token in monitoring:
+            jobs.append(
+                {
+                    "job_type": JOB_ACTIVATION,
+                    "token_id": token.id,
+                    "priority": 400,
+                    "idempotency_key": f"{JOB_ACTIVATION}:{token.id}",
+                }
+            )
+        for token in active:
+            jobs.append(
+                {
+                    "job_type": JOB_ACTIVATION,
+                    "token_id": token.id,
+                    "priority": 390,
+                    "idempotency_key": f"{JOB_ACTIVATION}:{token.id}",
+                }
+            )
+
+        inserted = queue_repo.enqueue_many(jobs)
+
+    return {
+        "status": "activation_jobs_enqueued",
+        "mode": "queue_v2",
+        "inserted_jobs": inserted,
+    }
+
+
+@router.post("/queue/rebalance")
+async def rebalance_queue(current_admin: User = Depends(get_current_admin_user)) -> dict:
+    """Requeue expired leases and boost stale retry jobs."""
+    cfg = get_config()
+    if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
+        return {
+            "status": "disabled",
+            "message": "queue v2 pipeline is disabled by feature flags",
+        }
+
+    with SessionLocal() as sess:
+        queue_repo = QueueRepository(sess)
+        result = queue_repo.rebalance_queue()
+        health = queue_repo.queue_health()
+    return {
+        "status": "ok",
+        "rebalance": result,
+        "queue": health,
+    }
+
+
+@router.post("/queue/canary")
+async def set_queue_canary(
+    payload: QueueCanaryPayload,
+    current_admin: User = Depends(get_current_admin_user),
+) -> dict:
+    """Set v2 queue worker canary percentage."""
+    cfg = get_config()
+    if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
+        return {
+            "status": "disabled",
+            "message": "queue v2 pipeline is disabled by feature flags",
+        }
+
+    allowed_steps = {0, 10, 30, 60, 100}
+    if payload.percent not in allowed_steps:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"percent must be one of {sorted(allowed_steps)}",
+        )
+
+    with SessionLocal() as sess:
+        settings = SettingsService(sess)
+        previous = int(settings.get("pipeline_v2_canary_percent") or 100)
+        settings.set("pipeline_v2_canary_percent", str(payload.percent))
+        current = int(settings.get("pipeline_v2_canary_percent") or payload.percent)
+
+    from src.pipeline.worker import get_pipeline_worker_state
+
+    return {
+        "status": "ok",
+        "previous_percent": previous,
+        "current_percent": current,
+        "allowed_steps": sorted(allowed_steps),
+        "pipeline_worker": get_pipeline_worker_state(),
+    }
 
 
 @router.get("/users")
@@ -70,4 +189,3 @@ async def get_users(
         "total": len(users_data),
         "users": users_data
     }
-

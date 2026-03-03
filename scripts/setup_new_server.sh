@@ -34,23 +34,15 @@ ssh $NEW_USER@$NEW_SERVER "
     sudo apt install -y nodejs
 "
 
-echo "🗄️ Setting up database..."
-# Check if we have SQLite or PostgreSQL backup
-if [ -f "$BACKUP_DIR/dev.db" ]; then
-    echo "Found SQLite backup, will use SQLite on new server"
-    DB_TYPE="sqlite"
-else
-    echo "Found PostgreSQL backup, setting up PostgreSQL..."
-    DB_TYPE="postgresql"
-    ssh $NEW_USER@$NEW_SERVER "
-        sudo apt install -y postgresql postgresql-contrib
-        sudo systemctl enable postgresql
-        sudo systemctl start postgresql
-        sudo -u postgres createuser -s tothemoon || echo 'User already exists'
-        sudo -u postgres createdb tothemoon -O tothemoon || echo 'Database already exists'
-        sudo -u postgres psql -c \"ALTER USER tothemoon PASSWORD 'tothemoon_secure_password';\"
-    "
-fi
+echo "🗄️ Setting up PostgreSQL database..."
+ssh $NEW_USER@$NEW_SERVER "
+    sudo apt install -y postgresql postgresql-contrib
+    sudo systemctl enable postgresql
+    sudo systemctl start postgresql
+    sudo -u postgres createuser -s tothemoon || echo 'User already exists'
+    sudo -u postgres createdb tothemoon -O tothemoon || echo 'Database already exists'
+    sudo -u postgres psql -c \"ALTER USER tothemoon PASSWORD 'tothemoon_secure_password';\"
+"
 
 echo "📁 Creating application directory..."
 ssh $NEW_USER@$NEW_SERVER "
@@ -67,21 +59,11 @@ fi
 scp "$BACKUP_DIR/env_backup" $NEW_USER@$NEW_SERVER:/tmp/env_backup
 scp "$BACKUP_DIR/markets_backup.json" $NEW_USER@$NEW_SERVER:/tmp/markets_backup.json || echo "No markets.json to restore"
 
-echo "🔄 Restoring database..."
-if [ "$DB_TYPE" = "sqlite" ]; then
-    echo "Restoring SQLite database..."
-    scp "$BACKUP_DIR/dev.db" $NEW_USER@$NEW_SERVER:/tmp/dev.db
-    ssh $NEW_USER@$NEW_SERVER "
-        sudo mv /tmp/dev.db /srv/tothemoon/dev.db
-        sudo chown tothemoon:tothemoon /srv/tothemoon/dev.db
-    "
-else
-    echo "Restoring PostgreSQL database..."
-    ssh $NEW_USER@$NEW_SERVER "
-        sudo -u postgres psql -d tothemoon < /tmp/tothemoon_db_backup.sql
-        rm /tmp/tothemoon_db_backup.sql
-    "
-fi
+echo "🔄 Restoring PostgreSQL database..."
+ssh $NEW_USER@$NEW_SERVER "
+    sudo -u postgres psql -d tothemoon < /tmp/tothemoon_db_backup.sql
+    rm /tmp/tothemoon_db_backup.sql
+"
 
 echo "📥 Cloning application code..."
 ssh $NEW_USER@$NEW_SERVER "

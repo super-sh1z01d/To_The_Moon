@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, noload
 
 from src.adapters.db.models import Token
 from src.adapters.db.models import TokenScore
-from sqlalchemy import select, func, text, Integer, Numeric, DateTime, String, JSON
+from sqlalchemy import select, func, text, Integer, Numeric, DateTime, String
 from sqlalchemy.dialects.postgresql import JSONB
 from typing import Optional, Tuple, List, Any
 
@@ -23,6 +23,9 @@ class TokensRepository:
 
     def get_by_mint(self, mint: str) -> Optional[Token]:
         return self.db.query(Token).filter(Token.mint_address == mint).first()
+
+    def get_by_id(self, token_id: int) -> Optional[Token]:
+        return self.db.query(Token).filter(Token.id == token_id).first()
 
     def _ensure_latest_scores_table(self) -> None:
         """Создаёт вспомогательную таблицу latest_token_scores, если её нет."""
@@ -312,10 +315,7 @@ class TokensRepository:
                 pool_type = pool_type_candidate
 
             pools_metric = metrics.get("pools")
-            # CRITICAL DEBUG: Log everything about pools
-            self._log.error(f"CRITICAL DEBUG: token {token_id}, pools_metric={pools_metric}, type={type(pools_metric)}, is_list={isinstance(pools_metric, list)}")
             if isinstance(pools_metric, list):
-                self._log.info(f"DEBUG insert_score_snapshot: Processing {len(pools_metric)} pools for token {token_id}, first pool: {pools_metric[0] if pools_metric else 'empty'}")
                 counts: dict[str, int] = {}
                 type_counts: dict[str, int] = {}
                 for pool in pools_metric:
@@ -335,17 +335,12 @@ class TokensRepository:
                     payload["types"] = type_counts
                 if payload:
                     pool_counts_json = json.dumps(payload)
-                    self._log.info(f"DEBUG insert_score_snapshot: Generated pool_counts_json for token {token_id}: {pool_counts_json}")
-                else:
-                    self._log.warning(f"DEBUG insert_score_snapshot: No pool counts generated for token {token_id}, counts={counts}, type_counts={type_counts}, pools_metric_len={len(pools_metric)}")
 
                 if not pool_type and type_counts:
                     max_count = max(type_counts.values())
                     candidates = sorted(pt for pt, cnt in type_counts.items() if cnt == max_count)
                     if candidates:
                         pool_type = candidates[0]
-            else:
-                self._log.warning(f"DEBUG insert_score_snapshot: pools_metric is not a list for token {token_id}, type={type(pools_metric)}, metrics_keys={list(metrics.keys()) if isinstance(metrics, dict) else 'not_dict'}")
 
         upsert_sql = text(
             """
@@ -397,7 +392,6 @@ class TokensRepository:
                 created_at = EXCLUDED.created_at
             """
         )
-        self._log.error(f"BEFORE UPSERT: token {token_id}, pool_counts_json={pool_counts_json}, pool_type={pool_type}")
 
         self.db.execute(
             upsert_sql,
@@ -418,8 +412,6 @@ class TokensRepository:
                 "created_at": now,
             },
         )
-
-        self._log.error(f"AFTER UPSERT: token {token_id}, committed successfully")
 
         self.db.commit()
         self.db.refresh(snap)
@@ -728,7 +720,7 @@ class TokensRepository:
                 primary_dex=String(),
                 image_url=String(),
                 pool_type=String(),
-                pool_counts=JSON().with_variant(JSONB, "postgresql"),
+                pool_counts=JSONB,
                 fetched_at=DateTime(timezone=True),
                 scoring_model=String(),
                 created_at=DateTime(timezone=True),

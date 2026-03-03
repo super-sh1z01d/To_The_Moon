@@ -9,7 +9,11 @@ from src.adapters.db.models import Token, TokenScore, AppSetting
 
 
 def main() -> None:
-    url = os.getenv("DATABASE_URL", "sqlite:///dev.db")
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL is required (PostgreSQL only)")
+    if not url.startswith("postgresql"):
+        raise RuntimeError("Only PostgreSQL is supported for smoke_db")
     print(f"[smoke_db] Using DB: {url}")
     with SessionLocal() as sess:
         # Insert app settings sample
@@ -39,4 +43,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

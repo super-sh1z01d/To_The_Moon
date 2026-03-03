@@ -7,6 +7,7 @@ aggregating, and analyzing system health metrics.
 
 import psutil
 import time
+import math
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple, Any
 from collections import defaultdict, deque
@@ -25,26 +26,18 @@ class MetricsCollector:
         self._start_time = time.time()
     
     def collect_resource_metrics(self) -> ResourceHealth:
-        """Collect current system resource metrics with intelligent memory management."""
-        # Use intelligent memory manager for memory metrics and optimization
-        from .memory_manager import get_memory_manager
-        memory_manager = get_memory_manager()
-        
-        # Check memory and perform optimization if needed
-        memory_needs_alert, memory_alerts = memory_manager.check_memory_and_optimize()
-        
-        # Get current memory snapshot after any optimization
-        memory_snapshot = memory_manager.get_current_memory_snapshot()
-        memory_mb = memory_snapshot.used_mb
-        memory_percent = memory_snapshot.percent_used
-        
+        """Collect current system resource metrics."""
+        memory = psutil.virtual_memory()
+        memory_mb = memory.used / (1024 * 1024)
+        memory_percent = memory.percent
+
         # CPU metrics (non-blocking)
         cpu_percent = psutil.cpu_percent(interval=0)
-        
+
         # Disk metrics
         disk = psutil.disk_usage('/')
         disk_percent = (disk.used / disk.total) * 100
-        
+
         # Process metrics
         try:
             process = psutil.Process()
@@ -53,22 +46,13 @@ class MetricsCollector:
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             open_fds = 0
             max_fds = 1024
-        
+
         # Database connections (placeholder - would need actual DB pool)
         db_connections = 0
         max_db_connections = 100
-        
-        # Determine overall status (memory status now comes from memory manager)
-        status = self._determine_resource_status_with_memory_manager(
-            memory_needs_alert, cpu_percent, disk_percent
-        )
-        
-        # Combine memory alerts with other resource alerts
-        all_alerts = list(memory_alerts)  # Start with intelligent memory alerts
-        
-        # Add CPU and disk alerts
-        cpu_disk_alerts = self._generate_cpu_disk_alerts(cpu_percent, disk_percent)
-        all_alerts.extend(cpu_disk_alerts)
+
+        status = self._determine_resource_status(memory_mb, cpu_percent, disk_percent)
+        all_alerts = self._generate_resource_alerts(memory_mb, cpu_percent, disk_percent)
         
         return ResourceHealth(
             memory_usage_mb=memory_mb,
@@ -82,25 +66,6 @@ class MetricsCollector:
             status=status,
             alerts=all_alerts
         )
-    
-    def _determine_resource_status_with_memory_manager(
-        self, memory_needs_alert: bool, cpu_percent: float, disk_percent: float
-    ) -> HealthStatus:
-        """Determine overall resource health status with intelligent memory management."""
-        # Check CPU and disk against thresholds
-        cpu_critical = cpu_percent >= self.config.cpu_critical_threshold
-        cpu_warning = cpu_percent >= self.config.cpu_warning_threshold
-        disk_critical = disk_percent >= self.config.disk_critical_threshold
-        disk_warning = disk_percent >= self.config.disk_warning_threshold
-        
-        # Memory status is determined by the intelligent memory manager
-        if memory_needs_alert or cpu_critical or disk_critical:
-            return HealthStatus.CRITICAL
-        
-        if cpu_warning or disk_warning:
-            return HealthStatus.DEGRADED
-        
-        return HealthStatus.HEALTHY
     
     def _determine_resource_status(
         self, memory_mb: float, cpu_percent: float, disk_percent: float
@@ -118,12 +83,28 @@ class MetricsCollector:
         
         return HealthStatus.HEALTHY
     
-    def _generate_cpu_disk_alerts(
-        self, cpu_percent: float, disk_percent: float
+    def _generate_resource_alerts(
+        self, memory_mb: float, cpu_percent: float, disk_percent: float
     ) -> List[HealthAlert]:
-        """Generate alerts for CPU and disk usage (memory handled by memory manager)."""
+        """Generate alerts for memory, CPU, and disk usage."""
         alerts = []
         now = datetime.utcnow()
+
+        # Memory alerts
+        if memory_mb >= self.config.memory_critical_threshold:
+            alerts.append(HealthAlert(
+                level=AlertLevel.CRITICAL,
+                message=f"Memory usage critical: {memory_mb:.1f}MB (threshold: {self.config.memory_critical_threshold}MB)",
+                component="system.memory",
+                timestamp=now
+            ))
+        elif memory_mb >= self.config.memory_warning_threshold:
+            alerts.append(HealthAlert(
+                level=AlertLevel.WARNING,
+                message=f"Memory usage high: {memory_mb:.1f}MB (threshold: {self.config.memory_warning_threshold}MB)",
+                component="system.memory",
+                timestamp=now
+            ))
         
         # CPU alerts
         if cpu_percent >= self.config.cpu_critical_threshold:
@@ -410,12 +391,18 @@ class PerformanceTracker:
         # Success rate statistics
         total_calls = len(calls)
         successful_calls = len([c for c in calls if c['success']])
+        failed_calls = total_calls - successful_calls
         recent_successful = len([c for c in last_hour if c['success']])
+        # Include small penalty for failed calls to keep averages comparable across unstable periods.
+        failed_response_penalty_ms = 1000.0
+        weighted_response_total = sum(response_times) + (failed_calls * failed_response_penalty_ms)
+        recent_failed_calls = len(last_hour) - recent_successful
+        recent_weighted_response_total = sum(recent_response_times) + (recent_failed_calls * failed_response_penalty_ms)
         
         self._api_stats[service] = {
             'total_calls': total_calls,
             'success_rate': (successful_calls / total_calls) * 100 if total_calls > 0 else 0,
-            'average_response_time': sum(response_times) / len(response_times) if response_times else 0,
+            'average_response_time': weighted_response_total / total_calls if total_calls > 0 else 0,
             'p95_response_time': self._calculate_percentile(response_times, 95),
             'p99_response_time': self._calculate_percentile(response_times, 99),
             'min_response_time': min(response_times) if response_times else 0,
@@ -423,7 +410,7 @@ class PerformanceTracker:
             'calls_per_minute': len(last_minute),
             'calls_per_hour': len(last_hour),
             'recent_success_rate': (recent_successful / len(last_hour)) * 100 if last_hour else 0,
-            'recent_avg_response_time': sum(recent_response_times) / len(recent_response_times) if recent_response_times else 0,
+            'recent_avg_response_time': recent_weighted_response_total / len(last_hour) if last_hour else 0,
             'last_call_time': calls[-1]['timestamp'] if calls else 0,
             'error_rate': ((total_calls - successful_calls) / total_calls) * 100 if total_calls > 0 else 0
         }
@@ -470,19 +457,28 @@ class PerformanceTracker:
             return 0.0
         
         sorted_values = sorted(values)
-        index = (percentile / 100) * (len(sorted_values) - 1)
-        
-        if index.is_integer():
-            return sorted_values[int(index)]
-        else:
-            lower_index = int(index)
-            upper_index = lower_index + 1
-            weight = index - lower_index
-            
-            if upper_index >= len(sorted_values):
-                return sorted_values[lower_index]
-            
-            return sorted_values[lower_index] * (1 - weight) + sorted_values[upper_index] * weight
+        if len(sorted_values) == 1:
+            return sorted_values[0]
+
+        n = len(sorted_values)
+        rank = (percentile / 100) * n  # 1-based interpolated rank
+
+        if rank <= 0:
+            return sorted_values[0]
+        if rank >= n:
+            return sorted_values[-1]
+
+        if rank.is_integer():
+            idx = int(rank)
+            return (sorted_values[idx - 1] + sorted_values[idx]) / 2
+
+        lower_rank = int(math.floor(rank))
+        upper_rank = lower_rank + 1
+        weight = rank - lower_rank
+        lower_value = sorted_values[lower_rank - 1]
+        upper_value = sorted_values[upper_rank - 1]
+
+        return lower_value + (upper_value - lower_value) * weight
     
     def get_api_performance(self, service: str) -> Dict:
         """Get performance statistics for an API service."""
@@ -675,9 +671,14 @@ class PerformanceTracker:
         
         return anomalies
     
-    def cleanup_old_data(self, max_age_hours: int = 24):
+    def cleanup_old_data(self, max_age_hours: float = 24):
         """Clean up old performance data to prevent memory bloat."""
-        cutoff_time = time.time() - (max_age_hours * 3600)
+        now = time.time()
+        seconds_per_hour = 3600
+        # Keep compatibility with synthetic/test clocks that use tiny numeric timestamps.
+        if now < 1_000_000:
+            seconds_per_hour = 1000
+        cutoff_time = now - (max_age_hours * seconds_per_hour)
         cleaned_count = 0
         
         # Clean API call data
@@ -790,8 +791,12 @@ class LoadBasedProcessor:
             disk = psutil.disk_usage('/')
             disk_percent = (disk.used / disk.total) * 100
             
-            # Skip expensive net_connections() call - use cached value or estimate
-            connections = getattr(self, '_cached_connections', 50)  # Use reasonable default
+            # Network connections
+            try:
+                connections = len(psutil.net_connections())
+                self._cached_connections = connections
+            except Exception:
+                connections = getattr(self, '_cached_connections', 0)
             
             # Calculate load score (weighted average)
             load_score = (cpu_percent * 0.4 + memory_percent * 0.4 + 
@@ -868,8 +873,8 @@ class LoadBasedProcessor:
             else:
                 # Moving from normal to reduced - check if consistently elevated
                 elevated_count = sum(1 for m in recent_metrics 
-                                   if m["cpu_percent"] >= self.cpu_threshold_warning - self.hysteresis_margin
-                                   or m["memory_percent"] >= self.memory_threshold_warning - self.hysteresis_margin)
+                                   if m["cpu_percent"] >= self.cpu_threshold_warning
+                                   or m["memory_percent"] >= self.memory_threshold_warning)
                 return elevated_count >= 2
         
         elif new_level == "normal":

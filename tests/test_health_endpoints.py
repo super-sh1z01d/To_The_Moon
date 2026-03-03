@@ -201,8 +201,8 @@ class TestHealthEndpoints:
         assert data["database"]["connections"] == 5
     
     @patch('src.monitoring.health_monitor.HealthMonitor.monitor_api_health')
-    @patch('src.app.routes.health.get_resilient_dexscreener_client')
-    def test_apis_health_endpoint(self, mock_get_client, mock_monitor_api_health):
+    @patch('src.app.routes.health.get_dex_broker_stats')
+    def test_apis_health_endpoint(self, mock_get_broker_stats, mock_monitor_api_health):
         """Test APIs health endpoint."""
         # Mock API health
         api_health = APIHealth(
@@ -218,10 +218,7 @@ class TestHealthEndpoints:
             consecutive_failures=0
         )
         
-        # Mock resilient client
-        mock_client = MagicMock()
-        mock_client.get_stats.return_value = {"total_requests": 100, "success_rate": 99.0}
-        mock_get_client.return_value = mock_client
+        mock_get_broker_stats.return_value = {"batch_requests": 100, "request_failures": 1}
         
         mock_monitor_api_health.return_value = api_health
         
@@ -373,13 +370,9 @@ class TestHealthEndpoints:
     
     @patch('src.monitoring.circuit_breaker.reset_all_circuit_breakers')
     @patch('src.monitoring.retry_manager.reset_all_retry_stats')
-    @patch('src.app.routes.health.get_resilient_dexscreener_client')
-    def test_reset_monitoring_stats(self, mock_get_client, mock_reset_retry, mock_reset_breakers):
+    @patch('src.app.routes.health.reset_dex_broker_stats')
+    def test_reset_monitoring_stats(self, mock_reset_broker, mock_reset_retry, mock_reset_breakers):
         """Test reset monitoring statistics endpoint."""
-        # Mock resilient client
-        mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
-        
         response = self.client.post("/health/reset")
         
         assert response.status_code == 200
@@ -393,7 +386,7 @@ class TestHealthEndpoints:
         # Verify reset functions were called
         mock_reset_breakers.assert_called_once()
         mock_reset_retry.assert_called_once()
-        mock_client.reset_stats.assert_called_once()
+        mock_reset_broker.assert_called_once()
     
     @patch('src.app.routes.health.health_monitor')
     def test_status_summary_endpoint(self, mock_health_monitor):

@@ -12,7 +12,11 @@ from src.adapters.db.models import Token, TokenScore, AppSetting
 
 
 def main() -> None:
-    url = os.getenv("DATABASE_URL", "sqlite:///dev.db")
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL is required (PostgreSQL only)")
+    if not url.startswith("postgresql"):
+        raise RuntimeError("Only PostgreSQL is supported for create_hybrid_test_data")
     print(f"[create_hybrid_test_data] Using DB: {url}")
     
     with SessionLocal() as sess:

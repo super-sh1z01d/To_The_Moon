@@ -9,12 +9,6 @@ from src.monitoring.retry_manager import get_all_retry_managers, get_retry_manag
 router = APIRouter()
 
 
-@router.get("/health", tags=["meta"])
-async def health() -> dict:
-    """Basic health check endpoint."""
-    return {"status": "ok"}
-
-
 @router.get("/health/comprehensive", tags=["meta"])
 async def comprehensive_health() -> Dict[str, Any]:
     """
@@ -112,15 +106,10 @@ async def scheduler_health() -> dict:
     and any issues with hot/cold group processing.
     """
     try:
-        # Use both legacy and new monitoring
-        from src.scheduler.monitoring import check_scheduler_health_endpoint
-        legacy_health = await check_scheduler_health_endpoint()
-        
         # Get enhanced scheduler health
         scheduler_health = await health_monitor.monitor_scheduler_health()
         
         return {
-            "legacy": legacy_health,
             "enhanced": {
                 "status": scheduler_health.status.value,
                 "hot_group_last_run": scheduler_health.hot_group_last_run.isoformat() if scheduler_health.hot_group_last_run else None,
@@ -308,4 +297,3 @@ async def retry_managers_health() -> Dict[str, Any]:
 async def version() -> dict:
     cfg = get_config()
     return {"name": cfg.app_name, "version": cfg.app_version, "env": cfg.app_env}
-

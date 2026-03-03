@@ -1,95 +1,55 @@
 """
-Scoring Service - Unified interface for different scoring models
+Scoring Service - hybrid momentum only (v2).
 
-This service provides a unified interface for scoring tokens using different
-models (legacy and hybrid momentum) based on configuration settings.
+Legacy scoring model has been removed. All score computations use
+the hybrid momentum model with EWMA smoothing.
 """
 from __future__ import annotations
 
 import logging
-from typing import Dict, Any, Optional, Tuple
-from datetime import datetime
+from typing import Any, Optional, Tuple
 
-from src.adapters.db.models import Token, TokenScore
+from src.adapters.db.models import Token
 from src.adapters.repositories.tokens_repo import TokensRepository
-from src.domain.settings.service import SettingsService
 from src.domain.metrics.enhanced_dex_aggregator import aggregate_enhanced_metrics
-from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
-from src.domain.pools.pool_type_service import PoolTypeService
+from src.domain.pools.classifier_dex_only import (
+    classify_pairs_dex_only,
+    determine_primary_pool_type,
+)
+from src.domain.settings.service import SettingsService
+
+from src.domain.scoring.ewma_service import EWMAService
+from src.domain.scoring.hybrid_momentum_model import HybridMomentumModel
 
 
 class NoClassifiedPoolsError(Exception):
-    """Raised when no pools with known type are available for scoring."""
+    """Raised when no usable pools are available for scoring."""
 
     pass
 
-# Legacy scoring
-from src.domain.scoring.scorer import compute_score, compute_smoothed_score
-
-# New hybrid momentum scoring
-from src.domain.scoring.hybrid_momentum_model import HybridMomentumModel, ScoringResult
-from src.domain.scoring.ewma_service import EWMAService
-
 
 class ScoringService:
-    """Unified scoring service that supports multiple scoring models."""
-    
+    """Hybrid-momentum scoring service."""
+
     def __init__(self, repository: TokensRepository, settings_service: SettingsService):
-        """
-        Initialize scoring service.
-        
-        Args:
-            repository: Token repository for data access
-            settings_service: Settings service for configuration
-        """
         self.repository = repository
         self.settings = settings_service
         self.logger = logging.getLogger("scoring_service")
-
-        # Initialize services for hybrid momentum model
         self.ewma_service = EWMAService(repository)
         self.hybrid_model = HybridMomentumModel(settings_service, self.ewma_service)
-        self.pool_type_service = PoolTypeService(repository.db)
 
     def close(self) -> None:
-        try:
-            self.pool_type_service.close()
-        except Exception:  # pragma: no cover - defensive
-            pass
-    
-    def calculate_token_score(
-        self, 
-        token: Token, 
-        pairs: list[dict[str, Any]]
-    ) -> Tuple[float, Optional[float], dict[str, Any], Optional[dict], Optional[dict]]:
-        """
-        Calculate token score using the active scoring model.
-        
-        Args:
-            token: Token entity
-            pairs: DexScreener pairs data
-            
-        Returns:
-            Tuple of (score, smoothed_score, metrics, raw_components, smoothed_components)
-        """
-        try:
-            # Get active scoring model from settings
-            active_model = self.settings.get("scoring_model_active") or "legacy"
-            
-            if active_model == "hybrid_momentum":
-                return self._calculate_hybrid_momentum_score(token, pairs)
-            else:
-                return self._calculate_legacy_score(token, pairs)
+        # Kept for API compatibility with older call-sites.
+        return None
 
-        except NoClassifiedPoolsError as e:
-            self.logger.debug(
-                "no_classified_pools",
-                extra={
-                    "token_id": token.id,
-                    "mint_address": token.mint_address,
-                    "error": str(e)
-                }
-            )
+    def calculate_token_score(
+        self,
+        token: Token,
+        pairs: list[dict[str, Any]],
+    ) -> Tuple[float, Optional[float], dict[str, Any], Optional[dict], Optional[dict]]:
+        try:
+            return self._calculate_hybrid_momentum_score(token, pairs)
+        except NoClassifiedPoolsError:
             raise
         except Exception as e:
             self.logger.error(
@@ -97,154 +57,58 @@ class ScoringService:
                 extra={
                     "token_id": token.id,
                     "mint_address": token.mint_address,
-                    "error": str(e)
-                }
+                    "error": str(e),
+                },
             )
-            # Return fallback values
             return 0.0, 0.0, {}, None, None
-    
+
     def _calculate_hybrid_momentum_score(
-        self, 
-        token: Token, 
-        pairs: list[dict[str, Any]]
+        self,
+        token: Token,
+        pairs: list[dict[str, Any]],
     ) -> Tuple[float, Optional[float], dict[str, Any], Optional[dict], Optional[dict]]:
-        """
-        Calculate score using hybrid momentum model.
-        
-        Args:
-            token: Token entity
-            pairs: DexScreener pairs data
-            
-        Returns:
-            Tuple of (score, smoothed_score, metrics, raw_components, smoothed_components)
-        """
-        try:
-            # Get enhanced metrics with status-based liquidity filtering
-            if token.status == "monitoring":
-                # For monitoring tokens: use activation threshold (lower)
-                min_liquidity = float(self.settings.get("activation_min_liquidity_usd") or "200")
-            else:
-                # For active tokens: use strict filtering (current behavior)
-                min_liquidity = float(self.settings.get("min_pool_liquidity_usd") or "500")
-            # NOTE: max_price_change_5m removed - not used in Hybrid Momentum model
-            
-            enriched_pairs = self.pool_type_service.enrich_pairs(pairs)
-            if not enriched_pairs:
-                raise NoClassifiedPoolsError("no pools with resolved types")
-
-            metrics = aggregate_enhanced_metrics(
-                token.mint_address,
-                enriched_pairs,
-                token.created_at,
-                min_liquidity_usd=min_liquidity
-            )
-            self.pool_type_service.insert_primary_pool_type(metrics)
-
-            # Calculate score using hybrid momentum model
-            result = self.hybrid_model.calculate_score(token, metrics)
-            
-            self.logger.info(
-                "hybrid_momentum_score_calculated",
-                extra={
-                    "token_id": token.id,
-                    "mint_address": token.mint_address,
-                    "raw_score": result.final_score,
-                    "smoothed_score": result.smoothed_score,
-                    "model": "hybrid_momentum"
-                }
-            )
-            
-            return (
-                result.final_score,
-                result.smoothed_score,
-                metrics,
-                result.raw_components,
-                result.smoothed_components
-            )
-            
-        except Exception as e:
-            self.logger.error(
-                "hybrid_momentum_scoring_error",
-                extra={
-                    "token_id": token.id,
-                    "mint_address": token.mint_address,
-                    "error": str(e)
-                }
-            )
-            raise
-    
-    def _calculate_legacy_score(
-        self, 
-        token: Token, 
-        pairs: list[dict[str, Any]]
-    ) -> Tuple[float, Optional[float], dict[str, Any], Optional[dict], Optional[dict]]:
-        """
-        Calculate score using legacy scoring model.
-        
-        Args:
-            token: Token entity
-            pairs: DexScreener pairs data
-            
-        Returns:
-            Tuple of (score, smoothed_score, metrics, raw_components, smoothed_components)
-        """
-        try:
-            # Get legacy settings
+        # Use lower threshold for monitoring tokens.
+        if token.status == "monitoring":
+            min_liquidity = float(self.settings.get("activation_min_liquidity_usd") or "200")
+        else:
             min_liquidity = float(self.settings.get("min_pool_liquidity_usd") or "500")
-            max_price_change = float(self.settings.get("max_price_change_5m") or "0.5")
-            smoothing_alpha = float(self.settings.get("score_smoothing_alpha") or "0.3")
-            
-            weights = {
-                "weight_s": float(self.settings.get("weight_s") or "0.35"),
-                "weight_l": float(self.settings.get("weight_l") or "0.25"),
-                "weight_m": float(self.settings.get("weight_m") or "0.20"),
-                "weight_t": float(self.settings.get("weight_t") or "0.20"),
-            }
-            
-            # Get legacy metrics
-            enriched_pairs = self.pool_type_service.enrich_pairs(pairs)
-            if not enriched_pairs:
-                raise NoClassifiedPoolsError("no pools with resolved types")
 
-            metrics = aggregate_wsol_metrics(
-                token.mint_address,
-                enriched_pairs,
-                min_liquidity_usd=min_liquidity,
-                max_price_change=max_price_change
-            )
-            self.pool_type_service.insert_primary_pool_type(metrics)
-            
-            # Calculate legacy score
-            score, components = compute_score(metrics, weights)
-            
-            # Get previous smoothed score and calculate new smoothed score
-            previous_smoothed = self.repository.get_previous_smoothed_score(token.id)
-            smoothed_score = compute_smoothed_score(score, previous_smoothed, smoothing_alpha)
-            
-            self.logger.info(
-                "legacy_score_calculated",
-                extra={
-                    "token_id": token.id,
-                    "mint_address": token.mint_address,
-                    "raw_score": score,
-                    "smoothed_score": smoothed_score,
-                    "model": "legacy"
-                }
-            )
-            
-            return score, smoothed_score, metrics, None, None
-            
-        except Exception as e:
-            self.logger.error(
-                "legacy_scoring_error",
-                extra={
-                    "token_id": token.id,
-                    "mint_address": token.mint_address,
-                    "error": str(e)
-                }
-            )
-            raise
-    
+        enriched_pairs = classify_pairs_dex_only(pairs or [])
+        if not enriched_pairs:
+            raise NoClassifiedPoolsError("no pools available after dex-only classification")
+
+        metrics = aggregate_enhanced_metrics(
+            token.mint_address,
+            enriched_pairs,
+            token.created_at,
+            min_liquidity_usd=min_liquidity,
+        )
+        metrics["pool_classification_source"] = "dexscreener"
+        primary_pool_type = determine_primary_pool_type(metrics.get("pools") or [])
+        if primary_pool_type:
+            metrics["primary_pool_type"] = primary_pool_type
+
+        result = self.hybrid_model.calculate_score(token, metrics)
+
+        self.logger.info(
+            "hybrid_momentum_score_calculated",
+            extra={
+                "token_id": token.id,
+                "mint_address": token.mint_address,
+                "raw_score": result.final_score,
+                "smoothed_score": result.smoothed_score,
+                "model": "hybrid_momentum",
+            },
+        )
+
+        return (
+            result.final_score,
+            result.smoothed_score,
+            metrics,
+            result.raw_components,
+            result.smoothed_components,
+        )
+
     def save_score_result(
         self,
         token: Token,
@@ -252,153 +116,41 @@ class ScoringService:
         smoothed_score: Optional[float],
         metrics: dict[str, Any],
         raw_components: Optional[dict] = None,
-        smoothed_components: Optional[dict] = None
+        smoothed_components: Optional[dict] = None,
     ) -> int:
-        """
-        Save scoring result to database.
-        
-        Args:
-            token: Token entity
-            score: Raw calculated score
-            smoothed_score: Smoothed score (if applicable)
-            metrics: Metrics used for calculation
-            raw_components: Raw component values (for hybrid model)
-            smoothed_components: Smoothed component values (for hybrid model)
-            
-        Returns:
-            ID of created score snapshot
-        """
-        try:
-            active_model = self.settings.get("scoring_model_active") or "legacy"
-            
-            snapshot_id = self.repository.insert_score_snapshot(
-                token_id=token.id,
-                metrics=metrics,
-                score=score,
-                smoothed_score=smoothed_score,
-                raw_components=raw_components,
-                smoothed_components=smoothed_components,
-                scoring_model=active_model
-            )
-            
-            self.logger.debug(
-                "score_result_saved",
-                extra={
-                    "token_id": token.id,
-                    "snapshot_id": snapshot_id,
-                    "score": score,
-                    "smoothed_score": smoothed_score,
-                    "model": active_model
-                }
-            )
-            
-            return snapshot_id
-            
-        except Exception as e:
-            self.logger.error(
-                "score_save_error",
-                extra={
-                    "token_id": token.id,
-                    "error": str(e)
-                }
-            )
-            raise
-    
+        snapshot_id = self.repository.insert_score_snapshot(
+            token_id=token.id,
+            metrics=metrics,
+            score=score,
+            smoothed_score=smoothed_score,
+            raw_components=raw_components,
+            smoothed_components=smoothed_components,
+            scoring_model="hybrid_momentum",
+        )
+
+        self.logger.debug(
+            "score_result_saved",
+            extra={
+                "token_id": token.id,
+                "snapshot_id": snapshot_id,
+                "score": score,
+                "smoothed_score": smoothed_score,
+                "model": "hybrid_momentum",
+            },
+        )
+        return snapshot_id
+
     def get_active_model(self) -> str:
-        """
-        Get the currently active scoring model.
-        
-        Returns:
-            Active model name ("legacy" or "hybrid_momentum")
-        """
-        return self.settings.get("scoring_model_active") or "legacy"
-    
-    def switch_model(self, model_name: str) -> bool:
-        """
-        Switch to a different scoring model.
-        
-        Args:
-            model_name: Name of the model to switch to
-            
-        Returns:
-            True if switch was successful, False otherwise
-        """
-        try:
-            if model_name not in ["legacy", "hybrid_momentum"]:
-                self.logger.error(
-                    "invalid_model_name",
-                    extra={"model_name": model_name}
-                )
-                return False
-            
-            self.settings.set("scoring_model_active", model_name)
-            
-            self.logger.info(
-                "scoring_model_switched",
-                extra={
-                    "new_model": model_name,
-                    "previous_model": self.get_active_model()
-                }
-            )
-            
-            return True
-            
-        except Exception as e:
-            self.logger.error(
-                "model_switch_error",
-                extra={
-                    "model_name": model_name,
-                    "error": str(e)
-                }
-            )
-            return False
-    
+        return "hybrid_momentum"
+
     def validate_model_configuration(self, model_name: str) -> Tuple[bool, str]:
-        """
-        Validate configuration for a specific scoring model.
-        
-        Args:
-            model_name: Name of the model to validate
-            
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
+        if model_name != "hybrid_momentum":
+            return False, "Only hybrid_momentum is supported in v2"
+
         try:
-            if model_name == "hybrid_momentum":
-                # Validate hybrid momentum configuration
-                weights = self.hybrid_model.get_weights()
-                if not weights.validate():
-                    return False, "Invalid hybrid momentum weight configuration"
-                
-                # Check required settings exist
-                required_settings = [
-                    "w_tx", "w_vol", "w_fresh", "w_oi", 
-                    "ewma_alpha", "freshness_threshold_hours"
-                ]
-                
-                for setting in required_settings:
-                    value = self.settings.get(setting)
-                    if value is None:
-                        return False, f"Missing required setting: {setting}"
-                
-                return True, ""
-                
-            elif model_name == "legacy":
-                # Validate legacy configuration
-                required_settings = [
-                    "weight_s", "weight_l", "weight_m", "weight_t",
-                    "score_smoothing_alpha"
-                ]
-                
-                for setting in required_settings:
-                    value = self.settings.get(setting)
-                    if value is None:
-                        return False, f"Missing required setting: {setting}"
-                
-                return True, ""
-                
-            else:
-                return False, f"Unknown model: {model_name}"
-                
+            weights = self.hybrid_model.get_weights()
+            if not weights.validate():
+                return False, "Invalid hybrid momentum weight configuration"
+            return True, ""
         except Exception as e:
-            return False, f"Validation error: {str(e)}"
+            return False, f"Validation error: {e}"

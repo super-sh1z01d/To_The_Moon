@@ -104,7 +104,6 @@ class NotArbPoolsGenerator:
             for token, latest_score, smoothed_score in tokens:
                 # Get pools for this token from latest snapshot
                 from src.adapters.repositories.tokens_repo import TokensRepository
-                from src.adapters.services.dexscreener_client import DexScreenerClient
                 
                 repo = TokensRepository(self.db)
                 snap = repo.get_latest_snapshot(token.id)

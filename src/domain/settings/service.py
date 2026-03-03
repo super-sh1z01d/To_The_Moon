@@ -8,6 +8,15 @@ from sqlalchemy.orm import Session
 from src.adapters.repositories.settings_repo import SettingsRepository
 from .defaults import DEFAULT_SETTINGS
 
+LEGACY_SETTING_KEYS = {
+    "weight_s",
+    "weight_l",
+    "weight_m",
+    "weight_t",
+    "score_smoothing_alpha",
+    "max_price_change_5m",
+}
+
 
 class SettingsService:
     def __init__(self, db: Session, ttl_seconds: int = 15):
@@ -26,8 +35,12 @@ class SettingsService:
         db_vals = self.repo.get_all()
         merged: dict[str, str] = DEFAULT_SETTINGS.copy()
         for k, v in db_vals.items():
+            if k in LEGACY_SETTING_KEYS:
+                continue
             if v is not None:
                 merged[k] = v
+        # Hybrid model is mandatory in v2.
+        merged["scoring_model_active"] = "hybrid_momentum"
         self._cache = merged
         self._cache_until = self._now() + self._ttl
         self._log.debug("settings_cache_refreshed", extra={"extra": {"size": len(merged)}})
@@ -45,6 +58,11 @@ class SettingsService:
         return self._ensure().get(key)
 
     def set(self, key: str, value: Optional[str]) -> None:
+        if key in LEGACY_SETTING_KEYS:
+            raise ValueError(f"Setting '{key}' is removed in v2")
+        if key == "scoring_model_active":
+            raise ValueError("Setting 'scoring_model_active' is read-only in v2")
+
         # Validate setting value before saving
         if not self._validate_setting(key, value):
             raise ValueError(f"Invalid value '{value}' for setting '{key}'")
@@ -65,13 +83,12 @@ class SettingsService:
         
         try:
             # Weight parameters (must be non-negative floats)
-            if key in ["weight_s", "weight_l", "weight_m", "weight_t", 
-                      "w_tx", "w_vol", "w_fresh", "w_oi"]:
+            if key in ["w_tx", "w_vol", "w_fresh", "w_oi"]:
                 weight = float(value)
                 return weight >= 0.0
             
             # EWMA alpha parameters (must be between 0.0 and 1.0)
-            if key in ["ewma_alpha", "score_smoothing_alpha"]:
+            if key == "ewma_alpha":
                 alpha = float(value)
                 return 0.0 <= alpha <= 1.0
             
@@ -84,13 +101,30 @@ class SettingsService:
             
             # Time parameters (must be positive integers)
             if key in ["hot_interval_sec", "cold_interval_sec", "archive_below_hours",
-                      "monitoring_timeout_hours"]:
+                      "monitoring_timeout_hours", "pipeline_v2_lag_rollback_seconds",
+                      "pipeline_v2_due_rollback_threshold", "pipeline_v2_rollback_cooldown_sec",
+                      "pipeline_v2_dex_min_requests_for_rollback"]:
                 time_val = int(value)
                 return time_val > 0
+
+            if key == "pipeline_v2_canary_percent":
+                percent = int(value)
+                return 0 <= percent <= 100
+
+            if key == "pipeline_v2_auto_rollback_enabled":
+                return str(value).strip().lower() in {"true", "false", "1", "0", "yes", "no", "on", "off"}
+
+            if key == "pipeline_v2_deadletter_rollback_threshold":
+                threshold = float(value)
+                return 0.0 <= threshold <= 1.0
+
+            if key == "pipeline_v2_dex_error_rate_rollback_threshold":
+                threshold = float(value)
+                return 0.0 <= threshold <= 1.0
             
             # Scoring model (must be valid model name)
             if key == "scoring_model_active":
-                return value in ["legacy", "hybrid_momentum"]
+                return value == "hybrid_momentum"
             
             # For other settings, accept any string value
             return True
@@ -106,15 +140,16 @@ class SettingsService:
             "w_fresh": float(self.get("w_fresh") or "0.25"),
             "w_oi": float(self.get("w_oi") or "0.25"),
         }
-    
-    def get_legacy_weights(self) -> dict[str, float]:
-        """Get legacy model weights as floats."""
-        return {
-            "weight_s": float(self.get("weight_s") or "0.35"),
-            "weight_l": float(self.get("weight_l") or "0.25"),
-            "weight_m": float(self.get("weight_m") or "0.20"),
-            "weight_t": float(self.get("weight_t") or "0.20"),
-        }
+
+    def cleanup_legacy_settings(self) -> int:
+        """Remove deprecated settings keys from DB."""
+        removed = self.repo.delete_many(sorted(LEGACY_SETTING_KEYS))
+        # Also normalize model to hybrid-only.
+        current = self.repo.get("scoring_model_active")
+        if current != "hybrid_momentum":
+            self.repo.set("scoring_model_active", "hybrid_momentum")
+        self._cache_until = 0
+        return removed
     
     def validate_all_settings(self) -> list[str]:
         """Validate all current settings and return list of validation errors."""

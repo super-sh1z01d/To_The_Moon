@@ -1,25 +1,16 @@
 DEFAULT_SETTINGS: dict[str, str] = {
-    # Legacy scoring weights
-    "weight_s": "0.35",
-    "weight_l": "0.25",
-    "weight_m": "0.20",
-    "weight_t": "0.20",
-    
     # Hybrid momentum scoring weights
     "w_tx": "0.25",      # Transaction acceleration weight
     "w_vol": "0.25",     # Volume momentum weight
     "w_fresh": "0.25",   # Token freshness weight
     "w_oi": "0.25",      # Orderflow imbalance weight
     
-    # Scoring model configuration
-    "scoring_model_active": "hybrid_momentum",  # Active scoring model: "legacy" or "hybrid_momentum"
+    # Scoring model configuration (hybrid-only)
+    "scoring_model_active": "hybrid_momentum",
     
     # EWMA smoothing parameters
     "ewma_alpha": "0.3",                    # EWMA smoothing parameter (0.0-1.0)
     "freshness_threshold_hours": "6.0",    # Token freshness threshold in hours
-    
-    # Legacy smoothing (for backward compatibility)
-    "score_smoothing_alpha": "0.3",
     
     # Scoring thresholds
     "min_score": "0.10",
@@ -49,6 +40,16 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "backlog_warning_threshold": "75",      # Warning threshold for backlog size
     "backlog_error_threshold": "100",       # Error threshold for backlog size
     "backlog_critical_threshold": "150",    # Critical threshold for backlog size
+
+    # Pipeline v2 rollout and auto-rollback
+    "pipeline_v2_canary_percent": "100",                   # % of tokens routed to v2 queue worker (0-100)
+    "pipeline_v2_auto_rollback_enabled": "true",           # Pause seeding when queue exceeds rollback thresholds
+    "pipeline_v2_deadletter_rollback_threshold": "0.01",   # Deadletter ratio trigger for seed pause
+    "pipeline_v2_lag_rollback_seconds": "600",             # Queue lag trigger for seed pause
+    "pipeline_v2_due_rollback_threshold": "300",           # Due jobs trigger for seed pause
+    "pipeline_v2_dex_error_rate_rollback_threshold": "0.25",  # Dex broker error-rate trigger for seed pause
+    "pipeline_v2_dex_min_requests_for_rollback": "50",        # Min dex requests before applying error-rate rollback
+    "pipeline_v2_rollback_cooldown_sec": "120",            # Pause duration after rollback trigger
     
     # Spam detection whitelist
     "spam_whitelist_wallets": "8vNwSvT1S8P99c9XmjfXfV4DSGZLfUoNFx63zngCuh54",  # Comma-separated list of wallet addresses to ignore in spam detection

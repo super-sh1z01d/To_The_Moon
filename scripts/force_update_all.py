@@ -5,18 +5,14 @@
 """
 
 from __future__ import annotations
-import sys
 import logging
-from datetime import datetime, timezone
 
 from src.core.json_logging import configure_logging
 from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.settings.service import SettingsService
 from src.adapters.services.dexscreener_client import DexScreenerClient
-from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
-from src.domain.scoring.scorer import compute_score, compute_smoothed_score
-from src.domain.pools.pool_type_service import PoolTypeService
+from src.domain.scoring.scoring_service import ScoringService, NoClassifiedPoolsError
 
 
 def main():
@@ -31,19 +27,7 @@ def main():
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
         settings = SettingsService(sess)
-        pool_service = PoolTypeService(sess)
-        
-        # Получаем настройки
-        smoothing_alpha = float(settings.get("score_smoothing_alpha") or 0.3)
-        min_pool_liquidity = float(settings.get("min_pool_liquidity_usd") or 500)
-        max_price_change = 0.5  # Fixed value for legacy compatibility
-        
-        weights = {
-            "weight_s": float(settings.get("weight_s") or 0.35),
-            "weight_l": float(settings.get("weight_l") or 0.25),
-            "weight_m": float(settings.get("weight_m") or 0.20),
-            "weight_t": float(settings.get("weight_t") or 0.20),
-        }
+        scoring_service = ScoringService(repo, settings)
         
         # Получаем все активные токены
         tokens = repo.list_by_status("active", limit=1000)
@@ -70,38 +54,28 @@ def main():
                     print("❌ API недоступен")
                     errors += 1
                     continue
-                
-                enriched_pairs = pool_service.enrich_pairs(pairs)
-                if not enriched_pairs:
-                    print("❌ нет классифицированных пулов")
+
+                try:
+                    score, smoothed_score, metrics, raw_components, smoothed_components = scoring_service.calculate_token_score(
+                        token,
+                        pairs,
+                    )
+                except NoClassifiedPoolsError:
+                    print("❌ нет пригодных пулов")
                     errors += 1
                     continue
 
-                # Агрегируем метрики с фильтрацией
-                metrics = aggregate_wsol_metrics(
-                    token.mint_address,
-                    enriched_pairs,
-                    min_liquidity_usd=min_pool_liquidity,
-                    max_price_change=max_price_change
-                )
-                pool_service.insert_primary_pool_type(metrics)
-                
-                # Вычисляем скоры
-                score, _ = compute_score(metrics, weights)
-                
-                # Получаем предыдущий сглаженный скор
-                previous_smoothed_score = repo.get_previous_smoothed_score(token.id)
-                smoothed_score = compute_smoothed_score(score, previous_smoothed_score, smoothing_alpha)
-                
-                # Сохраняем снапшот (ПРИНУДИТЕЛЬНО, без фильтрации незначительных изменений)
-                snap_id = repo.insert_score_snapshot(
-                    token_id=token.id,
-                    metrics=metrics,
+                scoring_service.save_score_result(
+                    token=token,
                     score=score,
-                    smoothed_score=smoothed_score
+                    smoothed_score=smoothed_score,
+                    metrics=metrics,
+                    raw_components=raw_components,
+                    smoothed_components=smoothed_components,
                 )
                 
-                print(f"✅ Скор: {smoothed_score:.3f}")
+                shown_score = smoothed_score if smoothed_score is not None else score
+                print(f"✅ Скор: {shown_score:.3f}")
                 updated += 1
                 
             except Exception as e:
@@ -109,8 +83,6 @@ def main():
                 errors += 1
                 log.error("token_update_failed", extra={"extra": {"mint": token.mint_address, "error": str(e)}})
         
-        pool_service.close()
-
         print()
         print(f"📈 ИТОГИ ПРИНУДИТЕЛЬНОГО ОБНОВЛЕНИЯ:")
         print(f"   ✅ Обновлено: {updated} токенов")

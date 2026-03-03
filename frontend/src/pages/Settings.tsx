@@ -21,12 +21,12 @@ export default function Settings() {
     return {
       en: {
         title: 'Settings | To The Moon',
-        description: 'Configure scoring models, risk thresholds and export parameters for your Solana arbitrage workflow.',
+        description: 'Configure hybrid scoring, risk thresholds and export parameters for your Solana arbitrage workflow.',
         keywords: ['solana settings', 'scoring model', 'arbitrage configuration'],
       },
       ru: {
         title: 'Настройки | To The Moon',
-        description: 'Настройте модели скоринга, пороги рисков и параметры экспорта для арбитражной стратегии в Solana.',
+        description: 'Настройте hybrid-скоринг, пороги рисков и параметры экспорта для арбитражной стратегии в Solana.',
         keywords: ['настройки скоринга', 'арбитраж solana', 'параметры ликвидности'],
       },
       canonical: `${origin}/app/settings`,
@@ -77,22 +77,11 @@ export default function Settings() {
       />
 
       <div className="space-y-6">
-        {/* Scoring Model Selection */}
+        {/* Scoring Configuration */}
         <SettingsGroup 
-          title={t('Scoring Model')} 
-          description={t('Select active scoring model and configure weights')}
+          title={t('Scoring Model')}
+          description={t('Hybrid momentum model configuration')}
         >
-          <SettingField
-            label={t('Active Model')}
-            value={getValue('scoring_model_active', 'hybrid_momentum')}
-            onChange={(v) => handleChange('scoring_model_active', v)}
-            type="select"
-            options={[
-              { value: 'hybrid_momentum', label: t('Hybrid Momentum (Recommended)') },
-              { value: 'legacy', label: t('Legacy Model') }
-            ]}
-            description={t('Choose scoring algorithm')}
-          />
           <SettingField
             label={t('TX Calculation Mode')}
             value={getValue('tx_calculation_mode', 'acceleration')}
@@ -158,61 +147,6 @@ export default function Settings() {
             type="number"
             unit={t('hours')}
             description={t('Age threshold for freshness calculation')}
-          />
-        </SettingsGroup>
-
-        {/* Legacy Model Weights */}
-        <SettingsGroup 
-          title={t('Legacy Model Weights')} 
-          description={t('Component weights for Legacy model (must sum to 1.0)')}
-        >
-          <SettingField
-            label={t('Spread Weight (weight_s)')}
-            value={getValue('weight_s', '0.35')}
-            onChange={(v) => handleChange('weight_s', v)}
-            type="number"
-            step="0.01"
-            description={t('Weight for spread component')}
-          />
-          <SettingField
-            label={t('Liquidity Weight (weight_l)')}
-            value={getValue('weight_l', '0.25')}
-            onChange={(v) => handleChange('weight_l', v)}
-            type="number"
-            step="0.01"
-            description={t('Weight for liquidity component')}
-          />
-          <SettingField
-            label={t('Momentum Weight (weight_m)')}
-            value={getValue('weight_m', '0.20')}
-            onChange={(v) => handleChange('weight_m', v)}
-            type="number"
-            step="0.01"
-            description={t('Weight for momentum component')}
-          />
-          <SettingField
-            label={t('Transaction Weight (weight_t)')}
-            value={getValue('weight_t', '0.20')}
-            onChange={(v) => handleChange('weight_t', v)}
-            type="number"
-            step="0.01"
-            description={t('Weight for transaction component')}
-          />
-          <SettingField
-            label={t('Score Smoothing Alpha')}
-            value={getValue('score_smoothing_alpha', '0.3')}
-            onChange={(v) => handleChange('score_smoothing_alpha', v)}
-            type="number"
-            step="0.01"
-            description={t('Smoothing factor for score changes')}
-          />
-          <SettingField
-            label={t('Max Price Change 5m')}
-            value={getValue('max_price_change_5m', '0.5')}
-            onChange={(v) => handleChange('max_price_change_5m', v)}
-            type="number"
-            step="0.1"
-            description={t('Maximum allowed 5-minute price change')}
           />
         </SettingsGroup>
 

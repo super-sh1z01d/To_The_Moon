@@ -53,7 +53,7 @@ def aggregate_enhanced_metrics(
     """
     log = logging.getLogger("enhanced_dex_aggregator")
     
-    # Start with existing metrics (using default price change limit for legacy compatibility)
+    # Reuse base WSOL aggregation with standard price-change guardrail.
     base_metrics = aggregate_wsol_metrics(mint, pairs, min_liquidity_usd, 0.5)
     
     # Filter pairs using same logic as base aggregator

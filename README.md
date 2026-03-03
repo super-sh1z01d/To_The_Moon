@@ -122,7 +122,7 @@ Final Score = (W_tx × Tx_Accel) + (W_vol × Vol_Momentum) +
 ### Backend
 - **Python 3.10+** with FastAPI framework
 - **SQLAlchemy 2.x** ORM with Alembic migrations
-- **PostgreSQL 14+** (production) / SQLite (development)
+- **PostgreSQL 14+**
 - **APScheduler** for background task scheduling
 - **Pydantic v2** for data validation and settings
 
@@ -157,7 +157,7 @@ Final Score = (W_tx × Tx_Accel) + (W_vol × Vol_Momentum) +
 ### System Requirements
 - **Python 3.10+** 
 - **Node.js 18+** and npm (for frontend build)
-- **PostgreSQL 14+** (production) or SQLite (development)
+- **PostgreSQL 14+**
 
 ### Development Setup
 ```bash
@@ -319,14 +319,14 @@ Key settings in `.env` file:
 ```bash
 APP_ENV=dev                     # Environment: dev/stage/prod
 LOG_LEVEL=INFO                  # Logging level
-DATABASE_URL=sqlite:///dev.db   # Database connection
+DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/tothemoon   # Database connection
 SCHEDULER_ENABLED=true          # Enable background scheduler
 FRONTEND_DIST_PATH=frontend/dist # Frontend build path
 ```
 
 ### Runtime Settings
 Configurable via `/settings` API:
-- **Scoring Model**: `hybrid_momentum` (default) or `legacy`
+- **Scoring Model**: `hybrid_momentum` (only supported model)
 - **Component Weights**: Configurable weights for each scoring component
 - **EWMA Parameters**: Alpha smoothing factor and freshness threshold
 - **Update Intervals**: Hot (30s) and cold (2min) token update frequencies

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sqlalchemy.orm import Session
 from src.adapters.db.models import User
 from src.domain.users.schemas import UserCreate

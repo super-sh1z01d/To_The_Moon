@@ -22,14 +22,18 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    # Prefer env var, then app config, then local sqlite file
+    # PostgreSQL-only setup: use env var first, then app config.
     url = os.getenv("DATABASE_URL")
     if url:
+        if not url.startswith("postgresql"):
+            raise RuntimeError("Alembic supports PostgreSQL only. DATABASE_URL must start with 'postgresql'.")
         return url
     cfg = get_config()
     if cfg.database_url:
+        if not cfg.database_url.startswith("postgresql"):
+            raise RuntimeError("Alembic supports PostgreSQL only. DATABASE_URL must start with 'postgresql'.")
         return cfg.database_url
-    return "sqlite:///dev.db"
+    raise RuntimeError("DATABASE_URL is required for Alembic (PostgreSQL only).")
 
 
 def run_migrations_offline() -> None:
@@ -72,4 +76,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-

@@ -5,7 +5,7 @@
     app_dir: "/srv/tothemoon"
     app_user: "tothemoon"
     server_name: "_"
-    database_url: "sqlite:///dev.db"
+    database_url: "postgresql+psycopg2://tothemoon:CHANGE_ME@127.0.0.1:5432/tothemoon"
     install_node: true
     install_nginx: false
     install_postgres: false

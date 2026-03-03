@@ -3,7 +3,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, func, ForeignKey, Integer, JSON, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -49,10 +59,9 @@ class TokenScore(Base):
     score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
     smoothed_score: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True, index=True)
     
-    # Use JSONB for PostgreSQL (falls back to JSON for SQLite)
-    metrics: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
-    raw_components: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
-    smoothed_components: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    metrics: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    raw_components: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    smoothed_components: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     # spam_metrics removed - not in PostgreSQL schema yet
     
     scoring_model: Mapped[str] = mapped_column(String(50), default="hybrid_momentum", nullable=False)
@@ -69,15 +78,6 @@ class AppSetting(Base):
     value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 
-class PoolMetadata(Base):
-    __tablename__ = "pool_metadata"
-
-    pool_address: Mapped[str] = mapped_column(Text, primary_key=True)
-    owner_program: Mapped[str] = mapped_column(Text, nullable=False, index=True)
-    pool_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False, index=True)
-
-
 class User(Base):
     __tablename__ = "users"
 
@@ -92,3 +92,51 @@ class User(Base):
     google_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True)
     auth_provider: Mapped[str] = mapped_column(String(20), default="email", nullable=False)  # "email" or "google"
     profile_picture: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class ProcessingJob(Base):
+    __tablename__ = "processing_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    job_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="queued", index=True)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100, index=True)
+    run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False, index=True)
+    lease_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True, index=True)
+    token_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("tokens.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    leased_by: Mapped[Optional[str]] = mapped_column(String(120), nullable=True, index=True)
+    payload: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=UTC_NOW, nullable=False, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=UTC_NOW, onupdate=UTC_NOW, nullable=False, index=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status in ('queued','leased','retry','done','deadletter','cancelled')",
+            name="ck_processing_jobs_status",
+        ),
+    )
+
+
+class TokenRuntimeState(Base):
+    __tablename__ = "token_runtime_state"
+
+    token_id: Mapped[int] = mapped_column(
+        ForeignKey("tokens.id", ondelete="CASCADE"), primary_key=True, nullable=False
+    )
+    last_scored_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    last_activation_check_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    score_band: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    backoff_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=UTC_NOW, onupdate=UTC_NOW, nullable=False, index=True
+    )

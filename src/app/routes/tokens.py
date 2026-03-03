@@ -10,8 +10,7 @@ from sqlalchemy.orm import Session
 from src.adapters.db.deps import get_db
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.domain.settings.service import SettingsService
-from src.adapters.services.dexscreener_client import DexScreenerClient
-from src.domain.pools.pool_type_service import PoolTypeService
+from src.domain.scoring.scoring_service import ScoringService, NoClassifiedPoolsError
 
 
 router = APIRouter(prefix="/tokens", tags=["tokens"])
@@ -316,62 +315,38 @@ async def refresh_token(mint: str, db: Session = Depends(get_db)) -> RefreshResu
     token = repo.get_by_mint(mint)
     if not token:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="token not found")
-    # Fetch pairs using resilient client with rate limiting
-    from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
-    import time
-    time.sleep(1.0)  # Rate limiting: 1s delay
-    resilient_client = ResilientDexScreenerClient(timeout=3.0, cache_ttl=300)  # 5 min cache
-    pairs = resilient_client.get_pairs(mint)
+    from src.adapters.services.dex_broker import get_dex_broker
+
+    broker = await get_dex_broker()
+    pairs_map = await broker.get_pairs_for_mints(
+        [mint],
+        lane="scoring_hot",
+        fallback_on_empty=True,
+    )
+    pairs = pairs_map.get(mint)
+
     if pairs is None:
         raise HTTPException(status_code=503, detail="dexscreener unavailable")
     
-    # Get settings (legacy scoring endpoint)
     settings = SettingsService(db)
-    smoothing_alpha = float(settings.get("score_smoothing_alpha") or 0.3)
-    min_pool_liquidity = float(settings.get("min_pool_liquidity_usd") or 500)
-    max_price_change = 0.5  # Fixed value for legacy compatibility
-    
-    weights = {
-        "weight_s": float(settings.get("weight_s") or 0.35),
-        "weight_l": float(settings.get("weight_l") or 0.25),
-        "weight_m": float(settings.get("weight_m") or 0.20),
-        "weight_t": float(settings.get("weight_t") or 0.20),
-    }
-    
-    # Get previous smoothed score
-    previous_smoothed_score = repo.get_previous_smoothed_score(token.id)
-    
-    # Aggregate metrics with data filtering
-    from src.domain.metrics.dex_aggregator import aggregate_wsol_metrics
-    pool_service = PoolTypeService(db)
+    scoring_service = ScoringService(repo, settings)
     try:
-        enriched_pairs = pool_service.enrich_pairs(pairs)
-        if not enriched_pairs:
-            raise HTTPException(status_code=422, detail="no classified pools")
-
-        metrics = aggregate_wsol_metrics(
-            mint,
-            enriched_pairs,
-            min_liquidity_usd=min_pool_liquidity,
-            max_price_change=max_price_change
+        score, smoothed_score, metrics, raw_components, smoothed_components = scoring_service.calculate_token_score(
+            token, pairs
         )
-        pool_service.insert_primary_pool_type(metrics)
-    finally:
-        pool_service.close()
-    
-    from src.domain.scoring.scorer import compute_score, compute_smoothed_score
-    score, _ = compute_score(metrics, weights)
-    smoothed_score = compute_smoothed_score(score, previous_smoothed_score, smoothing_alpha)
-    
-    # Insert snapshot with both scores
-    snap_id = repo.insert_score_snapshot(
-        token_id=token.id, 
-        metrics=metrics, 
-        score=score, 
-        smoothed_score=smoothed_score
+    except NoClassifiedPoolsError:
+        raise HTTPException(status_code=422, detail="no usable pools")
+
+    snap_id = scoring_service.save_score_result(
+        token=token,
+        score=score,
+        smoothed_score=smoothed_score,
+        metrics=metrics,
+        raw_components=raw_components,
+        smoothed_components=smoothed_components,
     )
-    
-    return RefreshResult(updated_snapshot_id=snap_id, score=smoothed_score)
+
+    return RefreshResult(updated_snapshot_id=snap_id, score=smoothed_score if smoothed_score is not None else score)
 
 
 @router.get("/{mint}/pools", response_model=list[PoolItem])
@@ -390,12 +365,15 @@ async def get_token_pools(mint: str, db: Session = Depends(get_db)) -> list[Pool
             if isinstance(p, dict) and str(p.get("dex") or "") not in exclude and (p.get("is_wsol") or p.get("is_usdc"))
         ]
     else:
-        # Фолбэк: получить актуальные пары через resilient client с агрессивным кешированием
-        from src.adapters.services.resilient_dexscreener_client import ResilientDexScreenerClient
-        import time
-        time.sleep(1.0)  # Rate limiting: 1s delay
-        resilient_client = ResilientDexScreenerClient(timeout=3.0, cache_ttl=300)  # 5 min cache
-        pairs = resilient_client.get_pairs(mint)
+        from src.adapters.services.dex_broker import get_dex_broker
+
+        broker = await get_dex_broker()
+        pairs_map = await broker.get_pairs_for_mints(
+            [mint],
+            lane="scoring_hot",
+            fallback_on_empty=True,
+        )
+        pairs = pairs_map.get(mint)
         if pairs:
             pools = []
             _WSOL = {"WSOL", "SOL", "W_SOL", "W-SOL", "Wsol", "wSOL"}

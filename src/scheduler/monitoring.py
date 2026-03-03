@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, List, Any
 from dataclasses import dataclass, field
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.monitoring.models import HealthStatus, AlertLevel, HealthAlert
@@ -577,7 +578,6 @@ class SelfHealingSchedulerWrapper:
                 log.info("scheduler_shutdown_completed")
             
             # Create new scheduler instance
-            from apscheduler.schedulers.asyncio import AsyncIOScheduler
             self.scheduler = AsyncIOScheduler()
             
             # Restore jobs
@@ -664,7 +664,6 @@ class SelfHealingSchedulerWrapper:
                     log.error(f"Failed to shutdown scheduler gracefully: {e}")
             
             # Create new scheduler instance
-            from apscheduler.schedulers.asyncio import AsyncIOScheduler
             self.scheduler = AsyncIOScheduler()
             
             # Restore jobs (if configurations were stored)

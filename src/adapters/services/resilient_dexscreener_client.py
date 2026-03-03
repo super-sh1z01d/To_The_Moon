@@ -332,7 +332,7 @@ class ResilientDexScreenerClient:
     
     async def get_pairs_async(self, mint: str) -> Optional[list[dict[str, Any]]]:
         """
-        Async version of get_pairs with native async HTTP client.
+        Async wrapper around get_pairs.
         
         Args:
             mint: Token mint address
@@ -340,50 +340,7 @@ class ResilientDexScreenerClient:
         Returns:
             List of token pairs or None if unavailable
         """
-        if self._async_client is None:
-            self._async_client = httpx.AsyncClient(timeout=self.timeout)
-        
-        # Use same resilience patterns as sync version
-        cache_key = f"pairs:{mint}"
-        
-        # Check cache first
-        if self.enable_cache:
-            cached_result = self._cache.get(cache_key)
-            if cached_result is not None:
-                self._stats['cache_hits'] += 1
-                return cached_result
-            self._stats['cache_misses'] += 1
-        
-        self._stats['total_requests'] += 1
-        
-        # Apply circuit breaker if enabled
-        if self.enable_circuit_breaker:
-            try:
-                result = await self._circuit_breaker.call_async(
-                    self._make_async_api_call, mint
-                )
-            except CircuitBreakerOpenError:
-                self._stats['circuit_breaker_trips'] += 1
-                log.warning(f"Circuit breaker open for mint {mint}, using fallback")
-                # Try to return cached result as fallback
-                if self.enable_cache:
-                    fallback = self._cache.get(cache_key)
-                    if fallback is not None:
-                        return fallback
-                return None
-        else:
-            result = await self._make_async_api_call(mint)
-        
-        # Cache successful results
-        if self.enable_cache and result is not None:
-            self._cache.set(cache_key, result)
-        
-        if result is not None:
-            self._stats['successful_requests'] += 1
-        else:
-            self._stats['failed_requests'] += 1
-        
-        return result
+        return await asyncio.to_thread(self.get_pairs, mint)
     
     async def _make_async_api_call(self, mint: str) -> Optional[list[dict[str, Any]]]:
         """Make async API call with error handling."""

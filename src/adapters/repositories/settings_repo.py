@@ -27,3 +27,19 @@ class SettingsRepository:
             obj.value = value
         self.db.commit()
 
+    def delete(self, key: str) -> None:
+        obj = self.db.query(AppSetting).filter(AppSetting.key == key).first()
+        if obj is not None:
+            self.db.delete(obj)
+            self.db.commit()
+
+    def delete_many(self, keys: list[str]) -> int:
+        if not keys:
+            return 0
+        deleted = (
+            self.db.query(AppSetting)
+            .filter(AppSetting.key.in_(keys))
+            .delete(synchronize_session=False)
+        )
+        self.db.commit()
+        return int(deleted or 0)

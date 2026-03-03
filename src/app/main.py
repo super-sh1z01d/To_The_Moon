@@ -84,6 +84,37 @@ def create_app() -> FastAPI:
             "startup",
             extra={"extra": {"service": cfg.app_name, "env": cfg.app_env, "version": cfg.app_version}},
         )
+
+        # Startup data normalization for hybrid-only scoring mode.
+        try:
+            from sqlalchemy import text
+            from src.adapters.db.base import SessionLocal
+            from src.domain.settings.service import SettingsService
+
+            with SessionLocal() as sess:
+                settings_service = SettingsService(sess)
+                removed = settings_service.cleanup_legacy_settings()
+
+                # latest_token_scores must stay hybrid-only in v2.
+                sess.execute(
+                    text(
+                        """
+                        UPDATE latest_token_scores
+                        SET scoring_model = 'hybrid_momentum'
+                        WHERE scoring_model IS NULL OR scoring_model <> 'hybrid_momentum'
+                        """
+                    )
+                )
+                sess.commit()
+                logging.getLogger("lifecycle").info(
+                    "startup_legacy_scoring_cleanup_completed",
+                    extra={"extra": {"removed_legacy_settings": removed}},
+                )
+        except Exception as e:
+            logging.getLogger("lifecycle").warning(
+                "startup_legacy_scoring_cleanup_failed",
+                extra={"extra": {"error": str(e)}},
+            )
         
         # Initialize monitoring systems
         try:
@@ -223,6 +254,21 @@ def create_app() -> FastAPI:
                 sched.shutdown(wait=False)
             except Exception:  # noqa: BLE001
                 pass
+
+        # Stop queue worker if pipeline v2 is enabled.
+        try:
+            from src.pipeline.worker import stop_pipeline_worker
+
+            await stop_pipeline_worker()
+        except Exception:  # noqa: BLE001
+            pass
+
+        try:
+            from src.adapters.services.dex_broker import close_dex_broker
+
+            await close_dex_broker()
+        except Exception:  # noqa: BLE001
+            pass
 
     # Exception handlers (унифицированный формат ошибок)
     @app.exception_handler(StarletteHTTPException)

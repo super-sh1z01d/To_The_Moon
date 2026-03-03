@@ -17,9 +17,9 @@ class ComponentCalculator:
     @staticmethod
     def calculate_tx_accel(tx_count_5m: float, tx_count_1h: float, filtering_settings: Optional[Dict[str, Any]] = None) -> float:
         """
-        Calculate transaction acceleration component with improved stability.
-        
-        Enhanced Formula: log(1 + rate_5m) / log(1 + rate_1h) with minimum thresholds
+        Calculate transaction acceleration component.
+
+        Formula: (tx_count_5m / 5) / (tx_count_1h / 60)
         
         This measures if the trading pace is accelerating in the last 5 minutes
         compared to the average pace over the last hour, with logarithmic smoothing
@@ -33,8 +33,16 @@ class ComponentCalculator:
             Transaction acceleration ratio (0.0 if invalid inputs)
         """
         try:
-            # Basic data validation - only check for valid data, no artificial thresholds
-            if tx_count_5m < 0 or tx_count_1h < 0:
+            tx_count_5m = float(tx_count_5m)
+            tx_count_1h = float(tx_count_1h)
+
+            # Basic data validation
+            if (
+                not math.isfinite(tx_count_5m)
+                or not math.isfinite(tx_count_1h)
+                or tx_count_5m < 0
+                or tx_count_1h < 0
+            ):
                 return 0.0
             
             # Apply filtering thresholds from settings
@@ -53,15 +61,10 @@ class ComponentCalculator:
             rate_5m = tx_count_5m / 5.0
             rate_1h = tx_count_1h / 60.0
             
-            # Use logarithmic smoothing to prevent extreme values
-            # log(1 + x) grows slower than x, providing stability
-            numerator = math.log(1 + rate_5m)
-            denominator = math.log(1 + rate_1h)
-            
-            if denominator <= 0:
+            if rate_1h <= 0:
                 return 0.0
-                
-            result = numerator / denominator
+
+            result = rate_5m / rate_1h
             
             # Sanity check for extreme values and cap at reasonable maximum
             if math.isnan(result) or math.isinf(result) or result < 0:
@@ -70,7 +73,7 @@ class ComponentCalculator:
             # Cap at 10x to prevent extreme scores
             return min(result, 10.0)
             
-        except (ZeroDivisionError, TypeError, ValueError):
+        except (ZeroDivisionError, TypeError, ValueError, OverflowError):
             logging.getLogger("component_calculator").warning(
                 "tx_accel_calculation_error", 
                 extra={"tx_count_5m": tx_count_5m, "tx_count_1h": tx_count_1h}
@@ -165,7 +168,7 @@ class ComponentCalculator:
         """
         Calculate volume momentum component with liquidity weighting.
         
-        Enhanced Formula: (volume_5m / avg_5m_volume) * liquidity_factor
+        Formula: (volume_5m / avg_5m_volume) * liquidity_factor
         
         This compares the trading volume in the last 5 minutes to the average
         5-minute volume over the last hour, weighted by liquidity depth to
@@ -180,7 +183,18 @@ class ComponentCalculator:
             Volume momentum ratio weighted by liquidity (0.0 if invalid inputs)
         """
         try:
-            if volume_5m < 0 or volume_1h < 0:
+            volume_5m = float(volume_5m)
+            volume_1h = float(volume_1h)
+            liquidity_usd = float(liquidity_usd)
+
+            if (
+                not math.isfinite(volume_5m)
+                or not math.isfinite(volume_1h)
+                or not math.isfinite(liquidity_usd)
+                or volume_5m < 0
+                or volume_1h < 0
+                or liquidity_usd < 0
+            ):
                 return 0.0
             
             # Apply filtering thresholds from settings
@@ -204,17 +218,15 @@ class ComponentCalculator:
             # Base momentum calculation
             base_momentum = volume_5m / avg_5m_volume
             
-            # Liquidity factor: normalize liquidity impact
-            # Tokens with higher liquidity get better scores for same momentum
+            # Liquidity factor: optional positive boost for sufficiently liquid pools.
             if liquidity_usd > 0:
-                # Get liquidity threshold from settings or use default
                 liquidity_threshold = float(filtering_settings.get("liquidity_factor_threshold", 100000.0) if filtering_settings else 100000.0)
-                # Sigmoid-like function: significant boost up to configured liquidity threshold
-                liquidity_factor = min(1.0, liquidity_usd / liquidity_threshold)
-                # Apply square root to reduce extreme differences
-                liquidity_factor = math.sqrt(liquidity_factor)
+                if liquidity_threshold <= 0:
+                    liquidity_factor = 1.0
+                else:
+                    liquidity_factor = max(1.0, liquidity_usd / liquidity_threshold)
             else:
-                liquidity_factor = 0.5  # Default factor if liquidity unknown
+                liquidity_factor = 1.0
             
             result = base_momentum * liquidity_factor
             
@@ -225,7 +237,7 @@ class ComponentCalculator:
             # Cap at 15x to prevent extreme scores
             return min(result, 15.0)
             
-        except (ZeroDivisionError, TypeError, ValueError):
+        except (ZeroDivisionError, TypeError, ValueError, OverflowError):
             logging.getLogger("component_calculator").warning(
                 "vol_momentum_calculation_error",
                 extra={"volume_5m": volume_5m, "volume_1h": volume_1h, "liquidity_usd": liquidity_usd}

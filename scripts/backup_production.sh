@@ -16,21 +16,9 @@ mkdir -p "$BACKUP_DIR"
 cd "$BACKUP_DIR"
 
 echo "📦 Backing up database..."
-# Check if PostgreSQL or SQLite is used
-ssh root@$OLD_SERVER "cd /srv/tothemoon && ls -la *.db dev.db 2>/dev/null || echo 'No SQLite DB found'"
-ssh root@$OLD_SERVER "cd /srv/tothemoon && ls -la" | grep -E "\.(db|sqlite)" || echo "Checking for PostgreSQL..."
-
-# Try SQLite backup first
-if ssh root@$OLD_SERVER "cd /srv/tothemoon && test -f dev.db"; then
-    echo "Found SQLite database, backing up..."
-    scp root@$OLD_SERVER:/srv/tothemoon/dev.db ./dev.db
-    echo "SQLite database backed up as dev.db"
-else
-    echo "Trying PostgreSQL backup..."
-    ssh root@$OLD_SERVER "which pg_dump || (apt update && apt install -y postgresql-client)"
-    ssh root@$OLD_SERVER "cd /srv/tothemoon && pg_dump -h localhost -U tothemoon -d tothemoon --no-password > /tmp/$DB_BACKUP_FILE" || echo "PostgreSQL backup failed"
-    scp root@$OLD_SERVER:/tmp/$DB_BACKUP_FILE ./ || echo "No PostgreSQL backup to copy"
-fi
+ssh root@$OLD_SERVER "which pg_dump || (apt update && apt install -y postgresql-client)"
+ssh root@$OLD_SERVER "cd /srv/tothemoon && pg_dump -h localhost -U tothemoon -d tothemoon --no-password > /tmp/$DB_BACKUP_FILE" || echo "PostgreSQL backup failed"
+scp root@$OLD_SERVER:/tmp/$DB_BACKUP_FILE ./ || echo "No PostgreSQL backup to copy"
 
 echo "📁 Backing up configuration files..."
 scp root@$OLD_SERVER:/srv/tothemoon/.env ./env_backup

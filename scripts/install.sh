@@ -64,9 +64,8 @@ ensure_env() {
     cat >"$ENV_FILE" <<'ENV'
 APP_ENV=prod
 LOG_LEVEL=INFO
-# Use PostgreSQL in production; for quick start you may use sqlite (not recommended for prod)
-# DATABASE_URL=postgresql+psycopg2://user:pass@127.0.0.1:5432/tothemoon
-DATABASE_URL=sqlite:///dev.db
+# PostgreSQL-only setup
+DATABASE_URL=postgresql+psycopg2://user:pass@127.0.0.1:5432/tothemoon
 FRONTEND_DIST_PATH=/srv/tothemoon/frontend/dist
 SCHEDULER_ENABLED=true
 ENV

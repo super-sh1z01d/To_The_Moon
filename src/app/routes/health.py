@@ -19,7 +19,12 @@ from src.monitoring.circuit_breaker import get_all_circuit_breakers, get_circuit
 from src.monitoring.retry_manager import get_all_retry_managers, get_retry_manager_stats
 from src.monitoring.models import HealthStatus
 from src.monitoring.alert_manager import get_alert_manager
-from src.adapters.services.resilient_dexscreener_client import get_resilient_dexscreener_client
+from src.adapters.db.base import SessionLocal
+from src.adapters.repositories.queue_repo import QueueRepository
+from src.adapters.services.dex_broker import get_dex_broker_stats, reset_dex_broker_stats
+from src.pipeline.worker import get_pipeline_worker_state
+from src.core.config import get_config
+from src.domain.settings.service import SettingsService
 
 log = logging.getLogger("health_endpoints")
 
@@ -147,6 +152,93 @@ async def get_detailed_health():
     except Exception as e:
         log.error(f"Error getting detailed health: {e}")
         raise HTTPException(status_code=500, detail="Detailed health check failed")
+
+
+@router.get("/queue")
+async def get_queue_health():
+    """Queue-first pipeline health and lag metrics."""
+    try:
+        cfg = get_config()
+        if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
+            return {
+                "status": "disabled",
+                "message": "queue v2 pipeline is disabled by feature flags",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
+        with SessionLocal() as db:
+            queue_repo = QueueRepository(db)
+            settings = SettingsService(db)
+            queue_stats = queue_repo.queue_health()
+            backlog_warning = int(settings.get("backlog_warning_threshold") or 75)
+            backlog_error = int(settings.get("backlog_error_threshold") or 100)
+
+        deadletter_rate = float(queue_stats.get("deadletter_rate", 0.0))
+        due = int(queue_stats.get("due", 0) or 0)
+        lag_seconds = int(queue_stats.get("lag_seconds", 0) or 0)
+        leased_expired = int(queue_stats.get("leased_expired", 0) or 0)
+
+        lag_warning = 90
+        lag_error = 180
+        due_critical = max(backlog_error * 3, 300)
+
+        worker_state = get_pipeline_worker_state()
+        degraded_reasons = []
+        if leased_expired > 0:
+            degraded_reasons.append("expired_leases_present")
+        if deadletter_rate >= 0.001:
+            degraded_reasons.append("deadletter_rate_high")
+        if lag_seconds >= lag_error:
+            degraded_reasons.append("queue_lag_high")
+        if due >= backlog_error:
+            degraded_reasons.append("due_backlog_high")
+        if worker_state.get("paused"):
+            degraded_reasons.append("seed_paused_auto_rollback")
+
+        status = "healthy"
+        if degraded_reasons:
+            status = "degraded"
+        if deadletter_rate >= 0.01 or lag_seconds >= 600 or due >= due_critical:
+            status = "unhealthy"
+        return {
+            "status": status,
+            "queue": queue_stats,
+            "thresholds": {
+                "deadletter_rate_warning": 0.001,
+                "deadletter_rate_critical": 0.01,
+                "lag_warning_seconds": lag_warning,
+                "lag_error_seconds": lag_error,
+                "due_warning": backlog_warning,
+                "due_error": backlog_error,
+                "due_critical": due_critical,
+            },
+            "reasons": degraded_reasons,
+            "pipeline_worker": worker_state,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        log.error(f"Error getting queue health: {e}")
+        raise HTTPException(status_code=500, detail="Queue health check failed")
+
+
+@router.get("/dex")
+async def get_dex_health():
+    """Dex broker health and request budget stats."""
+    try:
+        stats = get_dex_broker_stats()
+        status = "healthy"
+        if stats.get("degraded_mode"):
+            status = "degraded"
+        if stats.get("request_failures", 0) > 100 and stats.get("batch_requests", 0) > 0:
+            status = "degraded"
+        return {
+            "status": status,
+            "dex_broker": stats,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        log.error(f"Error getting dex health: {e}")
+        raise HTTPException(status_code=500, detail="Dex health check failed")
 
 
 @router.get("/data-freshness")
@@ -409,10 +501,7 @@ async def get_apis_health():
     try:
         # Get API health from health monitor
         api_health = await health_monitor.monitor_api_health("dexscreener")
-        
-        # Get resilient client stats
-        resilient_client = get_resilient_dexscreener_client()
-        client_stats = resilient_client.get_stats()
+        broker_stats = get_dex_broker_stats()
         
         return {
             "dexscreener": {
@@ -431,7 +520,7 @@ async def get_apis_health():
                     "hit_rate": api_health.cache_hit_rate
                 },
                 "last_successful_call": api_health.last_successful_call.isoformat() if api_health.last_successful_call else None,
-                "client_stats": client_stats,
+                "client_stats": broker_stats,
                 "alerts": [
                     {
                         "level": alert.level.value,
@@ -591,10 +680,9 @@ async def reset_monitoring_stats():
         # Reset retry manager stats
         from src.monitoring.retry_manager import reset_all_retry_stats
         reset_all_retry_stats()
-        
-        # Reset resilient client stats
-        resilient_client = get_resilient_dexscreener_client()
-        resilient_client.reset_stats()
+
+        # Reset Dex broker runtime counters/cache.
+        reset_dex_broker_stats()
         
         log.info("Monitoring statistics reset")
         
@@ -604,7 +692,7 @@ async def reset_monitoring_stats():
             "reset_components": [
                 "circuit_breakers",
                 "retry_managers",
-                "resilient_client"
+                "dex_broker",
             ]
         }
     except Exception as e:
