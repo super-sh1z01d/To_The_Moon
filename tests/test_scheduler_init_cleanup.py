@@ -29,16 +29,14 @@ class _FakeScheduler:
         self.started = True
 
 
-def test_init_scheduler_returns_none_when_v2_flags_disabled():
+def test_init_scheduler_returns_none_when_scheduler_disabled():
     app = SimpleNamespace(state=SimpleNamespace())
 
     with (
         patch(
             "src.scheduler.service.get_config",
             return_value=SimpleNamespace(
-                scheduler_enabled=True,
-                pipeline_v2_enabled=False,
-                queue_v2_enabled=False,
+                scheduler_enabled=False,
             ),
         ),
         patch("src.scheduler.service.AsyncIOScheduler") as mock_scheduler_cls,
@@ -61,8 +59,6 @@ def test_init_scheduler_pipeline_v2_uses_system_jobs_and_starts_worker():
             "src.scheduler.service.get_config",
             return_value=SimpleNamespace(
                 scheduler_enabled=True,
-                pipeline_v2_enabled=True,
-                queue_v2_enabled=True,
             ),
         ),
         patch("src.scheduler.service.AsyncIOScheduler", return_value=fake_scheduler),

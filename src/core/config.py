@@ -25,13 +25,6 @@ class AppConfig(BaseSettings):
 
     # Scheduler
     scheduler_enabled: bool = Field(default=True)
-
-    # Pipeline v2 rollout flags
-    pipeline_v2_enabled: bool = Field(default=False)
-    queue_v2_enabled: bool = Field(default=False)
-    dex_broker_enabled: bool = Field(default=False)
-    pool_classifier_dex_only: bool = Field(default=False)
-    legacy_scoring_removed: bool = Field(default=False)
     
     # NotArb integration
     notarb_config_path: str = Field(default="markets.json")

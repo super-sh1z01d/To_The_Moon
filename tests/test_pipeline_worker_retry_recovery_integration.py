@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -103,10 +102,6 @@ async def test_pipeline_worker_retries_then_acks_without_job_loss(integration_en
         def __init__(self, _repo, _settings):
             pass
 
-    class _DummyBatchClient:
-        async def get_pairs_for_mints(self, mints):
-            return {mint: [] for mint in mints}
-
     calls = {"count": 0}
 
     async def _process_single_job_side_effect(*, queue_repo, job, **_kwargs):
@@ -117,11 +112,9 @@ async def test_pipeline_worker_retries_then_acks_without_job_loss(integration_en
 
     with (
         patch("src.pipeline.worker.SessionLocal", session_factory),
-        patch("src.pipeline.worker.get_config", return_value=SimpleNamespace(dex_broker_enabled=False)),
         patch("src.pipeline.worker.TokensRepository", _DummyTokensRepo),
         patch("src.pipeline.worker.SettingsService", _DummySettings),
         patch("src.pipeline.worker.ScoringService", _DummyScoring),
-        patch("src.pipeline.worker.get_batch_client", return_value=_DummyBatchClient()),
         patch.object(worker, "_process_single_job", side_effect=_process_single_job_side_effect),
         patch.object(worker, "_compute_retry_delay", return_value=1),
         patch("src.pipeline.worker.asyncio.sleep", new=AsyncMock()),
@@ -145,11 +138,9 @@ async def test_pipeline_worker_retries_then_acks_without_job_loss(integration_en
 
     with (
         patch("src.pipeline.worker.SessionLocal", session_factory),
-        patch("src.pipeline.worker.get_config", return_value=SimpleNamespace(dex_broker_enabled=False)),
         patch("src.pipeline.worker.TokensRepository", _DummyTokensRepo),
         patch("src.pipeline.worker.SettingsService", _DummySettings),
         patch("src.pipeline.worker.ScoringService", _DummyScoring),
-        patch("src.pipeline.worker.get_batch_client", return_value=_DummyBatchClient()),
         patch.object(worker, "_process_single_job", side_effect=_process_single_job_side_effect),
         patch.object(worker, "_compute_retry_delay", return_value=1),
         patch("src.pipeline.worker.asyncio.sleep", new=AsyncMock()),

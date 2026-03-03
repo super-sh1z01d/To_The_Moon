@@ -14,7 +14,6 @@ from collections import defaultdict
 
 from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.tokens_repo import TokensRepository
-from src.adapters.services.dexscreener_client import DexScreenerClient
 from src.domain.settings.service import SettingsService
 
 from .models import (
@@ -52,14 +51,6 @@ class HealthMonitor:
         self._api_call_history: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
         self._alert_cooldowns: Dict[str, datetime] = {}
         
-        # Integration with existing scheduler monitor
-        self._legacy_monitor: Optional[Any] = None
-        try:
-            from src.scheduler.monitoring import health_monitor
-            self._legacy_monitor = health_monitor
-        except ImportError:
-            log.warning("Legacy scheduler monitor not available")
-    
     def record_scheduler_execution(self, group: str, tokens_processed: int, tokens_updated: int, processing_time: float):
         """Record scheduler group execution for health tracking."""
         now = datetime.utcnow()
@@ -69,10 +60,6 @@ class HealthMonitor:
         history.append(now)
         if len(history) > 50:
             history.pop(0)
-        
-        # Also record in legacy monitor for backward compatibility
-        if self._legacy_monitor:
-            self._legacy_monitor.record_group_execution(group, tokens_processed, tokens_updated)
         
         log.info(
             "scheduler_execution_recorded",
@@ -406,10 +393,14 @@ class HealthMonitor:
         cache_hit_rate = 0.0
         try:
             if service == "dexscreener":
-                from src.adapters.services.resilient_dexscreener_client import get_resilient_dexscreener_client
-                client = get_resilient_dexscreener_client()
-                client_stats = client.get_stats()
-                cache_hit_rate = client_stats.get('cache_hit_rate', 0.0)
+                from src.adapters.services.dex_broker import get_dex_broker_stats
+
+                broker_stats = get_dex_broker_stats()
+                hits = int(broker_stats.get("cache_hits", 0) or 0)
+                misses = int(broker_stats.get("cache_misses", 0) or 0)
+                total = hits + misses
+                if total > 0:
+                    cache_hit_rate = (hits / total) * 100.0
         except Exception as e:
             log.warning(f"Failed to get client stats for {service}: {e}")
         

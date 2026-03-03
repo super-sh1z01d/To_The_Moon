@@ -11,10 +11,7 @@ from typing import Awaitable, Callable, Optional
 from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.queue_repo import QueueRepository
 from src.adapters.repositories.tokens_repo import TokensRepository
-from src.adapters.services.dexscreener_batch_client import get_batch_client
-from src.adapters.services.dexscreener_client import DexScreenerClient
 from src.adapters.services.dex_broker import get_dex_broker, get_dex_broker_stats
-from src.core.config import get_config
 from src.domain.metrics.enhanced_dex_aggregator import aggregate_enhanced_metrics
 from src.domain.pools.classifier_dex_only import classify_pairs_dex_only, determine_primary_pool_type
 from src.domain.scoring.scoring_service import NoClassifiedPoolsError, ScoringService
@@ -219,8 +216,6 @@ class PipelineWorker:
 
     async def run_iteration(self) -> None:
         now = _now()
-        cfg = get_config()
-        use_broker = bool(cfg.dex_broker_enabled)
 
         should_seed = (now - self._last_seed_at).total_seconds() >= self.seed_period_seconds
         if should_seed:
@@ -299,10 +294,7 @@ class PipelineWorker:
             token_repo = TokensRepository(db)
             settings = SettingsService(db)
             scoring_service = ScoringService(token_repo, settings)
-
-            broker = await get_dex_broker() if use_broker else None
-            batch_client = await get_batch_client() if not use_broker else None
-            fallback_client = DexScreenerClient(timeout=3.0) if not use_broker else None
+            broker = await get_dex_broker()
 
             async def fetch_pairs(
                 mint: str,
@@ -310,26 +302,12 @@ class PipelineWorker:
                 lane: str,
                 fallback_on_empty: bool,
             ) -> Optional[list[dict]]:
-                if broker is not None:
-                    pairs_map = await broker.get_pairs_for_mints(
-                        [mint],
-                        lane=lane,
-                        fallback_on_empty=fallback_on_empty,
-                    )
-                    return pairs_map.get(mint)
-
-                # Queue phase without broker (phase 1) uses batch client.
-                pairs_map = await batch_client.get_pairs_for_mints([mint])  # type: ignore[union-attr]
-                pairs = pairs_map.get(mint)
-
-                if (
-                    fallback_on_empty
-                    and fallback_client is not None
-                    and (pairs is None or (isinstance(pairs, list) and len(pairs) == 0))
-                ):
-                    return await asyncio.to_thread(fallback_client.get_pairs, mint)
-
-                return pairs
+                pairs_map = await broker.get_pairs_for_mints(
+                    [mint],
+                    lane=lane,
+                    fallback_on_empty=fallback_on_empty,
+                )
+                return pairs_map.get(mint)
 
             for job in jobs:
                 try:

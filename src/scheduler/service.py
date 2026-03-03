@@ -34,14 +34,6 @@ def init_scheduler(app: FastAPI) -> Optional[AsyncIOScheduler]:
         log.info("scheduler_disabled_by_env_var")
         return None
 
-    # Queue-first runtime: scheduler is only for system-level jobs.
-    if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
-        log.warning(
-            "scheduler_pipeline_v2_disabled",
-            extra={"extra": {"pipeline_v2_enabled": cfg.pipeline_v2_enabled, "queue_v2_enabled": cfg.queue_v2_enabled}},
-        )
-        return None
-
     scheduler = AsyncIOScheduler()
 
     async def _start_pipeline_worker() -> None:

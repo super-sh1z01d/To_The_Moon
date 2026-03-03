@@ -23,7 +23,6 @@ from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.queue_repo import QueueRepository
 from src.adapters.services.dex_broker import get_dex_broker_stats, reset_dex_broker_stats
 from src.pipeline.worker import get_pipeline_worker_state
-from src.core.config import get_config
 from src.domain.settings.service import SettingsService
 
 log = logging.getLogger("health_endpoints")
@@ -158,14 +157,6 @@ async def get_detailed_health():
 async def get_queue_health():
     """Queue-first pipeline health and lag metrics."""
     try:
-        cfg = get_config()
-        if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
-            return {
-                "status": "disabled",
-                "message": "queue v2 pipeline is disabled by feature flags",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
-
         with SessionLocal() as db:
             queue_repo = QueueRepository(db)
             settings = SettingsService(db)

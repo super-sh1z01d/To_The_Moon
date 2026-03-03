@@ -461,10 +461,6 @@ async def test_pipeline_worker_run_iteration_requeues_expired_leases():
             return None
 
     with (
-        patch(
-            "src.pipeline.worker.get_config",
-            return_value=SimpleNamespace(dex_broker_enabled=False),
-        ),
         patch("src.pipeline.worker.SessionLocal", return_value=_DummySessionCtx()),
         patch("src.pipeline.worker.QueueRepository", _RunIterationQueueRepo),
         patch("src.pipeline.worker.TokensRepository", _DummyTokensRepo),
@@ -508,10 +504,6 @@ async def test_pipeline_worker_auto_rollback_pauses_seeding():
             return mapping.get(key)
 
     with (
-        patch(
-            "src.pipeline.worker.get_config",
-            return_value=SimpleNamespace(dex_broker_enabled=False),
-        ),
         patch("src.pipeline.worker.SessionLocal", return_value=_DummySessionCtx()),
         patch("src.pipeline.worker.QueueRepository", _GuardQueueRepo),
         patch("src.pipeline.worker.TokensRepository", _DummyTokensRepo),
@@ -553,10 +545,6 @@ async def test_pipeline_worker_auto_rollback_pauses_seeding_on_dex_error_rate():
             return mapping.get(key)
 
     with (
-        patch(
-            "src.pipeline.worker.get_config",
-            return_value=SimpleNamespace(dex_broker_enabled=False),
-        ),
         patch("src.pipeline.worker.SessionLocal", return_value=_DummySessionCtx()),
         patch("src.pipeline.worker.QueueRepository", _RunIterationQueueRepo),
         patch("src.pipeline.worker.TokensRepository", _DummyTokensRepo),

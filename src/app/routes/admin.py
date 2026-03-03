@@ -13,7 +13,6 @@ from src.adapters.db.base import SessionLocal
 from src.adapters.repositories.queue_repo import QueueRepository
 from src.adapters.repositories.tokens_repo import TokensRepository
 from src.adapters.repositories import user_repo
-from src.core.config import get_config
 from src.domain.settings.service import SettingsService
 
 
@@ -26,13 +25,6 @@ class QueueCanaryPayload(BaseModel):
 
 @router.post("/recalculate")
 async def recalculate_all(current_admin: User = Depends(get_current_admin_user)) -> dict:
-    cfg = get_config()
-    if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
-        return {
-            "status": "disabled",
-            "message": "queue v2 pipeline is disabled by feature flags",
-        }
-
     async def _run_v2_once() -> None:
         from src.pipeline.worker import PipelineWorker
 
@@ -57,13 +49,6 @@ async def run_archiver(current_admin: User = Depends(get_current_admin_user)) ->
 @router.post("/activation")
 async def run_activation(current_admin: User = Depends(get_current_admin_user)) -> dict:
     """Принудительно запустить проверку активации токенов."""
-    cfg = get_config()
-    if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
-        return {
-            "status": "disabled",
-            "message": "queue v2 pipeline is disabled by feature flags",
-        }
-
     from src.pipeline.worker import JOB_ACTIVATION
 
     with SessionLocal() as sess:
@@ -109,13 +94,6 @@ async def run_activation(current_admin: User = Depends(get_current_admin_user)) 
 @router.post("/queue/rebalance")
 async def rebalance_queue(current_admin: User = Depends(get_current_admin_user)) -> dict:
     """Requeue expired leases and boost stale retry jobs."""
-    cfg = get_config()
-    if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
-        return {
-            "status": "disabled",
-            "message": "queue v2 pipeline is disabled by feature flags",
-        }
-
     with SessionLocal() as sess:
         queue_repo = QueueRepository(sess)
         result = queue_repo.rebalance_queue()
@@ -133,13 +111,6 @@ async def set_queue_canary(
     current_admin: User = Depends(get_current_admin_user),
 ) -> dict:
     """Set v2 queue worker canary percentage."""
-    cfg = get_config()
-    if not (cfg.pipeline_v2_enabled and cfg.queue_v2_enabled):
-        return {
-            "status": "disabled",
-            "message": "queue v2 pipeline is disabled by feature flags",
-        }
-
     allowed_steps = {0, 10, 30, 60, 100}
     if payload.percent not in allowed_steps:
         raise HTTPException(

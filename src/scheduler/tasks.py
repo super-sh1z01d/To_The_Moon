@@ -97,65 +97,20 @@ def _external_liq_ge(mint: str, pairs: list[dict], threshold: float) -> bool:
 
 async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int = 50) -> None:
     logv = logging.getLogger("activation")
-    from src.core.config import get_config
+    from src.adapters.services.dex_broker import get_dex_broker
 
-    cfg = get_config()
-    use_broker = bool(cfg.dex_broker_enabled)
-
-    batch_client = None
-    fallback_client = None
-    broker = None
-    if use_broker:
-        from src.adapters.services.dex_broker import get_dex_broker
-
-        broker = await get_dex_broker()
-    else:
-        from src.adapters.services.dexscreener_batch_client import get_batch_client
-        from src.adapters.services.dexscreener_client import DexScreenerClient
-
-        batch_client = await get_batch_client()
-        fallback_client = DexScreenerClient(timeout=3.0)
+    broker = await get_dex_broker()
 
     async def ensure_pairs(mint: str, pairs: list[dict[str, Any]], threshold: float) -> list[dict[str, Any]]:
         """Ensure we have full pool list by falling back to token-pairs endpoint if needed."""
-        if use_broker and broker is not None:
-            broker_pairs = await broker.get_pairs_for_mints(
-                [mint],
-                lane="activation",
-                fallback_on_empty=True,
-            )
-            resolved = broker_pairs.get(mint)
-            if resolved is not None:
-                return resolved
-            return pairs
-
-        from src.domain.validation.dex_rules import check_activation_conditions, has_external_pools
-        
-        # Always check if we have external pools in the batch data
-        if pairs and has_external_pools(mint, pairs):
-            # We have external pools, check activation conditions
-            if check_activation_conditions(mint, pairs, threshold):
-                return pairs
-        
-        # Either no external pools found or activation conditions not met
-        # Fetch full dataset from token-pairs endpoint (includes all external pools)
-        logv.info(
-            "fetching_fallback_pairs_for_activation",
-            extra={"mint": mint, "batch_pairs_count": len(pairs), "threshold": threshold}
+        broker_pairs = await broker.get_pairs_for_mints(
+            [mint],
+            lane="activation",
+            fallback_on_empty=True,
         )
-        
-        fallback_pairs = await asyncio.to_thread(fallback_client.get_pairs, mint) if fallback_client else None
-        if fallback_pairs:
-            logv.info(
-                "fallback_pairs_fetched_for_activation", 
-                extra={"mint": mint, "fallback_pairs_count": len(fallback_pairs)}
-            )
-            return fallback_pairs
-        
-        logv.warning(
-            "fallback_pairs_failed_for_activation",
-            extra={"mint": mint, "using_batch_pairs": len(pairs)}
-        )
+        resolved = broker_pairs.get(mint)
+        if resolved is not None:
+            return resolved
         return pairs
 
     with SessionLocal() as sess:
@@ -168,14 +123,11 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
 
         if limit_monitoring:
             mons = repo.list_monitoring_for_activation(limit=limit_monitoring)
-            if use_broker and broker is not None:
-                monitoring_pairs = await broker.get_pairs_for_mints(
-                    [t.mint_address for t in mons],
-                    lane="activation",
-                    fallback_on_empty=True,
-                )
-            else:
-                monitoring_pairs = await batch_client.get_pairs_for_mints([t.mint_address for t in mons])  # type: ignore[union-attr]
+            monitoring_pairs = await broker.get_pairs_for_mints(
+                [t.mint_address for t in mons],
+                lane="activation",
+                fallback_on_empty=True,
+            )
             promoted = 0
             for t in mons:
                 batch_pairs = monitoring_pairs.get(t.mint_address) or []
@@ -266,14 +218,11 @@ async def enforce_activation_async(limit_monitoring: int = 50, limit_active: int
 
         if limit_active:
             acts = repo.list_by_status("active", limit=limit_active)
-            if use_broker and broker is not None:
-                active_pairs = await broker.get_pairs_for_mints(
-                    [t.mint_address for t in acts],
-                    lane="activation",
-                    fallback_on_empty=True,
-                )
-            else:
-                active_pairs = await batch_client.get_pairs_for_mints([t.mint_address for t in acts])  # type: ignore[union-attr]
+            active_pairs = await broker.get_pairs_for_mints(
+                [t.mint_address for t in acts],
+                lane="activation",
+                fallback_on_empty=True,
+            )
             demoted = 0
             from src.domain.validation.dex_rules import check_activation_conditions
             for t in acts:
@@ -633,19 +582,8 @@ async def process_archived_tokens_async(limit: int = 20) -> None:
         logv.warning(f"Failed to check system load: {e}")
         return  # Безопасность: не запускаем если не можем проверить нагрузку
 
-    from src.core.config import get_config
-    cfg = get_config()
-    use_broker = bool(cfg.dex_broker_enabled)
-    batch_client = None
-    broker = None
-    if use_broker:
-        from src.adapters.services.dex_broker import get_dex_broker
-
-        broker = await get_dex_broker()
-    else:
-        from src.adapters.services.dexscreener_batch_client import get_batch_client
-
-        batch_client = await get_batch_client()
+    from src.adapters.services.dex_broker import get_dex_broker
+    broker = await get_dex_broker()
 
     with SessionLocal() as sess:
         repo = TokensRepository(sess)
@@ -687,15 +625,12 @@ async def process_archived_tokens_async(limit: int = 20) -> None:
             }
         )
 
-        # Получаем данные по всем токенам batch-запросом
-        if use_broker and broker is not None:
-            archived_pairs = await broker.get_pairs_for_mints(
-                [t.mint_address for t in archived],
-                lane="scoring_cold",
-                fallback_on_empty=True,
-            )
-        else:
-            archived_pairs = await batch_client.get_pairs_for_mints([t.mint_address for t in archived])  # type: ignore[union-attr]
+        # Получаем данные по всем токенам через централизованный broker
+        archived_pairs = await broker.get_pairs_for_mints(
+            [t.mint_address for t in archived],
+            lane="scoring_cold",
+            fallback_on_empty=True,
+        )
 
         promoted = 0
         checked = 0

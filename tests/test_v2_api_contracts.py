@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from types import SimpleNamespace
 from unittest.mock import patch
 from typing import Any
 
@@ -122,10 +121,6 @@ def test_health_queue_status_marks_unhealthy_with_large_backlog(client: TestClie
             return None
 
     with (
-        patch(
-            "src.app.routes.health.get_config",
-            return_value=SimpleNamespace(pipeline_v2_enabled=True, queue_v2_enabled=True),
-        ),
         patch("src.app.routes.health.SessionLocal", return_value=_DummySessionCtx()),
         patch("src.app.routes.health.QueueRepository", _FakeQueueRepo),
         patch("src.app.routes.health.SettingsService", _FakeSettingsService),
@@ -176,10 +171,6 @@ def test_health_queue_adds_seed_pause_reason_when_worker_paused(client: TestClie
             return None
 
     with (
-        patch(
-            "src.app.routes.health.get_config",
-            return_value=SimpleNamespace(pipeline_v2_enabled=True, queue_v2_enabled=True),
-        ),
         patch("src.app.routes.health.SessionLocal", return_value=_DummySessionCtx()),
         patch("src.app.routes.health.QueueRepository", _FakeQueueRepo),
         patch("src.app.routes.health.SettingsService", _FakeSettingsService),
@@ -196,14 +187,8 @@ def test_health_queue_adds_seed_pause_reason_when_worker_paused(client: TestClie
     assert "seed_paused_auto_rollback" in data["reasons"]
 
 
-def test_admin_recalculate_uses_queue_v2_mode_when_flags_enabled(client: TestClient) -> None:
-    with (
-        patch(
-            "src.app.routes.admin.get_config",
-            return_value=SimpleNamespace(pipeline_v2_enabled=True, queue_v2_enabled=True),
-        ),
-        patch("src.app.routes.admin.asyncio.create_task") as mock_create_task,
-    ):
+def test_admin_recalculate_uses_queue_v2_mode(client: TestClient) -> None:
+    with patch("src.app.routes.admin.asyncio.create_task") as mock_create_task:
         response = client.post("/admin/recalculate")
         scheduled = mock_create_task.call_args.args[0]
         scheduled.close()
@@ -213,32 +198,6 @@ def test_admin_recalculate_uses_queue_v2_mode_when_flags_enabled(client: TestCli
     assert data["status"] == "started"
     assert data["mode"] == "queue_v2"
     mock_create_task.assert_called_once()
-
-
-def test_admin_recalculate_returns_disabled_when_v2_flags_off(client: TestClient) -> None:
-    with patch(
-        "src.app.routes.admin.get_config",
-        return_value=SimpleNamespace(pipeline_v2_enabled=False, queue_v2_enabled=False),
-    ):
-        response = client.post("/admin/recalculate")
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "disabled"
-    assert "queue v2 pipeline is disabled" in data["message"]
-
-
-def test_admin_activation_returns_disabled_when_v2_flags_off(client: TestClient) -> None:
-    with patch(
-        "src.app.routes.admin.get_config",
-        return_value=SimpleNamespace(pipeline_v2_enabled=False, queue_v2_enabled=False),
-    ):
-        response = client.post("/admin/activation")
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "disabled"
-    assert "queue v2 pipeline is disabled" in data["message"]
 
 
 def test_admin_queue_rebalance_returns_rebalance_payload(client: TestClient) -> None:
@@ -268,10 +227,6 @@ def test_admin_queue_rebalance_returns_rebalance_payload(client: TestClient) -> 
             }
 
     with (
-        patch(
-            "src.app.routes.admin.get_config",
-            return_value=SimpleNamespace(pipeline_v2_enabled=True, queue_v2_enabled=True),
-        ),
         patch("src.app.routes.admin.SessionLocal", return_value=_DummySessionCtx()),
         patch("src.app.routes.admin.QueueRepository", _FakeQueueRepo),
     ):
@@ -309,10 +264,6 @@ def test_admin_queue_canary_updates_rollout_percent(client: TestClient) -> None:
             return False
 
     with (
-        patch(
-            "src.app.routes.admin.get_config",
-            return_value=SimpleNamespace(pipeline_v2_enabled=True, queue_v2_enabled=True),
-        ),
         patch("src.app.routes.admin.SessionLocal", return_value=_DummySessionCtx()),
         patch("src.app.routes.admin.SettingsService", _FakeSettingsService),
         patch("src.pipeline.worker.get_pipeline_worker_state", return_value={"running": True, "paused": False}),
@@ -327,11 +278,7 @@ def test_admin_queue_canary_updates_rollout_percent(client: TestClient) -> None:
 
 
 def test_admin_queue_canary_rejects_non_rollout_steps(client: TestClient) -> None:
-    with patch(
-        "src.app.routes.admin.get_config",
-        return_value=SimpleNamespace(pipeline_v2_enabled=True, queue_v2_enabled=True),
-    ):
-        response = client.post("/admin/queue/canary", json={"percent": 55})
+    response = client.post("/admin/queue/canary", json={"percent": 55})
 
     assert response.status_code == 400
     assert "percent must be one of" in _error_message(response.json())

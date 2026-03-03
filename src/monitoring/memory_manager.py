@@ -282,15 +282,11 @@ class IntelligentMemoryManager:
             
             # Clear any internal caches if available
             try:
-                # Clear DexScreener client cache if available
-                from src.adapters.services.resilient_dexscreener_client import get_resilient_dexscreener_client
-                client = get_resilient_dexscreener_client()
-                if hasattr(client, 'clear_cache'):
-                    cache_size_before = getattr(client, '_cache_size', 0)
-                    client.clear_cache()
-                    actions_taken.append(f"cleared_dexscreener_cache_{cache_size_before}_entries")
-                else:
-                    actions_taken.append("dexscreener_cache_not_available")
+                # Reset Dex broker runtime stats/cache state.
+                from src.adapters.services.dex_broker import reset_dex_broker_stats
+
+                reset_dex_broker_stats()
+                actions_taken.append("reset_dex_broker_stats")
             except Exception as e:
                 actions_taken.append(f"cache_clear_error_{str(e)[:50]}")
             
@@ -451,12 +447,10 @@ class IntelligentMemoryManager:
                 
                 # 1. Clear API caches
                 try:
-                    from src.adapters.services.resilient_dexscreener_client import get_resilient_dexscreener_client
-                    client = get_resilient_dexscreener_client()
-                    if hasattr(client, 'clear_cache'):
-                        cache_size = getattr(client, '_cache_size', 0)
-                        client.clear_cache()
-                        actions_taken.append(f"cleared_api_cache_{cache_size}_entries")
+                    from src.adapters.services.dex_broker import reset_dex_broker_stats
+
+                    reset_dex_broker_stats()
+                    actions_taken.append("reset_dex_broker_stats")
                 except Exception as e:
                     actions_taken.append(f"api_cache_error_{str(e)[:30]}")
                 
@@ -485,11 +479,10 @@ class IntelligentMemoryManager:
             elif component == 'api_cache':
                 # Clear only API caches
                 try:
-                    from src.adapters.services.resilient_dexscreener_client import get_resilient_dexscreener_client
-                    client = get_resilient_dexscreener_client()
-                    if hasattr(client, 'clear_cache'):
-                        client.clear_cache()
-                        actions_taken.append("cleared_api_cache")
+                    from src.adapters.services.dex_broker import reset_dex_broker_stats
+
+                    reset_dex_broker_stats()
+                    actions_taken.append("reset_dex_broker_stats")
                 except Exception as e:
                     actions_taken.append(f"api_cache_error_{str(e)[:30]}")
                     
